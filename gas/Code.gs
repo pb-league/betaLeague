@@ -10,7 +10,7 @@
 // ============================================================
 
 // The master registry Sheet ID — create a blank Google Sheet and paste its ID here
-const MASTER_SHEET_ID = '1VPWAWqN1376ewwWUz7laZ8e-_oKbFA2cjv3p0yTvGZ4';
+const MASTER_SHEET_ID = '1PQ02DkjJP0qPCN_s36lxIVaNR58_-7sR1iTX3-J8Whs';
 
 
 // ── Registry helpers ─────────────────────────────────────────
