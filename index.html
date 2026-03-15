@@ -63,7 +63,10 @@
         <input type="password" class="form-control pin-input" id="pin-input"
                maxlength="8" inputmode="numeric" placeholder="••••" autocomplete="off">
       </div>
-      <div id="pin-error" class="hidden" style="color:var(--danger); font-size:0.8rem; margin-bottom:12px;"></div>
+      <div id="pin-error" class="hidden" style="margin-bottom:12px;">
+        <div id="pin-error-msg" style="color:var(--danger); font-size:0.8rem; margin-bottom:8px;"></div>
+        <div id="pin-email-offer" class="hidden" style="font-size:0.8rem;"></div>
+      </div>
       <div class="btn-group">
         <button class="btn btn-secondary" id="btn-back-player">← Back</button>
         <button class="btn btn-primary" id="btn-login" style="flex:1;">Enter</button>
@@ -185,6 +188,8 @@
     goTo('step-player');
     document.getElementById('pin-input').value = '';
     document.getElementById('pin-error').classList.add('hidden');
+    document.getElementById('pin-email-offer').classList.add('hidden');
+    document.getElementById('pin-email-offer').innerHTML = '';
   });
 
   document.getElementById('pin-input').addEventListener('keydown', e => {
@@ -209,9 +214,43 @@
       if (result.valid) {
         window.location.href = result.isAdmin ? 'admin.html' : 'player.html';
       } else {
-        document.getElementById('pin-error').textContent = result.reason || 'Incorrect PIN';
+        document.getElementById('pin-error-msg').textContent = result.reason || 'Incorrect PIN';
         document.getElementById('pin-error').classList.remove('hidden');
         document.getElementById('pin-input').value = '';
+
+        // Offer to email PIN or advise to contact manager
+        const offerEl = document.getElementById('pin-email-offer');
+        if (selectedPlayer && selectedPlayer !== 'Admin') {
+          try {
+            // Check if player has an email on file by attempting emailPin dry-run
+            // We show the offer optimistically — GAS will tell us if no email
+            offerEl.innerHTML = `<span style="color:var(--muted);">Forgot your PIN?
+              <button id="btn-send-pin" class="btn btn-secondary"
+                style="padding:3px 10px; font-size:0.75rem; margin-left:6px;">
+                Email my PIN
+              </button>
+            </span>`;
+            offerEl.classList.remove('hidden');
+
+            document.getElementById('btn-send-pin').addEventListener('click', async () => {
+              const sendBtn = document.getElementById('btn-send-pin');
+              sendBtn.disabled = true;
+              sendBtn.textContent = '…';
+              try {
+                const r = await API.emailPin(selectedPlayer);
+                if (r.success) {
+                  offerEl.innerHTML = `<span style="color:var(--green);">✓ PIN sent to your email address.</span>`;
+                } else if (r.noEmail) {
+                  offerEl.innerHTML = `<span style="color:var(--muted);">No email address on file — please contact your league manager to obtain your PIN.</span>`;
+                } else {
+                  offerEl.innerHTML = `<span style="color:var(--danger);">Could not send: ${r.reason || 'unknown error'}</span>`;
+                }
+              } catch (e) {
+                offerEl.innerHTML = `<span style="color:var(--danger);">Send failed: ${e.message}</span>`;
+              }
+            });
+          } catch (e) { /* silently skip offer if something goes wrong */ }
+        }
       }
     } catch (e) {
       showToast('Login error: ' + e.message, 'error');
@@ -226,6 +265,8 @@
     document.getElementById('pin-league-name').textContent = selectedLeague?.name || '';
     document.getElementById('pin-player-name').textContent = name;
     document.getElementById('pin-error').classList.add('hidden');
+    document.getElementById('pin-email-offer').classList.add('hidden');
+    document.getElementById('pin-email-offer').innerHTML = '';
     document.getElementById('pin-input').value = '';
     goTo('step-pin');
     setTimeout(() => document.getElementById('pin-input').focus(), 50);
