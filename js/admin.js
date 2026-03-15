@@ -184,12 +184,28 @@
 
     const c = state.config;
     const infoParts = [];
-    if (c.location) infoParts.push(`<span>📍 ${esc(c.location)}</span>`);
+    if (c.location)    infoParts.push(`<span>📍 ${esc(c.location)}</span>`);
     if (c.sessionTime) infoParts.push(`<span>🕐 ${esc(c.sessionTime)}</span>`);
-    if (c.notes) infoParts.push(`<span>📌 ${esc(c.notes)}</span>`);
-    document.getElementById('dash-info').innerHTML = infoParts.length
-      ? `<div style="display:flex;flex-wrap:wrap;gap:12px 24px;margin-bottom:14px;font-size:0.88rem;color:var(--muted);">${infoParts.join('')}</div>`
-      : '';
+    if (c.notes)       infoParts.push(`<span>📌 ${esc(c.notes)}</span>`);
+
+    // Build rules section
+    let rulesHtml = '';
+    if (c.rules && c.rules.trim()) {
+      const lines = c.rules.split('\n').map(l => l.trim()).filter(Boolean);
+      rulesHtml = `<div style="margin-top:10px; padding:12px 16px; background:rgba(255,255,255,0.03);
+                               border-left:3px solid var(--gold); border-radius:6px;">
+        <div style="font-size:0.7rem; letter-spacing:0.1em; text-transform:uppercase;
+                    color:var(--gold); font-weight:600; margin-bottom:8px;">📋 League Rules</div>
+        <ol style="margin:0; padding-left:18px; font-size:0.85rem; color:var(--muted); line-height:1.8;">
+          ${lines.map(l => `<li>${esc(l)}</li>`).join('')}
+        </ol>
+      </div>`;
+    }
+
+    document.getElementById('dash-info').innerHTML =
+      (infoParts.length
+        ? `<div style="display:flex;flex-wrap:wrap;gap:12px 24px;margin-bottom:${rulesHtml ? '8px' : '14px'};font-size:0.88rem;color:var(--muted);">${infoParts.join('')}</div>`
+        : '') + rulesHtml;
 
     const activePlayers = state.players.filter(p => p.active !== false).length;
     const weeksWithScores = [...new Set(state.scores.map(s => s.week))].length;
@@ -202,7 +218,9 @@
       <div class="stat-tile"><div class="stat-value">${totalGames}</div><div class="stat-label">Games Entered</div></div>
     `;
 
-    document.getElementById('dash-standings').innerHTML = renderStandingsTable(state.standings, true);
+    const activeNames = new Set(state.players.filter(p => p.active !== false).map(p => p.name));
+    const dashStandings = state.standings.filter(s => activeNames.has(s.name));
+    document.getElementById('dash-standings').innerHTML = renderStandingsTable(dashStandings, true);
   }
 
   // ── Setup ──────────────────────────────────────────────────
@@ -212,6 +230,7 @@
     document.getElementById('cfg-location').value = c.location    || '';
     document.getElementById('cfg-time').value     = c.sessionTime || '';
     document.getElementById('cfg-notes').value    = c.notes       || '';
+    document.getElementById('cfg-rules').value    = c.rules       || '';
     document.getElementById('cfg-admin-pin').value = '';
     document.getElementById('cfg-reply-to').value    = c.replyTo || '';
     document.getElementById('cfg-weeks').value   = c.weeks || 8;
@@ -387,12 +406,12 @@
             <div style="display:grid; grid-template-columns:1fr 40px 1fr; align-items:center; gap:6px;">
               <div style="min-width:0;">
                 <div style="font-size:0.9rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p1)}</div>
-                ${game.p2 ? `<div style="font-size:0.8rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p2)}</div>` : ''}
+                ${game.p2 ? `<div style="font-size:0.9rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p2)}</div>` : ''}
               </div>
               <div style="text-align:center; color:var(--muted); font-size:0.8rem; font-weight:600; flex-shrink:0;">VS</div>
               <div style="min-width:0; text-align:right;">
                 <div style="font-size:0.9rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p3)}</div>
-                ${game.p4 ? `<div style="font-size:0.8rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p4)}</div>` : ''}
+                ${game.p4 ? `<div style="font-size:0.9rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p4)}</div>` : ''}
               </div>
             </div>
           </div>`;
@@ -451,7 +470,7 @@
           <div style="display:grid; grid-template-columns:1fr 110px 1fr; align-items:center; gap:6px;">
             <div style="min-width:0;">
               <div style="${entered ? (t1win ? winStyle : loseStyle) : ''} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p1)}</div>
-              ${game.p2 ? `<div style="${entered ? (t1win ? winStyle : loseStyle) : ''} font-size:0.8rem; opacity:0.85; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p2)}</div>` : ''}
+              ${game.p2 ? `<div style="${entered ? (t1win ? winStyle : loseStyle) : ''} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p2)}</div>` : ''}
             </div>
             <div style="display:flex; align-items:center; justify-content:center; gap:4px;">
               <input type="number" class="score-input" data-score="1"
@@ -464,7 +483,7 @@
             </div>
             <div style="min-width:0; text-align:right;">
               <div style="${entered ? (t2win ? winStyle : loseStyle) : ''} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p3)}</div>
-              ${game.p4 ? `<div style="${entered ? (t2win ? winStyle : loseStyle) : ''} font-size:0.8rem; opacity:0.85; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p4)}</div>` : ''}
+              ${game.p4 ? `<div style="${entered ? (t2win ? winStyle : loseStyle) : ''} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p4)}</div>` : ''}
             </div>
           </div>
         </div>`;
@@ -683,13 +702,13 @@
     if (!standings || !standings.length) return '<p class="text-muted">No standings data yet.</p>';
     const rm = state.config.rankingMethod || 'avgptdiff';
     const usePtsPct = rm === 'ptspct';
-    const rows = standings.filter(s => s.games > 0 || s.rank !== '-').map((s, i) => {
+    const rows = standings.filter(s => s.games > 0).map((s, i) => {
       const top = i < 3 ? 'top' : '';
       const ptsTot = s.points + s.pointsAgainst;
       const ptsPctVal = ptsTot > 0 ? (s.points / ptsTot * 100).toFixed(1) + '%' : '—';
       const secCol = usePtsPct
         ? `<td>${ptsPctVal}</td>`
-        : `<td class="${s.avgPtDiff > 0 ? 'win' : s.avgPtDiff < 0 ? 'loss' : 'neutral'}">${s.avgPtDiff > 0 ? '+' : ''}${s.avgPtDiff.toFixed(1)}</td>`;
+        : `<td>${s.avgPtDiff > 0 ? '+' : ''}${s.avgPtDiff.toFixed(1)}</td>`;
       return `<tr>
         <td class="rank-cell ${top}">${s.rank}</td>
         <td class="player-name">${esc(s.name)}</td>
@@ -737,6 +756,7 @@
         location:       document.getElementById('cfg-location').value.trim(),
         sessionTime:    document.getElementById('cfg-time').value.trim(),
         notes:          document.getElementById('cfg-notes').value.trim(),
+        rules:          document.getElementById('cfg-rules').value.trim(),
         adminPin:       document.getElementById('cfg-admin-pin').value || state.config.adminPin,
         replyTo:        document.getElementById('cfg-reply-to').value.trim(),
         weeks,

@@ -169,6 +169,17 @@
 
     document.getElementById('my-games-title').textContent = `${playerName}'s Games`;
 
+    const rulesEl = document.getElementById('player-dash-rules');
+    if (rulesEl) {
+      const rules = state.config.rules || '';
+      rulesEl.innerHTML = rules
+        ? `<div class="card mt-1" style="margin-bottom:12px;">
+            <div class="card-header"><div class="card-title">League Rules</div></div>
+            <pre style="white-space:pre-wrap; font-family:inherit; font-size:0.85rem; color:var(--muted); margin:0; line-height:1.7;">${esc(rules)}</pre>
+          </div>`
+        : '';
+    }
+
     if (s) {
       document.getElementById('my-rank-badge').innerHTML =
         `<span class="badge badge-gold" style="font-size:0.9rem; padding:6px 16px;">Rank #${s.rank}</span>`;
@@ -435,7 +446,7 @@
           <div style="display:grid; grid-template-columns:1fr 100px 1fr; align-items:center; gap:6px;">
             <div style="min-width:0;">
               <div style="${t1style} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p1)}</div>
-              ${game.p2 ? `<div style="${t1style} font-size:0.8rem; opacity:0.85; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p2)}</div>` : ''}
+              ${game.p2 ? `<div style="${t1style} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p2)}</div>` : ''}
             </div>
             <div style="display:flex; align-items:center; justify-content:center; gap:4px; ${tieBoxStyle}">
               <div class="score-display ${entered ? (t1win ? 'winner' : 'loser') : 'pending'}" style="min-width:28px; text-align:center;">${entered ? s1 : '—'}</div>
@@ -444,7 +455,7 @@
             </div>
             <div style="min-width:0; text-align:right;">
               <div style="${t2style} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p3)}</div>
-              ${game.p4 ? `<div style="${t2style} font-size:0.8rem; opacity:0.85; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p4)}</div>` : ''}
+              ${game.p4 ? `<div style="${t2style} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p4)}</div>` : ''}
             </div>
           </div>
           ${tieWarning ? `<div style="margin-top:6px; font-size:0.72rem; color:var(--danger); text-align:center;">⚠️ Tied score — please verify</div>` : ''}
@@ -629,7 +640,7 @@
       const ptsPctVal = ptsTot > 0 ? (s.points / ptsTot * 100).toFixed(1) + '%' : '—';
       const secCol = usePtsPct
         ? `<td>${ptsPctVal}</td>`
-        : `<td class="${s.avgPtDiff > 0 ? 'win' : s.avgPtDiff < 0 ? 'loss' : 'neutral'}">${s.avgPtDiff > 0 ? '+' : ''}${s.avgPtDiff.toFixed(1)}</td>`;
+        : `<td>${s.avgPtDiff > 0 ? '+' : ''}${s.avgPtDiff.toFixed(1)}</td>`;
       return `<tr ${isMe ? 'style="background:rgba(94,194,106,0.08);"' : ''}>
         <td class="rank-cell ${top}">${s.rank}</td>
         <td class="player-name" ${isMe ? 'style="color:var(--green);"' : ''}>${esc(s.name)}${isMe ? ' ◀' : ''}</td>

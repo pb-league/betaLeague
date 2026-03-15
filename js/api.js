@@ -7,7 +7,12 @@
 
 const API = (() => {
   // !! REPLACE THIS with your deployed GAS Web App URL !!
- const GAS_URL = 'https://script.google.com/macros/s/AKfycbzHqnBE-7Eb87v7zgE16RZmNsutTMS_SW3beNt4DbSzXp3JHZkIeuTV8PxvmpBTaqhq6Q/exec';
+  
+  // for released project:
+  // const GAS_URL = 'https://script.google.com/macros/s/AKfycbziZPrG5fSM_ufJYei6r_DoFTCjt4ymGuof-UBJRRj84oChtHtE67r6orMUJnGk7hbk/exec';
+
+// for beta project:
+  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzudYO4IDqCJt92kR4gu6dVJyGN5LoKtxpD3RYR1pNHepxU_liEdpogjCnE8mWTOXqU/exec';
   // Get the active leagueId from session (set at login)
   function leagueId() {
     try {
