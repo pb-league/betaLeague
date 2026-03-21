@@ -45,9 +45,85 @@
 
       <div class="login-divider">or</div>
 
-      <button class="btn btn-secondary w-full" id="btn-admin-entry">Admin Login</button>
+      <button class="btn btn-secondary w-full" id="btn-admin-entry" style="border-color:rgba(45,122,58,0.4);">🔐 Admin Login</button>
+
+      <button class="btn btn-secondary w-full hidden" id="btn-show-register"
+              style="border-color:rgba(94,194,106,0.4); color:var(--green); margin-top:4px;">
+        + Register as New Player
+      </button>
 
       <button class="btn btn-secondary w-full mt-1" id="btn-back-league" style="margin-top:8px; opacity:0.6; font-size:0.75rem;">← Change League</button>
+    </div>
+
+    <!-- Step: Register -->
+    <div id="step-register" class="hidden">
+      <div style="margin-bottom:14px;">
+        <div class="label">League</div>
+        <div id="reg-league-name" style="font-weight:600; color:var(--green); font-size:1rem;"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Invite Code <span style="color:var(--danger);">*</span></label>
+        <input class="form-control" id="reg-code" placeholder="Enter the code provided by your league admin" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Player Name <span style="color:var(--danger);">*</span></label>
+        <input class="form-control" id="reg-name" placeholder="Your full name" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email <span style="color:var(--muted); font-weight:400;">(optional)</span></label>
+        <input class="form-control" id="reg-email" type="email" placeholder="email@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Gender Group</label>
+        <select class="form-control" id="reg-group">
+          <option value="M">Male</option>
+          <option value="F">Female</option>
+          <option value="Either">Either</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.85rem;">
+          <input type="checkbox" id="reg-notify" style="width:16px;height:16px;">
+          <span>Email me session results</span>
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Choose a PIN <span style="color:var(--danger);">*</span></label>
+        <input class="form-control" id="reg-pin" type="password" maxlength="8"
+               inputmode="numeric" placeholder="4–8 digits" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm PIN</label>
+        <input class="form-control" id="reg-pin2" type="password" maxlength="8"
+               inputmode="numeric" placeholder="Re-enter PIN" autocomplete="new-password">
+      </div>
+      <div id="reg-error" style="color:var(--danger); font-size:0.82rem; margin-bottom:10px; display:none;"></div>
+      <div class="btn-group">
+        <button class="btn btn-secondary" id="btn-reg-back">← Back</button>
+        <button class="btn btn-primary" id="btn-reg-submit" style="flex:1;">Register</button>
+      </div>
+    </div>
+
+    <!-- Step: Admin Login -->
+    <div id="step-admin" class="hidden">
+      <div style="margin-bottom:14px;">
+        <div class="label">League</div>
+        <div id="admin-league-name" style="font-weight:600; color:var(--green); font-size:1rem;"></div>
+      </div>
+      <div id="admin-role-tabs" style="display:flex; gap:8px; margin-bottom:20px;">
+        <button id="btn-role-admin" class="btn btn-primary" style="flex:1; font-size:0.82rem; padding:8px;">League Admin</button>
+        <button id="btn-role-manager" class="btn btn-secondary" style="flex:1; font-size:0.82rem; padding:8px;">App Manager</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label" id="admin-pw-label">Admin Password</label>
+        <input class="form-control" id="admin-password" type="password"
+               placeholder="Enter password" autocomplete="current-password">
+      </div>
+      <div id="admin-error" style="color:var(--danger); font-size:0.82rem; margin-bottom:10px; display:none;"></div>
+      <div class="btn-group">
+        <button class="btn btn-secondary" id="btn-admin-back">← Back</button>
+        <button class="btn btn-primary" id="btn-admin-login" style="flex:1;">Login →</button>
+      </div>
     </div>
 
     <!-- Step 3: Enter PIN -->
@@ -74,7 +150,10 @@
     </div>
 
   </div>
-  <div style="text-align:center; margin-top:20px; font-size:0.72rem; color:rgba(255,255,255,0.3); line-height:1.5;">
+  <div style="text-align:center; margin-top:24px; font-size:0.72rem; color:rgba(255,255,255,0.3); line-height:1.8;">
+    <a href="marketing.html" style="color:rgba(94,194,106,0.7); font-size:0.78rem; font-weight:500; text-decoration:none; letter-spacing:0.03em;" onmouseover="this.style.color='rgba(94,194,106,1)'" onmouseout="this.style.color='rgba(94,194,106,0.7)'">
+      &#9656; Learn about Pickleball League Manager
+    </a><br>
     Created by Doug Tucker for non-commercial use<br>by the Pickleball community<br>
     Contact Doug at <a href="mailto:dougjt@yahoo.com" style="color:rgba(255,255,255,0.4);">dougjt@yahoo.com</a> if you are interested in using it.
   </div>
@@ -83,6 +162,7 @@
 
 <div id="toast-container"></div>
 
+<script src="js/settings.js"></script>
 <script src="js/api.js"></script>
 <script src="js/auth.js"></script>
 <script>
@@ -90,7 +170,7 @@
   // If already logged in with a valid league, redirect
   const session = Auth.getSession();
   if (session && session.leagueId) {
-    window.location.href = session.isAdmin ? 'admin.html' : 'player.html';
+    window.location.href = (session.isAdmin || session.role === 'admin' || session.role === 'manager' || session.role === 'assistant') ? 'admin.html' : 'player.html';
     return;
   }
 
@@ -109,7 +189,15 @@
     leagueSel.innerHTML = '<option value="">— Choose League —</option>';
     if (leagues.length === 0) {
       leagueSel.innerHTML = '<option value="">No leagues configured yet</option>';
-      showToast('No leagues found. Set up a league in the admin panel.', 'warn');
+      // Show a direct admin setup button when no leagues exist
+      const setupBtn = document.createElement('button');
+      setupBtn.className = 'btn btn-primary w-full';
+      setupBtn.style.marginTop = '12px';
+      setupBtn.textContent = 'Admin Setup — Create First League';
+      setupBtn.addEventListener('click', () => {
+        window.location.href = 'admin.html?setup=1';
+      });
+      document.getElementById('step-league').appendChild(setupBtn);
     } else {
       leagues.forEach(l => {
         const opt = document.createElement('option');
@@ -120,31 +208,43 @@
     }
   } catch (e) {
     leagueSel.innerHTML = '<option value="">Could not load leagues</option>';
-    showToast('Could not connect. Check GAS_URL in api.js.', 'error');
+    showToast('Could not connect. Check GAS_URL in settings.js.', 'error');
   }
+
+  // Prefetch map: leagueId -> players promise (starts fetching when user selects)
+  const playerPrefetch = {};
 
   leagueSel.addEventListener('change', () => {
     btnLeagueNext.disabled = !leagueSel.value;
+    // Start fetching players eagerly as soon as a league is selected
+    const lid = leagueSel.value;
+    if (lid && !playerPrefetch[lid]) {
+      Auth.setSession('', false, lid, ''); // set leagueId so getPlayers works
+      playerPrefetch[lid] = API.getPlayers().catch(() => null);
+    }
   });
 
-  btnLeagueNext.addEventListener('click', async () => {
-    const leagueId = leagueSel.value;
-    if (!leagueId) return;
-    selectedLeague = leagues.find(l => l.leagueId === leagueId);
-
-    // Temporarily set leagueId in session so API calls are routed correctly
-    Auth.setSession('', false, leagueId, selectedLeague.name);
-
-    // Load players for this league
-    document.getElementById('selected-league-name').textContent = selectedLeague.name;
+  // Shared function: select a league and load its players
+  async function selectLeague(league, preselectedPlayer) {
+    selectedLeague = league;
+    Auth.setSession('', false, league.leagueId, league.name);
+    document.getElementById('selected-league-name').textContent = league.name;
     const playerSel = document.getElementById('player-select');
     playerSel.innerHTML = '<option value="">— Loading… —</option>';
-
     goTo('step-player');
 
     try {
-      const data = await API.getPlayers();
-      const players = (data.players || []).filter(p => p.active !== false);
+      // Use prefetched data if available, otherwise fetch now
+      const prefetch = playerPrefetch[league.leagueId];
+      const data = prefetch ? await prefetch : await API.getPlayers();
+      const players = (data ? data.players || [] : []).filter(p => p.active !== false);
+
+      // Show register button if league allows it — fetch config
+      document.getElementById('btn-show-register').classList.add('hidden');
+      API.getConfig().then(cfg => {
+        registrationEnabled = !!(cfg && cfg.config && cfg.config.allowRegistration);
+        document.getElementById('btn-show-register').classList.toggle('hidden', !registrationEnabled);
+      }).catch(() => {});
       playerSel.innerHTML = '<option value="">— Choose Player —</option>';
       players.forEach(p => {
         const opt = document.createElement('option');
@@ -152,11 +252,243 @@
         opt.textContent = p.name;
         playerSel.appendChild(opt);
       });
+
+      // If a player name was pre-provided via URL, select and advance
+      if (preselectedPlayer) {
+        const match = players.find(p => p.name.toLowerCase() === preselectedPlayer.toLowerCase());
+        if (match) {
+          playerSel.value = match.name;
+          document.getElementById('btn-player-next').disabled = false;
+          selectedPlayer = match.name;
+          showPinStep(match.name);
+        }
+      }
     } catch (e) {
       playerSel.innerHTML = '<option value="">Could not load players</option>';
       showToast('Failed to load players: ' + e.message, 'error');
     }
+  }
+
+  // ── Registration ─────────────────────────────────────────
+  let registrationEnabled = false;
+
+  function showRegister() {
+    document.getElementById('reg-league-name').textContent =
+      selectedLeague ? selectedLeague.name : '';
+    document.getElementById('reg-error').style.display = 'none';
+    ['reg-code','reg-name','reg-email','reg-pin','reg-pin2'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('reg-notify').checked = false;
+    goTo('step-register');
+  }
+
+  document.getElementById('btn-show-register').addEventListener('click', showRegister);
+  document.getElementById('btn-reg-back').addEventListener('click', () => goTo('step-player'));
+
+  document.getElementById('btn-reg-submit').addEventListener('click', async () => {
+    const code  = document.getElementById('reg-code').value.trim();
+    const name  = document.getElementById('reg-name').value.trim();
+    const email = document.getElementById('reg-email').value.trim();
+    const group = document.getElementById('reg-group').value;
+    const notify = document.getElementById('reg-notify').checked;
+    const pin   = document.getElementById('reg-pin').value.trim();
+    const pin2  = document.getElementById('reg-pin2').value.trim();
+    const errEl = document.getElementById('reg-error');
+
+    errEl.style.display = 'none';
+
+    if (!code) { errEl.textContent = 'Invite code is required.'; errEl.style.display = 'block'; return; }
+    if (!name) { errEl.textContent = 'Player name is required.'; errEl.style.display = 'block'; return; }
+    if (!pin)  { errEl.textContent = 'PIN is required.'; errEl.style.display = 'block'; return; }
+    if (pin !== pin2) { errEl.textContent = 'PINs do not match.'; errEl.style.display = 'block'; return; }
+    if (pin.length < 4) { errEl.textContent = 'PIN must be at least 4 digits.'; errEl.style.display = 'block'; return; }
+
+    const btn = document.getElementById('btn-reg-submit');
+    btn.disabled = true; btn.textContent = 'Registering…';
+
+    try {
+      Auth.setSession('', false, selectedLeague.leagueId, selectedLeague.name);
+      const result = await API.registerPlayer({ playerName: name, email, group, notify, pin, inviteCode: code });
+      if (result.success) {
+        // Show success message in place of form
+        document.getElementById('step-register').innerHTML = `
+          <div style="text-align:center; padding:20px 0;">
+            <div style="font-size:2rem; margin-bottom:12px;">&#10003;</div>
+            <div style="font-weight:700; color:var(--green); font-size:1.1rem; margin-bottom:8px;">
+              Registration submitted!
+            </div>
+            <div style="color:var(--muted); font-size:0.85rem; line-height:1.6;">
+              Your account has been created but is <strong style="color:var(--white);">pending approval</strong>
+              by the league admin. You'll be able to log in once it's activated.
+            </div>
+            <button class="btn btn-secondary w-full" style="margin-top:20px;"
+              onclick="window.location.reload()">&#8592; Back to Login</button>
+          </div>`;
+      } else if (result.error === 'taken') {
+        errEl.textContent = 'That name is already taken — please choose a different one.';
+        errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Register';
+      } else {
+        errEl.textContent = result.error || 'Registration failed.';
+        errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Register';
+      }
+    } catch (e) {
+      errEl.textContent = 'Error: ' + e.message;
+      errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Register';
+    }
   });
+
+  // ── Admin login step ─────────────────────────────────────
+  let adminLoginRole = 'admin'; // 'admin' or 'manager'
+
+  document.getElementById('btn-admin-entry').addEventListener('click', () => {
+    document.getElementById('admin-league-name').textContent = selectedLeague ? selectedLeague.name : '';
+    document.getElementById('admin-password').value = '';
+    document.getElementById('admin-error').style.display = 'none';
+    adminLoginRole = 'admin';
+    document.getElementById('btn-role-admin').className = 'btn btn-primary';
+    document.getElementById('btn-role-manager').className = 'btn btn-secondary';
+    document.getElementById('admin-pw-label').textContent = 'Admin Password';
+    goTo('step-admin');
+  });
+
+  document.getElementById('btn-role-admin').addEventListener('click', () => {
+    adminLoginRole = 'admin';
+    document.getElementById('btn-role-admin').className = 'btn btn-primary';
+    document.getElementById('btn-role-manager').className = 'btn btn-secondary';
+    document.getElementById('admin-pw-label').textContent = 'Admin Password';
+    document.getElementById('admin-password').value = '';
+    document.getElementById('admin-error').style.display = 'none';
+  });
+
+  document.getElementById('btn-role-manager').addEventListener('click', () => {
+    adminLoginRole = 'manager';
+    document.getElementById('btn-role-manager').className = 'btn btn-primary';
+    document.getElementById('btn-role-admin').className = 'btn btn-secondary';
+    document.getElementById('admin-pw-label').textContent = 'App Manager Password';
+    document.getElementById('admin-password').value = '';
+    document.getElementById('admin-error').style.display = 'none';
+  });
+
+  document.getElementById('btn-admin-back').addEventListener('click', () => {
+    document.getElementById('admin-password').value = '';
+    goTo('step-player');
+  });
+
+  document.getElementById('admin-password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-admin-login').click();
+  });
+
+  document.getElementById('btn-admin-login').addEventListener('click', async () => {
+    const password = document.getElementById('admin-password').value.trim();
+    const errEl = document.getElementById('admin-error');
+    errEl.style.display = 'none';
+    if (!password) { errEl.textContent = 'Password is required.'; errEl.style.display = 'block'; return; }
+
+    const btn = document.getElementById('btn-admin-login');
+    btn.disabled = true; btn.textContent = '…';
+
+    try {
+      Auth.setSession('', false, selectedLeague.leagueId, selectedLeague.name);
+      let result;
+      if (adminLoginRole === 'manager') {
+        result = await Auth.loginManager(password, selectedLeague.leagueId, selectedLeague.name);
+      } else {
+        result = await Auth.loginAdmin(password, selectedLeague.leagueId, selectedLeague.name);
+      }
+      if (result.valid) {
+        window.location.href = 'admin.html';
+      } else {
+        errEl.textContent = result.reason || 'Incorrect password.';
+        errEl.style.display = 'block';
+        document.getElementById('admin-password').value = '';
+      }
+    } catch (e) {
+      errEl.textContent = 'Error: ' + e.message;
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Login →';
+    }
+  });
+
+  btnLeagueNext.addEventListener('click', () => {
+    const leagueId = leagueSel.value;
+    if (!leagueId) return;
+    const league = leagues.find(l => l.leagueId === leagueId);
+    selectLeague(league, null);
+  });
+
+  // ── URL parameter pre-selection ─────────────────────────────
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlLeague = urlParams.get('league');
+  const urlPlayer = urlParams.get('player');
+
+  if (urlLeague) {
+    // Use combined endpoint — fetches league list AND players in one round-trip
+    try {
+      const combined = await API.getLeagueAndPlayers(urlLeague);
+
+      // Merge returned leagues into our list (handles hidden leagues too)
+      if (combined.leagues && combined.leagues.length) {
+        leagues = combined.leagues;
+        leagueSel.innerHTML = '<option value="">— Choose League —</option>';
+        leagues.forEach(l => {
+          const opt = document.createElement('option');
+          opt.value = l.leagueId;
+          opt.textContent = l.name;
+          leagueSel.appendChild(opt);
+        });
+      }
+
+      let match = leagues.find(l =>
+        l.leagueId.toLowerCase() === urlLeague.toLowerCase() ||
+        l.name.toLowerCase() === urlLeague.toLowerCase()
+      );
+
+      // May be hidden — try fetching all leagues if not found
+      if (!match) {
+        try {
+          const allData = await API.getLeaguesAll();
+          const allLeagues = allData.leagues || [];
+          match = allLeagues.find(l =>
+            l.leagueId.toLowerCase() === urlLeague.toLowerCase()
+          );
+        } catch (e) { /* fall through */ }
+      }
+
+      if (match) {
+        if (!leagueSel.querySelector(`option[value="${match.leagueId}"]`)) {
+          const opt = document.createElement('option');
+          opt.value = match.leagueId;
+          opt.textContent = match.name;
+          leagueSel.appendChild(opt);
+        }
+        leagueSel.value = match.leagueId;
+        btnLeagueNext.disabled = false;
+
+        // Pre-populate the prefetch cache with the players we already fetched
+        if (combined.players && combined.players.length) {
+          playerPrefetch[match.leagueId] = Promise.resolve({ players: combined.players });
+        }
+
+        selectLeague(match, urlPlayer || null);
+      }
+    } catch (e) {
+      // Fall back to original sequential approach
+      let match = leagues.find(l =>
+        l.leagueId.toLowerCase() === urlLeague.toLowerCase() ||
+        l.name.toLowerCase() === urlLeague.toLowerCase()
+      );
+      if (match) {
+        leagueSel.value = match.leagueId;
+        btnLeagueNext.disabled = false;
+        selectLeague(match, urlPlayer || null);
+      }
+    }
+  }
 
   // ── Step 2: Select player ───────────────────────────────────
   const playerSel = document.getElementById('player-select');
@@ -170,11 +502,6 @@
     if (!playerSel.value) return;
     selectedPlayer = playerSel.value;
     showPinStep(selectedPlayer);
-  });
-
-  document.getElementById('btn-admin-entry').addEventListener('click', () => {
-    selectedPlayer = 'Admin';
-    showPinStep('Admin');
   });
 
   document.getElementById('btn-back-league').addEventListener('click', () => {
@@ -212,7 +539,7 @@
         selectedLeague.name
       );
       if (result.valid) {
-        window.location.href = result.isAdmin ? 'admin.html' : 'player.html';
+        window.location.href = 'player.html';
       } else {
         document.getElementById('pin-error-msg').textContent = result.reason || 'Incorrect PIN';
         document.getElementById('pin-error').classList.remove('hidden');
@@ -273,7 +600,7 @@
   }
 
   function goTo(stepId) {
-    ['step-league', 'step-player', 'step-pin'].forEach(id => {
+    ['step-league', 'step-player', 'step-pin', 'step-register', 'step-admin'].forEach(id => {
       document.getElementById(id).classList.toggle('hidden', id !== stepId);
     });
   }

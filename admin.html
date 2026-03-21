@@ -19,6 +19,7 @@
     </button>
     <div class="topbar-right">
       <div class="user-chip">Admin: <span class="name" id="topbar-name"></span></div>
+      <span id="topbar-role" style="font-size:0.72rem; padding:4px 10px; border-radius:6px; background:rgba(255,255,255,0.07); color:var(--muted);"></span>
       <button class="btn btn-secondary" onclick="Auth.logout()" style="padding:6px 14px; font-size:0.75rem;">Logout</button>
     </div>
   </header>
@@ -35,7 +36,7 @@
         <div class="nav-item" data-page="leagues"><span class="icon">🌐</span> All Leagues</div>
       </div>
       <div class="nav-section">
-        <div class="nav-section-label">Weekly</div>
+        <div class="nav-section-label">Sessions</div>
         <div class="nav-item" data-page="attendance"><span class="icon">📋</span> Attendance</div>
         <div class="nav-item" data-page="pairings"><span class="icon">🎲</span> Pairings</div>
         <div class="nav-item" data-page="scores"><span class="icon">✏️</span> Score Entry</div>
@@ -43,6 +44,7 @@
       <div class="nav-section">
         <div class="nav-section-label">Reports</div>
         <div class="nav-item" data-page="standings"><span class="icon">🏆</span> Standings</div>
+        <div class="nav-item hidden" id="nav-tourn-results" data-page="tourn-results"><span class="icon">🥇</span> Tournament</div>
         <div class="nav-item" data-page="player-report"><span class="icon">👤</span> Player Report</div>
         <div class="nav-item" data-page="head-to-head"><span class="icon">⚔️</span> Head-to-Head</div>
       </div>
@@ -63,6 +65,7 @@
           <div class="card-header"><div class="card-title">Season Standings</div></div>
           <div class="table-wrap" id="dash-standings"></div>
         </div>
+        <div id="dash-version"></div>
       </section>
 
       <!-- ═══ SETUP ═══ -->
@@ -82,6 +85,12 @@
             <div class="form-group">
               <label class="form-label">Reply-To Email</label>
               <input class="form-control" id="cfg-reply-to" type="email" placeholder="league@example.com">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="flex:2;">
+              <label class="form-label">League URL <span style="color:var(--muted);font-weight:400;">(link shared with players)</span></label>
+              <input class="form-control" id="cfg-league-url" placeholder="https://pb-league.github.io/league/index.html?league=">
             </div>
           </div>
           <div class="form-row">
@@ -106,7 +115,7 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Number of Weeks</label>
+              <label class="form-label">Number of Sessions</label>
               <input class="form-control" id="cfg-weeks" type="number" min="1" max="20" value="8">
             </div>
             <div class="form-group">
@@ -137,11 +146,36 @@
               </select>
             </div>
           </div>
+          <div style="display:flex; flex-wrap:wrap; gap:16px; margin:12px 0 4px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.85rem;">
+              <input type="checkbox" id="cfg-allow-registration" style="width:16px;height:16px;">
+              <span>Allow player self-registration</span>
+              <span style="color:var(--muted); font-size:0.78rem;">(new players can register from the login page — admin must approve)</span>
+            </label>
+          </div>
+          <div class="form-row" id="cfg-registration-options" style="margin-top:4px;">
+            <div class="form-group">
+              <label class="form-label">Invite Code <span style="color:var(--muted);font-weight:400;">(required to register)</span></label>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <input class="form-control" id="cfg-reg-code" placeholder="e.g. pickle2026" style="max-width:180px;">
+                <button class="btn btn-secondary" id="btn-gen-reg-code" style="padding:6px 10px; font-size:0.78rem; white-space:nowrap;">🔀 Generate</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Max pending approvals</label>
+              <input class="form-control" id="cfg-reg-max-pending" type="number" min="1" max="50" value="10" style="max-width:80px;">
+            </div>
+          </div>
           <div id="cfg-dates-area"></div>
           <div id="cfg-court-names-area"></div>
           <div class="card mt-2" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
-            <div class="card-header"><div class="card-title" style="font-size:0.85rem;">Optimizer Weights</div></div>
-            <p style="font-size:0.78rem; color:var(--muted); margin-bottom:12px;">
+            <details>
+            <summary class="card-header collapsible-header" style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+              <div class="card-title" style="font-size:0.85rem;">Optimizer Weights</div>
+              <span class="collapse-arrow" style="font-size:0.7rem; color:var(--muted);">▼</span>
+            </summary>
+            <div class="collapsible-body">
+            <p style="font-size:0.78rem; color:var(--muted); margin-top:10px; margin-bottom:12px;">
               Higher values make that factor more important. Set to 0 to ignore a factor entirely.
             </p>
             <div class="form-row">
@@ -175,9 +209,72 @@
                 <label class="form-label">Rank Balance (team avg rank diff)</label>
                 <input class="form-control" id="cfg-w-rank-balance" type="number" min="0" max="500" step="1">
               </div>
+              <div class="form-group">
+                <label class="form-label">Rank Std Dev (spread of all 4 ranks)</label>
+                <input class="form-control" id="cfg-w-rank-std-dev" type="number" min="0" max="500" step="1">
+              </div>
             </div>
           </div>
+            </div>
+            </details>
           <button class="btn btn-primary mt-2" id="btn-save-config">Save Configuration</button>
+        </div>
+
+        <!-- League Message Composer -->
+        <div class="card mt-2">
+          <details>
+          <summary class="card-header collapsible-header" style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+            <div class="card-title">📧 Send Message to Players</div>
+            <span class="collapse-arrow" style="font-size:0.7rem; color:var(--muted);">▼</span>
+          </summary>
+          <div class="collapsible-body">
+          <p style="font-size:0.82rem; color:var(--muted); margin-top:10px; margin-bottom:14px;">
+            Sends to all active players who have provided an email address.
+          </p>
+          <div class="form-group">
+            <label class="form-label">Subject</label>
+            <input class="form-control" id="msg-subject" placeholder="e.g. League Update">
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Message</label>
+            <textarea class="form-control" id="msg-body" rows="5"
+              placeholder="Type your message here…"
+              style="resize:vertical; font-size:0.85rem; line-height:1.6;"></textarea>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:10px 20px; margin:12px 0 4px; font-size:0.82rem;">
+            <label style="display:flex; align-items:center; gap:7px; cursor:pointer;">
+              <input type="checkbox" id="msg-inc-name" checked style="width:15px;height:15px;">
+              <span>League name</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:7px; cursor:pointer;">
+              <input type="checkbox" id="msg-inc-location" style="width:15px;height:15px;">
+              <span>Location</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:7px; cursor:pointer;">
+              <input type="checkbox" id="msg-inc-time" style="width:15px;height:15px;">
+              <span>Session time</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:7px; cursor:pointer;">
+              <input type="checkbox" id="msg-inc-rules" style="width:15px;height:15px;">
+              <span>League rules</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:7px; cursor:pointer;">
+              <input type="checkbox" id="msg-inc-dates" style="width:15px;height:15px;">
+              <span>Session dates</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:7px; cursor:pointer;">
+              <input type="checkbox" id="msg-inc-url" style="width:15px;height:15px;">
+              <span>App link</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:7px; cursor:pointer;">
+              <input type="checkbox" id="msg-inc-players" style="width:15px;height:15px;">
+              <span>Player list</span>
+            </label>
+          </div>
+          <div id="msg-status" style="font-size:0.8rem; margin-top:8px;"></div>
+          <button class="btn btn-primary mt-1" id="btn-send-message">📧 Send Message</button>
+          </div>
+          </details>
         </div>
       </section>
 
@@ -188,16 +285,21 @@
           <button class="btn btn-primary" id="btn-add-player">+ Add Player</button>
         </div>
         <div class="card">
-          <div style="display:grid; grid-template-columns:1fr 100px 120px 200px 60px 80px 40px; gap:8px; padding:0 4px 8px; border-bottom:1px solid rgba(255,255,255,0.06);">
+          <div style="overflow-x:auto;">
+          <div style="display:grid; grid-template-columns:minmax(120px,1fr) 68px 90px minmax(140px,180px) 44px 44px 54px 90px 72px 34px; gap:6px; padding:0 4px 8px; border-bottom:1px solid rgba(255,255,255,0.06); min-width:760px;">
             <span class="label">Name</span>
             <span class="label">PIN</span>
             <span class="label">Group</span>
             <span class="label">Email</span>
-            <span class="label">Notify</span>
-            <span class="label">Active</span>
+            <span class="label" title="Email notifications">Ntfy</span>
+            <span class="label" title="Can enter scores">Scr</span>
+            <span class="label" title="Initial ranking used before season standings are established">Rank&#x2070;</span>
+            <span class="label" title="User role">Role</span>
+            <span class="label">Status</span>
             <span></span>
           </div>
-          <div id="player-list"></div>
+          <div id="player-list" style="min-width:680px;"></div>
+          </div><!-- end overflow-x:auto -->
           <button class="btn btn-primary mt-2" id="btn-save-players">Save Players</button>
         </div>
       </section>
@@ -222,17 +324,27 @@
           </div>
         </div>
         <div class="card">
-          <div class="card-header">
+          <details open>
+          <summary class="card-header collapsible-header" style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
             <div class="card-title">Generate Pairings</div>
-          </div>
-          <p style="font-size:0.88rem; color:var(--muted); margin-bottom:16px;">
-            Only players marked <strong style="color:var(--green);">present</strong> for this week will be included.
+            <span class="collapse-arrow" style="font-size:0.7rem; color:var(--muted);">▲</span>
+          </summary>
+          <div class="collapsible-body">
+          <p style="font-size:0.88rem; color:var(--muted); margin-bottom:16px; margin-top:12px;">
+            Only players marked <strong style="color:var(--green);">present</strong> for this session will be included.
             The optimizer will try to minimize repeat partners/opponents and equalize byes.
           </p>
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+            <label class="form-label" style="margin:0; white-space:nowrap;">Rounds to generate/clear:</label>
+            <select class="form-control" id="round-scope" style="width:200px;">
+              <option value="all">All rounds</option>
+              <option value="remaining">All remaining rounds</option>
+            </select>
+          </div>
           <div class="btn-group">
             <button class="btn btn-gold" id="btn-generate">🎲 Generate Best Pairings</button>
             <button class="btn btn-primary" id="btn-lock-pairings" disabled>🔒 Lock &amp; Save</button>
-            <button class="btn btn-danger" id="btn-clear-pairings">🗑 Clear Week</button>
+            <button class="btn btn-danger" id="btn-clear-pairings">🗑 Clear Rounds</button>
           </div>
           <div class="optimizer-status mt-1 hidden" id="optimizer-status">
             <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:8px;">
@@ -241,6 +353,107 @@
             </div>
             <div id="optimizer-breakdown"></div>
           </div>
+          </div>
+          </details>
+        </div>
+        <div class="card mt-2" id="tournament-card">
+          <details>
+          <summary class="card-header collapsible-header" style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+            <div class="card-title">🏆 Tournament Mode</div>
+            <span class="collapse-arrow" style="font-size:0.7rem; color:var(--muted);">▼</span>
+          </summary>
+          <div class="collapsible-body">
+          <p style="font-size:0.82rem; color:var(--muted); margin-bottom:14px; margin-top:12px;">
+            Generate a seeded elimination bracket. Top seeds get byes if needed.
+            After each round, enter scores then click <strong style="color:var(--white);">Advance Round</strong> to generate the next round.
+          </p>
+          <div class="form-row" style="align-items:flex-end; gap:12px;">
+            <div class="form-group">
+              <label class="form-label">Format</label>
+              <select class="form-control" id="tourn-mode" style="width:220px;">
+                <option value="single">Single Elimination</option>
+                <option value="double">Double Elimination</option>
+                <option value="rr">Round Robin (reseeded)</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-top:20px;">
+              <button class="btn btn-gold" id="btn-tourn-generate">🏆 Generate Bracket</button>
+            </div>
+            <div class="form-group" style="margin-top:20px;">
+              <button class="btn btn-primary hidden" id="btn-tourn-advance">▶ Advance Round</button>
+            </div>
+            <div class="form-group" style="margin-top:20px;">
+              <button class="btn btn-secondary hidden" id="btn-tourn-lock">🔒 Lock &amp; Save Round</button>
+            </div>
+            <div class="form-group" style="margin-top:20px;">
+              <button class="btn btn-danger hidden" id="btn-tourn-reset">✕ Reset Tournament</button>
+            </div>
+          </div>
+          <div id="tourn-status" style="margin-top:10px; font-size:0.85rem;"></div>
+          </div>
+          </details>
+        </div>
+        <div class="card mt-2" id="edit-pairing-card">
+          <details>
+          <summary class="card-header collapsible-header" style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+            <div class="card-title">✏️ Edit / Add Pairing</div>
+            <span class="collapse-arrow" style="font-size:0.7rem; color:var(--muted);">▼</span>
+          </summary>
+          <div class="collapsible-body">
+          <p style="font-size:0.82rem; color:var(--muted); margin-bottom:14px; margin-top:12px;">
+            Select a session, round, and court to load an existing pairing for editing, or fill in new values to add one.
+          </p>
+          <div class="form-row" style="align-items:flex-end;">
+            <div class="form-group">
+              <label class="form-label">Session</label>
+              <input class="form-control" id="ep-week" type="number" min="1" max="20" style="width:80px;">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Round</label>
+              <input class="form-control" id="ep-round" type="number" min="1" max="20" style="width:80px;">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Court</label>
+              <select class="form-control" id="ep-court" style="width:140px;"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Type</label>
+              <select class="form-control" id="ep-type" style="width:100px;">
+                <option value="game">Game</option>
+                <option value="bye">Bye</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <button class="btn btn-secondary" id="btn-ep-load" style="margin-top:20px;">Load</button>
+            </div>
+          </div>
+          <div id="ep-fields" class="hidden">
+            <div class="form-row" style="margin-top:8px;">
+              <div class="form-group">
+                <label class="form-label">Team 1 — Player 1</label>
+                <input class="form-control ep-player" id="ep-p1" list="ep-player-list" placeholder="Player name">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Team 1 — Player 2</label>
+                <input class="form-control ep-player" id="ep-p2" list="ep-player-list" placeholder="Player name (optional)">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Team 2 — Player 3</label>
+                <input class="form-control ep-player" id="ep-p3" list="ep-player-list" placeholder="Player name">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Team 2 — Player 4</label>
+                <input class="form-control ep-player" id="ep-p4" list="ep-player-list" placeholder="Player name (optional)">
+              </div>
+            </div>
+            <datalist id="ep-player-list"></datalist>
+            <div class="btn-group mt-1">
+              <button class="btn btn-primary" id="btn-ep-save">💾 Save Pairing</button>
+              <button class="btn btn-danger" id="btn-ep-delete">🗑 Delete This Game</button>
+            </div>
+          </div>
+          </div>
+          </details>
         </div>
         <div id="pairings-preview"></div>
       </section>
@@ -249,10 +462,13 @@
       <section id="page-scores" class="tab-panel">
         <div class="page-header">
           <h2>Score Entry</h2>
-          <div class="week-selector">
-            <button id="score-week-prev">‹</button>
-            <div class="week-num" id="score-week-label">Week 1</div>
-            <button id="score-week-next">›</button>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn btn-secondary" id="btn-refresh-scoresheet" style="padding:5px 12px; font-size:0.78rem;">🔄 Refresh</button>
+            <div class="week-selector">
+              <button id="score-week-prev">‹</button>
+              <div class="week-num" id="score-week-label">Week 1</div>
+              <button id="score-week-next">›</button>
+            </div>
           </div>
         </div>
         <div class="card">
@@ -267,6 +483,25 @@
         </div>
       </section>
 
+      <!-- ═══ TOURNAMENT RESULTS ═══ -->
+      <section id="page-tourn-results" class="tab-panel">
+        <div class="page-header">
+          <h2>Tournament Results</h2>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="btn btn-secondary" id="btn-refresh-tourn-results" style="padding:5px 12px; font-size:0.78rem;">🔄 Refresh</button>
+            <button class="btn btn-secondary" id="btn-send-tourn-report" style="padding:5px 12px; font-size:0.78rem;">📧 Email Results</button>
+            <div class="week-selector">
+              <button id="tourn-week-prev">‹</button>
+              <div class="week-num" id="tourn-week-label">Session 1</div>
+              <button id="tourn-week-next">›</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div id="admin-tourn-bracket"></div>
+        </div>
+      </section>
+
       <!-- ═══ STANDINGS ═══ -->
       <section id="page-standings" class="tab-panel">
         <div class="page-header">
@@ -274,7 +509,7 @@
         </div>
         <div class="tabs" id="standings-tabs">
           <button class="tab-btn active" data-tab="season">Season Overall</button>
-          <button class="tab-btn" data-tab="weekly">By Week</button>
+          <button class="tab-btn" data-tab="weekly">By Session</button>
           <button class="tab-btn" data-tab="trend">Ranking Trend</button>
         </div>
         <div id="standings-season" class="tab-panel active">
@@ -286,7 +521,7 @@
         <div id="standings-weekly" class="tab-panel">
           <div class="card">
             <div class="card-header">
-              <div class="card-title">Weekly Standings</div>
+              <div class="card-title">Session Standings</div>
               <div class="week-selector">
                 <button id="stand-week-prev">‹</button>
                 <div class="week-num" id="stand-week-label">Week 1</div>
@@ -298,7 +533,7 @@
         </div>
         <div id="standings-trend" class="tab-panel">
           <div class="card">
-            <div class="card-header"><div class="card-title">Ranking Trend by Week</div></div>
+            <div class="card-header"><div class="card-title">Ranking Trend by Session</div></div>
             <div style="position:relative; width:100%; overflow-x:auto;">
               <canvas id="rank-trend-chart" style="width:100%; min-width:320px; display:block;"></canvas>
             </div>
@@ -311,7 +546,10 @@
       <section id="page-player-report" class="tab-panel">
         <div class="page-header">
           <h2>Player Report</h2>
-          <select class="form-control" id="report-player-select" style="width:200px;"></select>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <select class="form-control" id="report-player-select" style="width:200px;"></select>
+            <button class="btn btn-secondary" id="btn-email-player-report" style="padding:6px 12px; font-size:0.78rem;" disabled>📧 Email Report</button>
+          </div>
         </div>
         <div id="player-report-content"></div>
       </section>
@@ -326,17 +564,14 @@
         <!-- Add league form (hidden by default) -->
         <div class="card hidden" id="add-league-form">
           <div class="card-header"><div class="card-title">Add New League</div></div>
-          <div style="background:rgba(255,255,255,0.04); border-left:3px solid var(--gold); border-radius:6px; padding:10px 14px; margin-bottom:14px; font-size:0.82rem; color:var(--muted); line-height:1.7;">
-            <strong style="color:var(--white);">Before adding a league:</strong>
-            create a new blank Google Sheet at
-            <a href="https://sheets.google.com" target="_blank" style="color:var(--green);">sheets.google.com</a>,
-            then paste its ID here.<br>
-            The Sheet ID is the text in the URL between <code style="color:var(--gold); background:rgba(255,255,255,0.06); padding:1px 5px; border-radius:3px;">d/</code>
-            and <code style="color:var(--gold); background:rgba(255,255,255,0.06); padding:1px 5px; border-radius:3px;">/edit</code>
-            — for example:<br>
-            <span style="font-family:monospace; font-size:0.78rem; color:var(--muted);">
-              docs.google.com/spreadsheets/d/<span style="color:var(--gold);">1VPWAWqN1376ewwWUz7laZ8e-_oKbFA2cjv3p0yTvGZ4</span>/edit
-            </span>
+          <div style="background:rgba(255,255,255,0.04); border-left:3px solid var(--green); border-radius:6px; padding:10px 14px; margin-bottom:14px; font-size:0.82rem; color:var(--muted); line-height:1.7;">
+            <strong style="color:var(--white);">Google Sheet ID is optional.</strong>
+            Leave it blank and a new Google Sheet will be created automatically in your Drive.<br>
+            Or create a sheet manually at
+            <a href="https://sheets.google.com" target="_blank" style="color:var(--green);">sheets.google.com</a>
+            and paste its ID here. The Sheet ID is the text in the URL between
+            <code style="color:var(--gold); background:rgba(255,255,255,0.06); padding:1px 5px; border-radius:3px;">d/</code>
+            and <code style="color:var(--gold); background:rgba(255,255,255,0.06); padding:1px 5px; border-radius:3px;">/edit</code>.
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -348,8 +583,8 @@
               <input class="form-control" id="new-league-name" placeholder="e.g. Spring 2026">
             </div>
             <div class="form-group">
-              <label class="form-label">Google Sheet ID</label>
-              <input class="form-control" id="new-league-sheet" placeholder="Paste Sheet ID from URL">
+              <label class="form-label">Google Sheet ID <span style="color:var(--muted); font-weight:400;">(optional — leave blank to auto-create)</span></label>
+              <input class="form-control" id="new-league-sheet" placeholder="Leave blank to auto-create">
             </div>
           </div>
           <div style="display:flex; flex-wrap:wrap; gap:16px; margin:12px 0 4px;">
@@ -362,6 +597,16 @@
               <input type="checkbox" id="new-league-copy-players" style="width:16px;height:16px;">
               <span>Copy all players</span>
               <span style="color:var(--muted); font-size:0.78rem;">(name, PIN, group, email — attendance &amp; scores not copied)</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.85rem;">
+              <input type="checkbox" id="new-league-can-create" style="width:16px;height:16px;">
+              <span>Allow new league's admin to create leagues</span>
+              <span style="color:var(--muted); font-size:0.78rem;">(if unchecked, that admin cannot add further leagues)</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.85rem;">
+              <input type="checkbox" id="new-league-hidden" style="width:16px;height:16px;">
+              <span>Hidden league</span>
+              <span style="color:var(--muted); font-size:0.78rem;">(won't appear in login dropdown — access via URL with league slug only)</span>
             </label>
           </div>
           <div class="btn-group mt-1">
@@ -380,7 +625,7 @@
         <div class="page-header">
           <h2>Head-to-Head</h2>
           <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:0.8rem; color:var(--muted);">Week:</span>
+            <span style="font-size:0.8rem; color:var(--muted);">Session:</span>
             <select class="form-control" id="h2h-week-select" style="width:120px; font-size:0.82rem; padding:4px 8px;"></select>
           </div>
         </div>
@@ -413,12 +658,50 @@
     from { transform: rotate(0deg); }
     to   { transform: rotate(360deg); }
   }
+  /* Hide number input spinners */
+  input[type=number].score-input::-webkit-outer-spin-button,
+  input[type=number].score-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number].score-input { -moz-appearance: textfield; }
+  /* Collapsible round headers */
+  details summary.round-summary::-webkit-details-marker { display:none; }
+  details summary.round-summary::marker { display:none; }
+  details summary.round-summary:hover { background:rgba(255,255,255,0.06) !important; }
+  /* Collapsible card headers */
+  summary.collapsible-header::-webkit-details-marker { display:none; }
+  summary.collapsible-header::marker { display:none; }
+  summary.collapsible-header:hover { opacity:0.85; }
+  details:not([open]) .collapse-arrow { content:"▼"; }
+  details[open] .collapse-arrow { content:"▲"; }
+  /* Tighter collapsed card: remove bottom margin/padding from summary when closed */
+  .card:has(details:not([open])) { padding-bottom: 4px; padding-top: 4px; margin-bottom: 6px; }
+  .card:has(details:not([open])) summary.collapsible-header { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  /* Tighter expanded body */
+  .collapsible-body { padding-top: 0; }
+  .collapsible-body .form-row { margin-top: 8px; gap: 8px; }
+  .collapsible-body .form-group { margin-bottom: 8px; }
+  .collapsible-body .btn-group { gap: 6px; }
+  .collapsible-body p { margin-top: 8px; margin-bottom: 10px; }
+  details[open] summary.round-summary {
+    border-bottom-left-radius:0; border-bottom-right-radius:0;
+    margin-bottom:0;
+  }
 </style>
 
+<script>
+  // Flip collapse arrows on details toggle
+  document.addEventListener('toggle', e => {
+    if (e.target.tagName === 'DETAILS') {
+      const arrow = e.target.querySelector('.collapse-arrow');
+      if (arrow) arrow.textContent = e.target.open ? '▲' : '▼';
+    }
+  }, true);
+</script>
+<script src="js/settings.js"></script>
 <script src="js/api.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/pairings.js"></script>
 <script src="js/reports.js"></script>
+<script src="js/tournament.js"></script>
 <script src="js/admin.js"></script>
 <script>
 (function() {
