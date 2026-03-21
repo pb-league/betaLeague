@@ -15,8 +15,12 @@ const Auth = (() => {
     } catch { return null; }
   }
 
-  function setSession(name, isAdmin, leagueId, leagueName) {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ name, isAdmin, leagueId, leagueName, ts: Date.now() }));
+  function setSession(name, isAdmin, leagueId, leagueName, canScore = false, role = 'player') {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ name, isAdmin, leagueId, leagueName, canScore, role, ts: Date.now() }));
+    // Preserve the league slug from the original URL so logout can return to it
+    // Only preserve league slug if it was explicitly in the URL
+    const urlLeague = new URLSearchParams(window.location.search).get('league');
+    if (urlLeague) sessionStorage.setItem('pb_league_slug', urlLeague);
   }
 
   function clearSession() {
@@ -25,26 +29,11 @@ const Auth = (() => {
 
   function requireAuth(adminOnly = false) {
     const session = getSession();
-
-    // Allow bootstrap admin: arrived via ?setup=1 with no league yet
-    if (!session && window.location.search.includes('setup=1')) {
-      setSession('Admin', true, '__registry__', 'Registry');
-      return getSession();
-    }
-
-    if (!session) {
-      window.location.href = 'index.html';
+    if (!session || !session.leagueId) {
+      const slug = sessionStorage.getItem('pb_league_slug');
+      window.location.href = slug ? 'index.html?league=' + encodeURIComponent(slug) : 'index.html';
       return null;
     }
-
-    // Registry-only session (__registry__) is only valid on admin.html
-    // and only grants access to the Leagues page
-    if (session.leagueId === '__registry__') {
-      if (adminOnly) return session; // allow admin pages
-      window.location.href = 'index.html';
-      return null;
-    }
-
     if (adminOnly && !session.isAdmin) {
       window.location.href = 'player.html';
       return null;
@@ -55,15 +44,33 @@ const Auth = (() => {
   async function login(name, pin, leagueId, leagueName) {
     const result = await API.validatePIN(name, pin);
     if (result.valid) {
-      setSession(result.name, result.isAdmin, leagueId, leagueName);
+      setSession(result.name, result.isAdmin, leagueId, leagueName, result.canScore || false, result.role || 'player');
+    }
+    return result;
+  }
+
+  async function loginAdmin(password, leagueId, leagueName) {
+    const result = await API.validateAdminPassword(password);
+    if (result.valid) {
+      setSession(result.name, true, leagueId, leagueName, true, result.role || 'admin');
+    }
+    return result;
+  }
+
+  async function loginManager(password, leagueId, leagueName) {
+    const result = await API.validateAppManager(password);
+    if (result.valid) {
+      setSession(result.name, true, leagueId, leagueName, true, 'manager');
     }
     return result;
   }
 
   function logout() {
+    const slug = sessionStorage.getItem('pb_league_slug');
     clearSession();
-    window.location.href = 'index.html';
+    sessionStorage.removeItem('pb_league_slug');
+    window.location.href = slug ? 'index.html?league=' + encodeURIComponent(slug) : 'index.html';
   }
 
-  return { getSession, setSession, clearSession, requireAuth, login, logout };
+  return { getSession, setSession, clearSession, requireAuth, login, loginAdmin, loginManager, logout };
 })();

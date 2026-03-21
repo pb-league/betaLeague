@@ -6,6 +6,36 @@
   const session = Auth.requireAuth(true);
   if (!session) return;
   document.getElementById('topbar-name').textContent = session.name;
+
+  // Display role badge and apply restrictions
+  const userRole = session.role || (session.isAdmin ? 'admin' : 'player');
+  const isManager   = userRole === 'manager';
+  const isAdmin     = userRole === 'admin' || isManager;
+  const isAssistant = userRole === 'assistant';
+  const canManagePlayers = isAdmin || isManager; // assistants cannot see player sensitive data
+  const canDeleteScores  = isAdmin || isManager; // assistants can enter but not delete/overwrite
+  const canDeletePairings = isAdmin || isManager; // assistants cannot clear pairings
+
+  const roleLabels = { manager: '★ App Manager', admin: 'League Admin', assistant: 'Admin Assistant', scorer: 'Scorer', player: 'Player' };
+  const roleColors = { manager: 'rgba(232,184,75,0.2)', admin: 'rgba(45,122,58,0.15)', assistant: 'rgba(42,63,84,0.8)' };
+  const roleEl = document.getElementById('topbar-role');
+  if (roleEl) {
+    roleEl.textContent = roleLabels[userRole] || userRole;
+    roleEl.style.background = roleColors[userRole] || 'rgba(255,255,255,0.07)';
+    if (userRole === 'manager') roleEl.style.color = 'var(--gold)';
+    else if (userRole === 'admin') roleEl.style.color = 'var(--green)';
+  }
+
+  // Hide Players nav from assistants (contains PINs and emails)
+  if (isAssistant) {
+    document.querySelectorAll('.nav-item[data-page="players"]').forEach(el => el.classList.add('hidden'));
+  }
+
+  // Hide League management from non-managers
+  if (!isManager) {
+    document.querySelectorAll('.nav-item[data-page="leagues"]').forEach(el => el.classList.add('hidden'));
+  }
+
   if (session.leagueName) {
     document.querySelector('.topbar-brand').innerHTML =
       `🥒 <span>${esc(session.leagueName)}</span> <span style="color:var(--muted);font-size:0.75rem;font-weight:400;margin-left:4px;">Admin</span>`;
@@ -16,7 +46,8 @@
     config: {}, players: [], attendance: [],
     pairings: [], scores: [], standings: [],
     currentPairWeek: 1, currentScoreWeek: 1,
-    currentStandWeek: 1, pendingPairings: null
+    currentStandWeek: 1, currentTournWeek: 1, pendingPairings: null,
+    tournament: null  // { week, mode, round, seeds }
   };
 
   // ── Boot ───────────────────────────────────────────────────
@@ -50,9 +81,20 @@
         const panel = document.getElementById('page-' + page);
         if (panel) panel.classList.add('active');
         if (page === 'standings') renderStandings();
+        if (page === 'tourn-results') renderAdminTournamentResults();
         if (page === 'player-report') renderPlayerReportSelect();
-        if (page === 'scores') renderScoresheet();
-        if (page === 'pairings') renderPairingsPreview();
+        if (page === 'scores') {
+          // Fetch latest scores from server before rendering — players may have entered scores
+          API.getScores(state.currentScoreWeek).then(data => {
+            if (data && data.scores) {
+              const week = state.currentScoreWeek;
+              state.scores = state.scores.filter(s => parseInt(s.week) !== week);
+              state.scores.push(...data.scores.filter(s => parseInt(s.week) === week));
+            }
+            renderScoresheet();
+          }).catch(() => renderScoresheet());
+        }
+        if (page === 'pairings') { renderPairingsPreview(); renderEditPairingForm(); }
         if (page === 'attendance') renderAttendance();
         if (page === 'leagues') renderLeagues();
         if (page === 'head-to-head') renderHeadToHead();
@@ -67,7 +109,9 @@
     renderPlayers();
     renderAttendance();
     renderPairingsPreview();
+    renderEditPairingForm();
     renderScoresheet();
+    updateTournamentResultsNav();
     renderStandings();
     renderPlayerReportSelect();
     renderLeagues();
@@ -78,14 +122,14 @@
   let h2hWeek = 'all';
 
   function renderHeadToHead() {
-    // Populate week selector
+    // Populate session selector
     const sel = document.getElementById('h2h-week-select');
     if (sel) {
       const weeks = [...new Set(state.pairings.map(p => parseInt(p.week)))].sort((a,b) => a-b);
       sel.innerHTML = '<option value="all">All Weeks</option>' +
         weeks.map(w => {
-          const date = state.config['date_' + w] ? ' — ' + formatDate(state.config['date_' + w]) : '';
-          return `<option value="${w}" ${h2hWeek == w ? 'selected' : ''}>Week ${w}${date}</option>`;
+          const date = formatDateTime(w, state.config) ? ' — ' + formatDateTime(w, state.config) : '';
+          return `<option value="${w}" ${h2hWeek == w ? 'selected' : ''}>Session ${w}${date}</option>`;
         }).join('');
       sel.value = h2hWeek;
       sel.onchange = () => { h2hWeek = sel.value; renderH2HTable(); };
@@ -116,8 +160,8 @@
 
     // Filter pairings by selected week (or all weeks)
     const h2hPairings = h2hWeek === 'all'
-      ? state.pairings.filter(g => g.type === 'game')
-      : state.pairings.filter(g => g.type === 'game' && parseInt(g.week) === parseInt(h2hWeek));
+      ? state.pairings.filter(g => g.type === 'game' || g.type === 'tourn-game')
+      : state.pairings.filter(g => (g.type === 'game' || g.type === 'tourn-game') && parseInt(g.week) === parseInt(h2hWeek));
 
     h2hPairings.forEach(g => {
       if (!g.p1) return;
@@ -187,6 +231,11 @@
     if (c.location)    infoParts.push(`<span>📍 ${esc(c.location)}</span>`);
     if (c.sessionTime) infoParts.push(`<span>🕐 ${esc(c.sessionTime)}</span>`);
     if (c.notes)       infoParts.push(`<span>📌 ${esc(c.notes)}</span>`);
+    if (c.leagueUrl) {
+      const lid = Auth.getSession()?.leagueId || '';
+      infoParts.push(`<span>🔗 <a href="${esc(c.leagueUrl)}"
+        target="_blank" style="color:var(--green);">League Link</a></span>`);
+    }
 
     // Build rules section
     let rulesHtml = '';
@@ -213,14 +262,18 @@
 
     document.getElementById('dash-stats').innerHTML = `
       <div class="stat-tile"><div class="stat-value">${activePlayers}</div><div class="stat-label">Players</div></div>
-      <div class="stat-tile"><div class="stat-value">${state.config.weeks || '—'}</div><div class="stat-label">Total Weeks</div></div>
-      <div class="stat-tile"><div class="stat-value">${weeksWithScores}</div><div class="stat-label">Weeks Played</div></div>
+      <div class="stat-tile"><div class="stat-value">${state.config.weeks || '—'}</div><div class="stat-label">Total Sessions</div></div>
+      <div class="stat-tile"><div class="stat-value">${weeksWithScores}</div><div class="stat-label">Sessions Played</div></div>
       <div class="stat-tile"><div class="stat-value">${totalGames}</div><div class="stat-label">Games Entered</div></div>
     `;
 
     const activeNames = new Set(state.players.filter(p => p.active !== false).map(p => p.name));
     const dashStandings = state.standings.filter(s => activeNames.has(s.name));
     document.getElementById('dash-standings').innerHTML = renderStandingsTable(dashStandings, true);
+    document.getElementById('dash-version').innerHTML =
+      `<div style="text-align:right; font-size:0.7rem; color:rgba(255,255,255,0.2); margin-top:10px;">
+        v${APP_VERSION} &nbsp;·&nbsp; Built ${APP_BUILD_DATE}
+      </div>`;
   }
 
   // ── Setup ──────────────────────────────────────────────────
@@ -230,6 +283,19 @@
     document.getElementById('cfg-location').value = c.location    || '';
     document.getElementById('cfg-time').value     = c.sessionTime || '';
     document.getElementById('cfg-notes').value    = c.notes       || '';
+    // Auto-populate URL if blank using current leagueId
+    const leagueId = Auth.getSession()?.leagueId || '';
+    const defaultUrl = 'https://pb-league.github.io/league/index.html?league=' + leagueId;
+    document.getElementById('cfg-league-url').value = c.leagueUrl || defaultUrl;
+    document.getElementById('cfg-allow-registration').checked = c.allowRegistration === true;
+    document.getElementById('cfg-reg-code').value         = c.registrationCode   || '';
+    document.getElementById('cfg-reg-max-pending').value  = c.maxPendingReg      || 10;
+    // Show/hide registration options based on checkbox
+    document.getElementById('cfg-registration-options').style.display =
+      c.allowRegistration ? '' : 'none';
+    document.getElementById('cfg-allow-registration').addEventListener('change', function() {
+      document.getElementById('cfg-registration-options').style.display = this.checked ? '' : 'none';
+    });
     document.getElementById('cfg-rules').value    = c.rules       || '';
     document.getElementById('cfg-admin-pin').value = '';
     document.getElementById('cfg-reply-to').value    = c.replyTo || '';
@@ -248,7 +314,8 @@
     document.getElementById('cfg-w-history-opponent').value  = c.wHistoryOpponent  ?? D.historyOpponentWeight;
     document.getElementById('cfg-w-bye-variance').value      = c.wByeVariance      ?? D.byeVarianceWeight;
     document.getElementById('cfg-w-session-bye').value       = c.wSessionBye       ?? D.sessionByeWeight;
-    document.getElementById('cfg-w-rank-balance').value      = c.wRankBalance      ?? D.rankBalanceWeight;
+    document.getElementById('cfg-w-rank-balance').value           = c.wRankBalance           ?? D.rankBalanceWeight;
+    document.getElementById('cfg-w-rank-std-dev').value            = c.wRankStdDev            ?? D.rankStdDevWeight;
 
     // Session dates
     const weeks = parseInt(c.weeks || 8);
@@ -256,8 +323,12 @@
     for (let w = 1; w <= weeks; w++) {
       datesHtml += `
         <div class="form-group">
-          <label class="form-label">Week ${w} Date</label>
+          <label class="form-label">Session ${w} Date</label>
           <input class="form-control" id="cfg-date-${w}" type="date" value="${normalizeDate(c['date_' + w])}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Session ${w} Time</label>
+          <input class="form-control" id="cfg-time-${w}" type="time" value="${c['time_' + w] || ''}">
         </div>`;
     }
     datesHtml += '</div>';
@@ -284,7 +355,7 @@
     state.players.forEach((p, i) => {
       const row = document.createElement('div');
       row.className = 'player-row';
-      row.style.gridTemplateColumns = '1fr 100px 120px 200px 60px 80px 40px';
+      row.style.gridTemplateColumns = 'minmax(120px,1fr) 68px 90px minmax(140px,180px) 44px 44px 54px 90px 72px 34px';
       row.innerHTML = `
         <input class="form-control" data-field="name" data-idx="${i}" value="${esc(p.name)}" placeholder="Player name">
         <input class="form-control" data-field="pin" data-idx="${i}" type="text" value="${esc(String(p.pin || ''))}" placeholder="PIN" maxlength="8">
@@ -294,7 +365,15 @@
           <option value="Either" ${p.group==='Either'?'selected':''}>Either</option>
         </select>
         <input class="form-control" data-field="email" data-idx="${i}" type="email" value="${esc(p.email || '')}" placeholder="email@example.com">
-        <input type="checkbox" data-field="notify" data-idx="${i}" ${p.notify ? 'checked' : ''} style="width:20px;height:20px;margin:auto;">
+        <input type="checkbox" data-field="notify" data-idx="${i}" ${p.notify ? 'checked' : ''} style="width:18px;height:18px;margin:auto;">
+        <input type="checkbox" data-field="canScore" data-idx="${i}" ${p.canScore ? 'checked' : ''} style="width:18px;height:18px;margin:auto;">
+        <input class="form-control" data-field="initialRank" data-idx="${i}" type="number" min="1" value="${p.initialRank || ''}" placeholder="—" style="text-align:center;">
+        <select class="form-control" data-field="role" data-idx="${i}">
+          <option value="" ${!p.role?'selected':''}>Player</option>
+          <option value="scorer" ${p.role==='scorer'?'selected':''}>Scorer</option>
+          <option value="assistant" ${p.role==='assistant'?'selected':''}>Assistant</option>
+          <option value="admin" ${p.role==='admin'?'selected':''}>Admin</option>
+        </select>
         <select class="form-control" data-field="active" data-idx="${i}">
           <option value="true" ${p.active!==false?'selected':''}>Active</option>
           <option value="false" ${p.active===false?'selected':''}>Inactive</option>
@@ -311,6 +390,7 @@
         const field = el.dataset.field;
         let val = el.type === 'checkbox' ? el.checked : el.value;
         if (field === 'active') val = val === 'true';
+        if (field === 'initialRank') val = val ? parseInt(val) : null;
         state.players[idx][field] = val;
       });
     });
@@ -334,8 +414,8 @@
     html += '<div class="att-row">';
     html += '<div></div>';
     for (let w = 1; w <= weeks; w++) {
-      const date = state.config['date_' + w] ? formatDate(state.config['date_' + w]) : `Wk${w}`;
-      html += `<div class="att-week-header">Wk${w}<br><span style="font-size:0.6rem;font-weight:400;">${date}</span></div>`;
+      const date = formatDateTime(w, state.config) || `S${w}`;
+      html += `<div class="att-week-header">S${w}<br><span style="font-size:0.6rem;font-weight:400;">${date}</span></div>`;
     }
     html += '</div>';
 
@@ -349,6 +429,18 @@
       }
       html += '</div>';
     });
+
+    // Totals row — count of players marked present per session
+    html += '<div class="att-row" style="border-top:1px solid rgba(255,255,255,0.1); margin-top:4px; padding-top:4px;">';
+    html += '<div class="att-player-name" style="font-size:0.75rem; color:var(--muted); font-weight:600;">Players In</div>';
+    for (let w = 1; w <= weeks; w++) {
+      const count = players.filter(p => {
+        const rec = state.attendance.find(a => a.player === p.name && String(a.week) === String(w));
+        return rec && rec.status === 'present';
+      }).length;
+      html += `<div class="att-week-header" style="font-weight:700; color:${count > 0 ? 'var(--green)' : 'var(--muted)'}; font-size:0.85rem;">${count}</div>`;
+    }
+    html += '</div>';
 
     html += '</div>';
     document.getElementById('attendance-grid').innerHTML = html;
@@ -380,14 +472,31 @@
   // ── Pairings ───────────────────────────────────────────────
   function renderPairingsPreview() {
     const week = state.currentPairWeek;
-    document.getElementById('pair-week-label').textContent = `Week ${week}`;
+
+    // Update tournament advance button visibility
+    const advBtn   = document.getElementById('btn-tourn-advance');
+    const resetBtn = document.getElementById('btn-tourn-reset');
+    const lockBtn  = document.getElementById('btn-tourn-lock');
+    if (advBtn && resetBtn) {
+      const inTournament = state.tournament && state.tournament.week === week;
+      advBtn.classList.toggle('hidden', !inTournament);
+      resetBtn.classList.toggle('hidden', !inTournament);
+      if (lockBtn) lockBtn.classList.toggle('hidden', !inTournament || !state.pendingPairings);
+      if (inTournament) {
+        renderTournamentStatus();
+      } else {
+        const statusEl = document.getElementById('tourn-status');
+        if (statusEl) statusEl.innerHTML = '';
+      }
+    }
+    document.getElementById('pair-week-label').textContent = `Session ${week}`;
 
     const existing = state.pairings.filter(p => parseInt(p.week) === week);
     const toShow = state.pendingPairings || existing;
 
     if (!toShow.length) {
       document.getElementById('pairings-preview').innerHTML =
-        '<div class="card"><p class="text-muted" style="font-size:0.88rem;">No pairings generated yet for this week.</p></div>';
+        '<div class="card"><p class="text-muted" style="font-size:0.88rem;">No pairings generated yet for this session.</p></div>';
       return;
     }
 
@@ -396,9 +505,9 @@
     rounds.forEach(r => {
       html += `<div class="round-header">Round ${r}</div>`;
       toShow.filter(p => p.round == r).forEach(game => {
-        if (game.type === 'bye') {
+        if (game.type === 'bye' || game.type === 'tourn-bye') {
           html += `<div class="game-card" style="grid-template-columns:1fr; background:rgba(122,155,181,0.07);">
-            <span class="text-muted" style="font-size:0.8rem;">⏸ BYE: <strong style="color:var(--white);">${esc(game.p1)}</strong></span>
+            <span class="text-muted" style="font-size:0.8rem;">⏸ BYE: <strong style="color:var(--white);">${esc(game.p1)}${game.p2 ? ' &amp; ' + esc(game.p2) : ''}</strong></span>
           </div>`;
         } else {
           html += `<div style="background:var(--card-bg); border-radius:10px; padding:10px 12px; margin-bottom:8px;">
@@ -421,19 +530,37 @@
 
     document.getElementById('pairings-preview').innerHTML = html;
     document.getElementById('btn-lock-pairings').disabled = !state.pendingPairings;
+
+    // Populate round-scope dropdown with locked rounds + individual options
+    const scopeSel = document.getElementById('round-scope');
+    if (scopeSel) {
+      const cur = scopeSel.value;
+      const totalRounds = parseInt(state.config.gamesPerSession || 7);
+      const lockedRounds = [...new Set(existing.map(p => parseInt(p.round)))].sort((a,b)=>a-b);
+      scopeSel.innerHTML = '<option value="all">All rounds</option><option value="remaining">All remaining rounds</option>';
+      for (let r = 1; r <= totalRounds; r++) {
+        const opt = document.createElement('option');
+        opt.value = String(r);
+        const locked = lockedRounds.includes(r) ? ' ✓' : '';
+        opt.textContent = `Round ${r}${locked}`;
+        scopeSel.appendChild(opt);
+      }
+      // Restore selection if still valid
+      if ([...scopeSel.options].some(o => o.value === cur)) scopeSel.value = cur;
+    }
   }
 
   // ── Scoresheet ─────────────────────────────────────────────
   function renderScoresheet() {
     const week = state.currentScoreWeek;
-    document.getElementById('score-week-label').textContent = `Week ${week}`;
+    document.getElementById('score-week-label').textContent = `Session ${week}`;
 
     const allWeekPairings = state.pairings.filter(p => parseInt(p.week) === week);
-    const weekPairings    = allWeekPairings.filter(p => p.type === 'game');
+    const weekPairings    = allWeekPairings.filter(p => p.type === 'game' || p.type === 'tourn-game');
 
     if (!allWeekPairings.length) {
       document.getElementById('scoresheet').innerHTML =
-        '<p class="text-muted" style="font-size:0.88rem;">No pairings for this week yet. Generate pairings first.</p>';
+        '<p class="text-muted" style="font-size:0.88rem;">No pairings for this session yet. Generate pairings first.</p>';
       return;
     }
 
@@ -441,17 +568,41 @@
     let html = '';
 
     rounds.forEach(r => {
-      html += `<div class="round-header">Round ${r}</div>`;
+      const roundGames = weekPairings.filter(p => p.round == r);
+      const roundByes  = allWeekPairings.filter(p => p.round == r && p.type === 'bye');
+      const total      = roundGames.length;
+      const scored     = roundGames.filter(g => {
+        const sc = state.scores.find(s => parseInt(s.week) === week && parseInt(s.round) === r && String(s.court) === String(g.court));
+        return sc && sc.score1 !== '' && sc.score1 !== null && sc.score2 !== '' && sc.score2 !== null;
+      }).length;
+      const remaining  = total - scored;
+      const allDone    = remaining === 0 && total > 0;
 
-      // Show byes for this round first
-      allWeekPairings.filter(p => p.round == r && p.type === 'bye').forEach(bye => {
-        html += `<div style="padding:6px 10px; margin-bottom:6px; color:var(--muted); font-size:0.85rem;
-                             background:rgba(122,155,181,0.07); border-radius:8px;">
-          ⏸ <strong style="color:var(--white);">${esc(bye.p1)}</strong> — Bye
+      // Summary badge: green when all done, gold when in progress, muted when not started
+      const badgeColor = allDone ? 'var(--green)' : scored > 0 ? 'var(--gold)' : 'var(--muted)';
+      const badgeText  = allDone ? `${scored}/${total} ✓`
+                       : scored > 0 ? `${scored}/${total} · ${remaining} left`
+                       : `${total} game${total !== 1 ? 's' : ''}`;
+
+      html += `<details ${!allDone ? 'open' : ''} style="margin-bottom:6px;">
+        <summary style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;
+                        padding:5px 8px; border-radius:7px; background:var(--card-bg);
+                        list-style:none; user-select:none;"
+                 class="round-summary">
+          <span style="font-size:0.78rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Round ${r}</span>
+          <span style="font-size:0.73rem; color:${badgeColor}; font-weight:600;">${badgeText}</span>
+        </summary>
+        <div style="padding-top:4px;">`;
+
+      // Byes
+      roundByes.forEach(bye => {
+        html += `<div style="padding:3px 8px; margin-bottom:3px; color:var(--muted); font-size:0.82rem;
+                             background:rgba(122,155,181,0.07); border-radius:6px;">
+          ⏸ <strong style="color:var(--white);">${esc(bye.p1)}${bye.p2 ? ' &amp; ' + esc(bye.p2) : ''}</strong> — Bye
         </div>`;
       });
 
-      weekPairings.filter(p => p.round == r).forEach(game => {
+      roundGames.forEach(game => {
         const existingScore = state.scores.find(
           s => parseInt(s.week) === week && parseInt(s.round) === parseInt(game.round) && String(s.court) === String(game.court)
         );
@@ -464,22 +615,24 @@
         const loseStyle = 'color:var(--muted);';
         const readOnly  = !session.isAdmin ? 'readonly style="opacity:0.5;pointer-events:none;"' : '';
 
-        html += `<div style="background:var(--card-bg); border-radius:10px; padding:10px 12px; margin-bottom:8px;"
+        html += `<div style="background:var(--card-bg); border-radius:7px; padding:5px 10px; margin-bottom:4px;"
             data-week="${week}" data-round="${game.round}" data-court="${game.court}">
-          <div class="court-label" style="font-size:0.7rem; margin-bottom:6px;">${courtName(game.court)}</div>
-          <div style="display:grid; grid-template-columns:1fr 110px 1fr; align-items:center; gap:6px;">
+          <div style="display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:6px;">
             <div style="min-width:0;">
               <div style="${entered ? (t1win ? winStyle : loseStyle) : ''} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p1)}</div>
               ${game.p2 ? `<div style="${entered ? (t1win ? winStyle : loseStyle) : ''} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p2)}</div>` : ''}
+              <div style="font-size:0.65rem; color:var(--muted); margin-top:1px;">${courtName(game.court)}</div>
             </div>
-            <div style="display:flex; align-items:center; justify-content:center; gap:4px;">
+            <div style="display:flex; align-items:center; justify-content:center; gap:4px; flex-shrink:0;">
               <input type="number" class="score-input" data-score="1"
                      value="${s1}" min="0" max="30" placeholder="0" ${readOnly}
-                     style="width:44px; text-align:center; padding:4px;">
+                     inputmode="numeric"
+                     style="width:44px; text-align:center; padding:4px; -moz-appearance:textfield;">
               <div style="color:var(--muted); font-size:0.8rem;">—</div>
               <input type="number" class="score-input" data-score="2"
                      value="${s2}" min="0" max="30" placeholder="0" ${readOnly}
-                     style="width:44px; text-align:center; padding:4px;">
+                     inputmode="numeric"
+                     style="width:44px; text-align:center; padding:4px; -moz-appearance:textfield;">
             </div>
             <div style="min-width:0; text-align:right;">
               <div style="${entered ? (t2win ? winStyle : loseStyle) : ''} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p3)}</div>
@@ -488,6 +641,8 @@
           </div>
         </div>`;
       });
+
+      html += `</div></details>`;
     });
 
     document.getElementById('scoresheet').innerHTML = html;
@@ -500,7 +655,14 @@
 
     const weekStand = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, state.currentStandWeek, state.config.rankingMethod);
     document.getElementById('standings-weekly-table').innerHTML = renderStandingsTable(weekStand);
-    document.getElementById('stand-week-label').textContent = `Week ${state.currentStandWeek}`;
+    document.getElementById('stand-week-label').textContent = `Session ${state.currentStandWeek}`;
+
+    // Default to season tab active
+    document.querySelectorAll('#standings-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('#standings-tabs .tab-btn[data-tab="season"]').classList.add('active');
+    document.getElementById('standings-season').classList.add('active');
+    document.getElementById('standings-weekly').classList.remove('active');
+    document.getElementById('standings-trend').classList.remove('active');
 
     // Tab switching
     document.querySelectorAll('#standings-tabs .tab-btn').forEach(btn => {
@@ -601,8 +763,7 @@
     ctx.fillStyle = 'rgba(255,255,255,0.35)';
     weeksWithData.forEach((w, i) => {
       const x     = PAD.left + (i / (weeksWithData.length - 1 || 1)) * plotW;
-      const date  = chartState.config['date_' + w];
-      const label = date ? formatDate(date) : 'Wk ' + w;
+      const label = formatDateTime(w, chartState.config) || ('S' + w);
       ctx.fillText(label, x, H - PAD.bottom + 16);
     });
 
@@ -746,8 +907,590 @@
     document.getElementById('player-report-content').innerHTML = buildPlayerReportHTML(report);
   }
 
+  // ── Edit Pairing Form ─────────────────────────────────────
+  function renderEditPairingForm() {
+    // Populate datalist with active player names
+    const dl = document.getElementById('ep-player-list');
+    if (!dl) return;
+    dl.innerHTML = state.players
+      .filter(p => p.active !== false)
+      .map(p => `<option value="${esc(p.name)}">`)
+      .join('');
+
+    // Populate court select with named courts
+    const courtSel = document.getElementById('ep-court');
+    if (courtSel) {
+      const numCourts = parseInt(state.config.courts || 3);
+      courtSel.innerHTML = '';
+      for (let cn = 1; cn <= numCourts; cn++) {
+        const opt = document.createElement('option');
+        opt.value = String(cn);
+        opt.textContent = courtName(cn);
+        courtSel.appendChild(opt);
+      }
+    }
+
+    // Default week to current pair week
+    const weekEl = document.getElementById('ep-week');
+    if (weekEl && !weekEl.value) weekEl.value = state.currentPairWeek;
+  }
+
+  function setupEditPairing() {
+    const weekEl  = document.getElementById('ep-week');
+    const roundEl = document.getElementById('ep-round');
+    const courtEl = document.getElementById('ep-court');
+    const typeEl  = document.getElementById('ep-type');
+    const fields  = document.getElementById('ep-fields');
+    if (!weekEl) return;
+
+    // Load button — find existing pairing and fill fields
+    document.getElementById('btn-ep-load').addEventListener('click', () => {
+      const week  = parseInt(weekEl.value);
+      const round = parseInt(roundEl.value);
+      const court = String(courtEl.value).trim();
+      if (!week || !round || !court) { toast('Enter week, round, and court first.', 'warn'); return; }
+
+      const existing = state.pairings.find(p =>
+        parseInt(p.week) === week &&
+        parseInt(p.round) === round &&
+        String(p.court) === court
+      );
+
+      if (existing) {
+        typeEl.value = existing.type || 'game';
+        document.getElementById('ep-p1').value = existing.p1 || '';
+        document.getElementById('ep-p2').value = existing.p2 || '';
+        document.getElementById('ep-p3').value = existing.p3 || '';
+        document.getElementById('ep-p4').value = existing.p4 || '';
+      } else {
+        typeEl.value = 'game';
+        ['ep-p1','ep-p2','ep-p3','ep-p4'].forEach(id => {
+          document.getElementById(id).value = '';
+        });
+        toast(`No existing pairing found for Session ${week} Round ${round} Court ${court} — fill in to create new.`, 'warn');
+      }
+      fields.classList.remove('hidden');
+    });
+
+    // Save button
+    document.getElementById('btn-ep-save').addEventListener('click', async () => {
+      const week  = parseInt(weekEl.value);
+      const round = parseInt(roundEl.value);
+      const court = String(courtEl.value).trim();
+      const type  = typeEl.value;
+      const p1 = document.getElementById('ep-p1').value.trim();
+      const p2 = document.getElementById('ep-p2').value.trim();
+      const p3 = document.getElementById('ep-p3').value.trim();
+      const p4 = document.getElementById('ep-p4').value.trim();
+
+      if (!week || !round || !court) { toast('Week, round, and court are required.', 'warn'); return; }
+      if (!p1) { toast('Player 1 is required.', 'warn'); return; }
+      if (type === 'game' && !p3) { toast('Player 3 is required for a game.', 'warn'); return; }
+
+      // Remove existing entry for this slot, then add new one
+      state.pairings = state.pairings.filter(p =>
+        !(parseInt(p.week) === week && parseInt(p.round) === round && String(p.court) === court)
+      );
+      const newPairing = { week, round, court, p1, p2, p3, p4, type };
+      state.pairings.push(newPairing);
+
+      // Build full week pairings sorted by round then court to preserve display order
+      const weekPairings = state.pairings
+        .filter(p => parseInt(p.week) === week)
+        .sort((a, b) => parseInt(a.round) - parseInt(b.round) || String(a.court).localeCompare(String(b.court), undefined, { numeric: true }));
+
+      showLoading(true);
+      try {
+        await API.savePairings(week, weekPairings);
+        toast(`Pairing saved — Session ${week} Round ${round} Court ${court}.`);
+        renderPairingsPreview();
+      } catch (e) { toast('Save failed: ' + e.message, 'error'); }
+      finally { showLoading(false); }
+    });
+
+    // Delete button
+    document.getElementById('btn-ep-delete').addEventListener('click', async () => {
+      if (isAssistant) { toast('Admin assistants cannot delete pairings.', 'warn'); return; }
+      const week  = parseInt(weekEl.value);
+      const round = parseInt(roundEl.value);
+      const court = String(courtEl.value).trim();
+      if (!confirm(`Delete pairing for Session ${week} Round ${round} Court ${court}?`)) return;
+
+      state.pairings = state.pairings.filter(p =>
+        !(parseInt(p.week) === week && parseInt(p.round) === round && String(p.court) === court)
+      );
+      const weekPairings = state.pairings
+        .filter(p => parseInt(p.week) === week)
+        .sort((a, b) => parseInt(a.round) - parseInt(b.round) || String(a.court).localeCompare(String(b.court), undefined, { numeric: true }));
+
+      showLoading(true);
+      try {
+        await API.savePairings(week, weekPairings);
+        toast('Pairing deleted.');
+        document.getElementById('ep-fields').classList.add('hidden');
+        ['ep-p1','ep-p2','ep-p3','ep-p4'].forEach(id => {
+          document.getElementById(id).value = '';
+        });
+        renderPairingsPreview();
+      } catch (e) { toast('Delete failed: ' + e.message, 'error'); }
+      finally { showLoading(false); }
+    });
+  }
+
+  // ── Shared bracket renderer ───────────────────────────────
+  // Builds bracket HTML from pairings + scores.
+  // seeds: array of { seed, name, name2 } for labelling (optional)
+  // highlightPlayer: name to highlight in green border (optional)
+  function buildBracketHTML(weekPairings, scores, week, seeds, highlightPlayer) {
+    const lockedRounds = [...new Set(weekPairings.map(p => parseInt(p.round)))].sort((a,b)=>a-b);
+    if (!lockedRounds.length) return '<p class="text-muted">No rounds played yet.</p>';
+
+    // Build seed lookup from provided seeds array
+    // If no seeds provided, derive from round 1 pairing order
+    const seedMap = {}; // name -> { seed, name2 }
+    if (seeds && seeds.length) {
+      seeds.forEach(s => {
+        seedMap[s.name] = s;
+        if (s.name2) seedMap[s.name2] = s;
+      });
+    } else {
+      // Derive seeds from round 1 game order: game 1 team1=seed1, team2=seed2, game 2 team1=seed3 etc.
+      const r1games = weekPairings
+        .filter(p => parseInt(p.round) === lockedRounds[0] && (p.type === 'game' || p.type === 'tourn-game'))
+        .sort((a,b) => String(a.court).localeCompare(String(b.court), undefined, {numeric:true}));
+      // Also include byes — top seeds get byes in round 1
+      const r1byes = weekPairings.filter(p => parseInt(p.round) === lockedRounds[0] && p.type === 'bye');
+      let seed = 1;
+      // Bye recipients are top seeds
+      r1byes.forEach(b => {
+        if (b.p1 && !seedMap[b.p1]) { seedMap[b.p1] = { seed, name: b.p1, name2: b.p2 || '' }; seed++; }
+      });
+      r1games.forEach(g => {
+        if (g.p1 && !seedMap[g.p1]) { seedMap[g.p1] = { seed, name: g.p1, name2: g.p2 || '' }; seed++; }
+        if (g.p3 && !seedMap[g.p3]) { seedMap[g.p3] = { seed, name: g.p3, name2: g.p4 || '' }; seed++; }
+      });
+    }
+
+    function getSeed(name) {
+      const s = seedMap[name];
+      return s ? `<span style="font-size:0.7rem; color:var(--muted);">#${s.seed}</span> ` : '';
+    }
+
+    function teamLabel(p1, p2) {
+      return `${getSeed(p1)}${p2 ? esc(p1) + ' <span style="color:var(--muted);">&amp;</span> ' + esc(p2) : esc(p1)}`;
+    }
+
+    let html = `<div style="overflow-x:auto; padding-bottom:8px;">
+      <div style="display:flex; gap:0; min-width:fit-content;">`;
+
+    lockedRounds.forEach((r, ri) => {
+      const roundGames = weekPairings.filter(g => g.round === r && (g.type === 'game' || g.type === 'tourn-game'));
+      const roundByes  = weekPairings.filter(g => g.round === r && g.type === 'bye');
+      const isLast     = ri === lockedRounds.length - 1;
+
+      html += `<div style="display:flex; flex-direction:column; min-width:210px;">
+        <div style="font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase;
+                    letter-spacing:0.05em; padding:4px 8px; margin-bottom:6px; text-align:center;">
+          Round ${r}
+        </div>`;
+
+      roundGames.forEach(g => {
+        const score = scores.find(s =>
+          parseInt(s.week) === week && parseInt(s.round) === r &&
+          String(s.court) === String(g.court)
+        );
+        const s1 = score ? score.score1 : '';
+        const s2 = score ? score.score2 : '';
+        const scored = s1 !== '' && s1 !== null && s2 !== '' && s2 !== null;
+        const t1win  = scored && parseInt(s1) > parseInt(s2);
+        const isMe1  = highlightPlayer && [g.p1, g.p2].includes(highlightPlayer);
+        const isMe2  = highlightPlayer && [g.p3, g.p4].includes(highlightPlayer);
+        const winStyle  = 'color:var(--green); font-weight:700;';
+        const loseStyle = 'color:rgba(255,255,255,0.35);';
+        const defStyle  = 'color:var(--white);';
+        const t1style = scored ? (t1win ? winStyle : loseStyle) : (isMe1 ? 'color:var(--white); font-weight:700;' : defStyle);
+        const t2style = scored ? (!t1win ? winStyle : loseStyle) : (isMe2 ? 'color:var(--white); font-weight:700;' : defStyle);
+        const scoreHtml = scored
+          ? `<span style="font-size:0.78rem; font-weight:700; color:var(--white);">${s1}–${s2}</span>`
+          : `<span style="font-size:0.72rem; color:var(--muted);">pending</span>`;
+        const border = (isMe1 || isMe2)
+          ? 'border:1px solid rgba(94,194,106,0.4);'
+          : 'border:1px solid rgba(255,255,255,0.08);';
+
+        html += `<div style="background:var(--card-bg); ${border} border-radius:8px; padding:7px 10px; margin:2px 4px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <div style="${t1style} font-size:0.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px;">
+              ${teamLabel(g.p1, g.p2)}
+            </div>
+            <div style="margin-left:6px; flex-shrink:0;">${scoreHtml}</div>
+          </div>
+          <div style="border-top:1px solid rgba(255,255,255,0.06); margin:3px 0;"></div>
+          <div style="${t2style} font-size:0.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px; margin-top:4px;">
+            ${teamLabel(g.p3, g.p4)}
+          </div>
+        </div>`;
+      });
+
+      roundByes.forEach(g => {
+        html += `<div style="background:rgba(122,155,181,0.07); border:1px dashed rgba(255,255,255,0.1);
+                    border-radius:8px; padding:7px 10px; margin:2px 4px;">
+          <div style="font-size:0.7rem; color:var(--muted); margin-bottom:2px;">⏸ BYE</div>
+          <div style="font-size:0.8rem; color:var(--white);">${teamLabel(g.p1, g.p2)}</div>
+        </div>`;
+      });
+
+      html += `</div>`;
+      if (!isLast) {
+        html += `<div style="display:flex; align-items:center; padding:0 2px; color:rgba(255,255,255,0.2); font-size:1.2rem;">›</div>`;
+      }
+    });
+
+    html += `</div></div>`;
+
+    // Champion banner
+    const lastRound = lockedRounds[lockedRounds.length - 1];
+    const lastGames = weekPairings.filter(g => g.round === lastRound && (g.type === 'game' || g.type === 'tourn-game'));
+    if (lastGames.length === 1) {
+      const fg = lastGames[0];
+      const fs = scores.find(s => parseInt(s.week) === week && parseInt(s.round) === lastRound && String(s.court) === String(fg.court));
+      if (fs && fs.score1 !== '' && fs.score1 !== null && fs.score2 !== '' && fs.score2 !== null) {
+        const t1win = parseInt(fs.score1) > parseInt(fs.score2);
+        const cP1 = t1win ? fg.p1 : fg.p3;
+        const cP2 = t1win ? fg.p2 : fg.p4;
+        const champName = cP2 ? `${esc(cP1)} &amp; ${esc(cP2)}` : esc(cP1);
+        const isMe = highlightPlayer && [cP1, cP2].includes(highlightPlayer);
+        html += `<div style="margin-top:16px; padding:14px 16px;
+          background:linear-gradient(135deg, rgba(245,200,66,0.15), rgba(245,200,66,0.05));
+          border:1px solid rgba(245,200,66,0.4); border-radius:10px; text-align:center;">
+          <div style="font-size:1.1rem; color:var(--gold); font-weight:700; margin-bottom:4px;">🏆 Tournament Champion</div>
+          <div style="font-size:1rem; color:${isMe ? 'var(--green)' : 'var(--white)'}; font-weight:700;">${champName}</div>
+          <div style="font-size:0.78rem; color:var(--muted); margin-top:4px;">Final: ${fs.score1} – ${fs.score2}</div>
+        </div>`;
+      }
+    }
+
+    return html;
+  }
+
+  // ── Admin Tournament Results page ─────────────────────────
+  function renderAdminTournamentResults() {
+    const week = state.currentTournWeek || state.currentSheetWeek;
+    state.currentTournWeek = week;
+    document.getElementById('tourn-week-label').textContent = `Session ${week}`;
+
+    const weekPairings = state.pairings.filter(p => parseInt(p.week) === week);
+    const isTournament = weekPairings.some(p => p.type === 'tourn-game');
+    const el = document.getElementById('admin-tourn-bracket');
+
+    if (!isTournament) {
+      el.innerHTML = '<p class="text-muted">No tournament data for this session.</p>';
+      return;
+    }
+
+    // Use seeds from active tournament state if available, else derive from pairings
+    const seeds = (state.tournament && state.tournament.week === week) ? state.tournament.seeds : null;
+    const weekScores = state.scores.filter(s => parseInt(s.week) === week);
+    el.innerHTML = buildBracketHTML(weekPairings, weekScores, week, seeds, null);
+  }
+
+  // ── Tournament ────────────────────────────────────────────
+  function renderTournamentStatus() {
+    const t = state.tournament;
+    if (!t) return;
+    const el = document.getElementById('tourn-status');
+    if (!el) return;
+
+    const week = t.week;
+    const modeLabel = t.mode === 'rr'     ? 'Round Robin (Reseeded)'
+                   : t.mode === 'double' ? 'Double Elimination' : 'Single Elimination';
+
+    // RR mode: show live standings table instead of bracket
+    if (t.mode === 'rr' && t.rrSeeds) {
+      const weekPairings = state.pairings.filter(p => parseInt(p.week) === t.week);
+      const weekScores   = state.scores.filter(s => parseInt(s.week) === t.week);
+      const liveSeeds = t.rrSeeds.map(s => ({ ...s, wins: 0, losses: 0, byes: 0 }));
+      const lockedRounds = [...new Set(weekPairings.map(p => parseInt(p.round)))].sort((a,b)=>a-b);
+      lockedRounds.forEach(r => {
+        weekPairings.filter(p => parseInt(p.round) === r).forEach(p => {
+          if (p.type === 'tourn-bye' || p.type === 'bye') {
+            const pl = liveSeeds.find(s => s.name === p.p1); if (pl) pl.byes++; return;
+          }
+          const sc = weekScores.find(s => parseInt(s.round) === r && String(s.court) === String(p.court));
+          if (!sc || sc.score1 === '' || sc.score1 === null) return;
+          const t1win = parseInt(sc.score1) > parseInt(sc.score2);
+          [p.p1, p.p2].filter(Boolean).forEach(n => { const pl = liveSeeds.find(s => s.name === n); if (pl) { if (t1win) pl.wins++; else pl.losses++; } });
+          [p.p3, p.p4].filter(Boolean).forEach(n => { const pl = liveSeeds.find(s => s.name === n); if (pl) { if (!t1win) pl.wins++; else pl.losses++; } });
+        });
+      });
+      liveSeeds.sort((a, b) => b.wins !== a.wins ? b.wins - a.wins : a.seed - b.seed);
+      let rrHtml = `<div style="font-size:0.78rem; color:var(--muted); margin-bottom:8px;">${modeLabel} · Session ${t.week} · Round ${t.round}</div>`;
+      rrHtml += `<table style="font-size:0.82rem; width:100%; border-collapse:collapse;">
+        <thead><tr>
+          <th style="text-align:left;padding:4px 8px;color:var(--muted);font-weight:500;">#</th>
+          <th style="text-align:left;padding:4px 8px;color:var(--muted);font-weight:500;">Player</th>
+          <th style="text-align:center;padding:4px 8px;color:var(--muted);font-weight:500;">W</th>
+          <th style="text-align:center;padding:4px 8px;color:var(--muted);font-weight:500;">L</th>
+          <th style="text-align:center;padding:4px 8px;color:var(--muted);font-weight:500;">Bye</th>
+        </tr></thead><tbody>`;
+      liveSeeds.forEach((s, i) => {
+        const gold = i === 0 && s.wins > 0;
+        rrHtml += `<tr style="${gold ? 'color:var(--gold);font-weight:700;' : ''}">
+          <td style="padding:4px 8px;">${i + 1}</td>
+          <td style="padding:4px 8px;">${esc(s.name)}</td>
+          <td style="padding:4px 8px;text-align:center;">${s.wins}</td>
+          <td style="padding:4px 8px;text-align:center;">${s.losses}</td>
+          <td style="padding:4px 8px;text-align:center;">${s.byes}</td>
+        </tr>`;
+      });
+      rrHtml += `</tbody></table>`;
+      el.innerHTML = rrHtml;
+      return;
+    }
+
+    // Helper: get seed label for a player name
+    function getSeed(name) {
+      const s = t.seeds.find(s => s.name === name || s.name2 === name);
+      if (!s) return '';
+      return s.name2 ? `#${s.seed}` : `#${s.seed}`;
+    }
+
+    function teamLabel(p1, p2) {
+      const seed = getSeed(p1);
+      const names = p2 ? `${esc(p1)} &amp; ${esc(p2)}` : esc(p1);
+      return `<span style="font-size:0.7rem; color:var(--muted);">${seed}</span> ${names}`;
+    }
+
+    // Collect all rounds that have been locked (exist in state.pairings for this week)
+    const weekPairings = state.pairings.filter(p => parseInt(p.week) === week);
+    const lockedRounds = [...new Set(weekPairings.map(p => parseInt(p.round)))].sort((a,b)=>a-b);
+
+    // Separate winners and losers bracket games
+    const wGames = []; // { round, p1,p2,p3,p4, score1,score2, winner }
+    const lGames = [];
+    const byes   = [];
+
+    weekPairings.forEach(p => {
+      const score = state.scores.find(s =>
+        parseInt(s.week) === week && parseInt(s.round) === parseInt(p.round) &&
+        String(s.court) === String(p.court)
+      );
+      const s1 = score ? score.score1 : '';
+      const s2 = score ? score.score2 : '';
+      const scored = s1 !== '' && s1 !== null && s2 !== '' && s2 !== null;
+      const t1win  = scored && parseInt(s1) > parseInt(s2);
+      const entry  = { round: parseInt(p.round), p1:p.p1, p2:p.p2, p3:p.p3, p4:p.p4,
+                       score1:s1, score2:s2, scored, t1win, court: p.court };
+      if (p.type === 'bye') {
+        byes.push(entry);
+      } else {
+        wGames.push(entry);
+      }
+    });
+
+    if (!lockedRounds.length && !t.seeds.length) {
+      el.innerHTML = '';
+      return;
+    }
+
+    // ── Bracket diagram ──────────────────────────────────────
+    // One column per round, match boxes stacked vertically
+    const allRounds = lockedRounds.length ? lockedRounds : [];
+    // Add pending round label if not yet locked
+    const pendingRound = t.round;
+    const displayRounds = allRounds.includes(pendingRound) ? allRounds
+      : [...allRounds, pendingRound];
+
+    let html = `<div style="font-size:0.78rem; color:var(--muted); margin-bottom:8px;">
+      ${modeLabel} · Session ${week} · Current Round: ${t.round}
+    </div>`;
+
+    // Status summary badges
+    const active   = t.seeds.filter(s => !s.eliminated);
+    const inW      = active.filter(s => !s.inLosersBracket);
+    const inL      = active.filter(s => s.inLosersBracket);
+    html += `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+      <span style="background:rgba(94,194,106,0.15); color:var(--green); border-radius:4px; padding:2px 8px; font-size:0.75rem;">
+        🏆 Winners: ${inW.length}
+      </span>
+      ${t.mode === 'double' && inL.length ? `<span style="background:rgba(245,200,66,0.15); color:var(--gold); border-radius:4px; padding:2px 8px; font-size:0.75rem;">⚡ Losers: ${inL.length}</span>` : ''}
+      <span style="background:rgba(255,255,255,0.06); color:var(--muted); border-radius:4px; padding:2px 8px; font-size:0.75rem;">
+        Eliminated: ${t.seeds.filter(s=>s.eliminated).length}
+      </span>
+    </div>`;
+
+    // Build bracket using shared renderer
+    if (allRounds.length) {
+      html += buildBracketHTML(weekPairings, state.scores, week, t.seeds, null);
+    }
+
+    // ── Seed reference table ──────────────────────────────────
+    html += `<details style="margin-top:10px;">
+      <summary style="font-size:0.78rem; color:var(--muted); cursor:pointer; user-select:none;">
+        Seed Reference
+      </summary>
+      <table style="font-size:0.75rem; width:100%; margin-top:6px;">
+        <thead><tr><th>Seed</th><th>Team</th><th>Status</th><th>W</th><th>L</th></tr></thead>
+        <tbody>`;
+    t.seeds.forEach(s => {
+      const status = s.eliminated
+        ? `<span style="color:var(--danger);">Out</span>`
+        : s.inLosersBracket
+          ? `<span style="color:var(--gold);">Losers</span>`
+          : `<span style="color:var(--green);">Winners</span>`;
+      const w = s.wBracketWins + s.lBracketWins;
+      const l = s.wBracketLosses + s.lBracketLosses;
+      const name = s.name2 ? `${esc(s.name)} &amp; ${esc(s.name2)}` : esc(s.name);
+      html += `<tr>
+        <td>#${s.seed}</td>
+        <td style="font-weight:600;">${name}</td>
+        <td>${status}</td>
+        <td>${w}</td><td>${l}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></details>`;
+
+    el.innerHTML = html;
+  }
+
+  function setupTournament() {
+    const genBtn  = document.getElementById('btn-tourn-generate');
+    const advBtn  = document.getElementById('btn-tourn-advance');
+    const lockBtn = document.getElementById('btn-tourn-lock');
+    const resetBtn = document.getElementById('btn-tourn-reset');
+    if (!genBtn) return;
+
+    genBtn.addEventListener('click', () => {
+      const week   = state.currentPairWeek;
+      const mode   = document.getElementById('tourn-mode').value;
+      const courts = parseInt(state.config.courts || 3);
+
+      const presentPlayers = state.players
+        .filter(p => p.active !== false)
+        .filter(p => {
+          const rec = state.attendance.find(a => a.player === p.name && String(a.week) === String(week));
+          return rec && rec.status === 'present';
+        })
+        .map(p => p.name);
+
+      const gameMode = state.config.gameMode || 'doubles';
+      const doubles  = gameMode !== 'singles';
+
+      if (presentPlayers.length < 2) {
+        toast('Need at least 2 present players for a tournament.', 'warn'); return;
+      }
+
+      // Doubles requires an even number of players so every team has 2 members
+      if (doubles && presentPlayers.length % 2 !== 0) {
+        toast(
+          `Doubles tournament requires an even number of players. ` +
+          `You currently have ${presentPlayers.length} marked present. ` +
+          `Please mark one more player as present, or mark one as absent, then try again.`,
+          'warn'
+        );
+        return;
+      }
+
+      const existing = state.pairings.filter(p => parseInt(p.week) === week);
+      if (existing.length && !confirm(`Session ${week} already has pairings. Replace with tournament bracket?`)) return;
+      const result = Tournament.generateTournament(presentPlayers, courts, week, mode, state.standings, doubles, state.players);
+      if (result.error) { toast(result.error, 'error'); return; }
+
+      state.tournament = { week, mode, round: 1, seeds: result.seeds };
+      state.pendingPairings = result.pairings;
+      document.getElementById('btn-lock-pairings').disabled = false;
+      if (lockBtn) lockBtn.classList.remove('hidden');
+      document.getElementById('optimizer-status').classList.add('hidden');
+      renderPairingsPreview();
+      toast(`${mode === 'double' ? 'Double' : 'Single'} elimination bracket generated for ${presentPlayers.length} players.`);
+    });
+
+    advBtn.addEventListener('click', async () => {
+      const t = state.tournament;
+      if (!t) return;
+      const week = t.week;
+
+      // Check all games in current round have scores
+      const roundPairings = state.pairings.filter(p =>
+        parseInt(p.week) === week && parseInt(p.round) === t.round && (p.type === 'game' || p.type === 'tourn-game')
+      );
+      const roundScores = state.scores.filter(s => parseInt(s.week) === week && parseInt(s.round) === t.round);
+      const unscoredGames = roundPairings.filter(game =>
+        !roundScores.find(s => String(s.court) === String(game.court) &&
+          s.score1 !== '' && s.score2 !== '' && s.score1 !== null && s.score2 !== null)
+      );
+
+      if (unscoredGames.length) {
+        if (!confirm(`${unscoredGames.length} game(s) in round ${t.round} have no scores. Advance anyway? Those players will be treated as tied.`)) return;
+      }
+
+      if (t.mode === 'rr') {
+        const weekPairings = state.pairings.filter(p => parseInt(p.week) === week);
+        const weekScores   = state.scores.filter(s => parseInt(s.week) === week);
+        const rrResult = Tournament.advanceRoundRR(
+          t.rrSeeds, weekPairings, weekScores, t.round,
+          parseInt(state.config.courts || 3), week, t.doubles
+        );
+        t.rrSeeds = rrResult.rrSeeds;
+        state.tournament.round++;
+        state.pendingPairings = rrResult.pairings;
+        document.getElementById('btn-lock-pairings').disabled = false;
+        if (lockBtn) lockBtn.classList.remove('hidden');
+        renderPairingsPreview();
+        toast(`Round ${state.tournament.round} ready — review and lock to save.`);
+        return;
+      }
+
+      const result = Tournament.advanceTournament(t.seeds, roundScores, t.round, parseInt(state.config.courts || 3), week, t.mode);
+
+      state.tournament.seeds = result.seeds;
+
+      if (result.done) {
+        state.tournament = null;
+        const msg = result.champion ? `🏆 Tournament complete! Champion: ${result.champion}` : '🏆 Tournament complete!';
+        toast(msg);
+        const statusEl = document.getElementById('tourn-status');
+        if (statusEl) statusEl.innerHTML = `<div style="font-size:1rem; color:var(--gold); font-weight:700; padding:8px 0;">${esc(msg)}</div>`;
+        advBtn.classList.add('hidden');
+        resetBtn.classList.add('hidden');
+        if (lockBtn) lockBtn.classList.add('hidden');
+        renderPairingsPreview();
+        return;
+      }
+
+      state.tournament.round++;
+      // Keep tourn- types in pendingPairings for display/advance logic,
+      // they get normalized to game/bye at lock time
+      state.pendingPairings = result.pairings;
+      document.getElementById('btn-lock-pairings').disabled = false;
+      if (lockBtn) lockBtn.classList.remove('hidden');
+      renderPairingsPreview();
+      toast(`Round ${state.tournament.round} bracket ready — review and lock to save.`);
+    });
+
+    lockBtn?.addEventListener('click', () => {
+      // Trigger the main lock & save button — identical behaviour
+      document.getElementById('btn-lock-pairings').click();
+      lockBtn.classList.add('hidden');
+    });
+
+    resetBtn.addEventListener('click', () => {
+      if (!confirm('Reset tournament? This clears tournament tracking but keeps existing pairings.')) return;
+      state.tournament = null;
+      state.pendingPairings = null;
+      advBtn.classList.add('hidden');
+      resetBtn.classList.add('hidden');
+      if (lockBtn) lockBtn.classList.add('hidden');
+      const statusEl = document.getElementById('tourn-status');
+      if (statusEl) statusEl.innerHTML = '';
+      renderPairingsPreview();
+      toast('Tournament reset.');
+    });
+  }
+
   // ── Events ─────────────────────────────────────────────────
   function setupEvents() {
+    setupEditPairing();
+    setupTournament();
     // Save config
     document.getElementById('btn-save-config').addEventListener('click', async () => {
       const weeks = parseInt(document.getElementById('cfg-weeks').value);
@@ -756,6 +1499,10 @@
         location:       document.getElementById('cfg-location').value.trim(),
         sessionTime:    document.getElementById('cfg-time').value.trim(),
         notes:          document.getElementById('cfg-notes').value.trim(),
+        leagueUrl:           document.getElementById('cfg-league-url').value.trim(),
+        allowRegistration:   document.getElementById('cfg-allow-registration').checked,
+        registrationCode:    document.getElementById('cfg-reg-code').value.trim(),
+        maxPendingReg:       parseInt(document.getElementById('cfg-reg-max-pending').value) || 10,
         rules:          document.getElementById('cfg-rules').value.trim(),
         adminPin:       document.getElementById('cfg-admin-pin').value || state.config.adminPin,
         replyTo:        document.getElementById('cfg-reply-to').value.trim(),
@@ -772,10 +1519,13 @@
         wByeVariance:     parseFloat(document.getElementById('cfg-w-bye-variance').value),
         wSessionBye:      parseFloat(document.getElementById('cfg-w-session-bye').value),
         wRankBalance:     parseFloat(document.getElementById('cfg-w-rank-balance').value),
+        wRankStdDev:      parseFloat(document.getElementById('cfg-w-rank-std-dev').value),
       };
       for (let w = 1; w <= weeks; w++) {
         const el = document.getElementById('cfg-date-' + w);
         if (el) config['date_' + w] = el.value;
+        const tel = document.getElementById('cfg-time-' + w);
+        if (tel) config['time_' + w] = tel.value;
       }
       const numCourts = parseInt(document.getElementById('cfg-courts').value);
       for (let cn = 1; cn <= numCourts; cn++) {
@@ -791,6 +1541,75 @@
         renderAttendance();
       } catch (e) { toast('Save failed: ' + e.message, 'error'); }
       finally { showLoading(false); }
+    });
+
+    // Send league message
+    document.getElementById('btn-send-message').addEventListener('click', async () => {
+      const subject = document.getElementById('msg-subject').value.trim();
+      const body    = document.getElementById('msg-body').value.trim();
+      if (!subject) { toast('Please enter a subject.', 'warn'); return; }
+      if (!body)    { toast('Please enter a message.', 'warn'); return; }
+
+      const recipients = state.players.filter(p => p.active !== false && p.email);
+      if (!recipients.length) {
+        toast('No players have email addresses on file.', 'warn'); return;
+      }
+      if (!confirm(`Send to ${recipients.length} player(s)?`)) return;
+
+      // Build optional league info sections
+      const c = state.config;
+      const incName     = document.getElementById('msg-inc-name').checked;
+      const incLocation = document.getElementById('msg-inc-location').checked;
+      const incTime     = document.getElementById('msg-inc-time').checked;
+      const incRules    = document.getElementById('msg-inc-rules').checked;
+      const incDates    = document.getElementById('msg-inc-dates').checked;
+      const incUrl      = document.getElementById('msg-inc-url').checked;
+      const incPlayers  = document.getElementById('msg-inc-players').checked;
+
+      const leagueInfo = {
+        leagueName:  incName     ? (c.leagueName  || '') : '',
+        location:    incLocation ? (c.location    || '') : '',
+        sessionTime: incTime     ? (c.sessionTime || '') : '',
+        rules:       incRules    ? (c.rules       || '') : '',
+        leagueUrl:   incUrl      ? (c.leagueUrl || '') : '',
+        players:     incPlayers  ? state.players.filter(p => p.active !== false).map(p => p.name) : [],
+        dates:       incDates    ? (() => {
+          const weeks = parseInt(c.weeks || 8);
+          const d = [];
+          for (let w = 1; w <= weeks; w++) {
+            if (c['date_' + w] || c['time_' + w]) d.push({ week: w, date: c['date_' + w] || '', time: c['time_' + w] || '' });
+          }
+          return d;
+        })() : [],
+      };
+
+      showLoading(true);
+      const statusEl = document.getElementById('msg-status');
+      try {
+        const result = await API.sendLeagueMessage({
+          subject,
+          body,
+          leagueInfo,
+          replyTo: c.replyTo || '',
+          recipients: recipients.map(p => ({ name: p.name, email: p.email })),
+        });
+        statusEl.textContent = `✓ Sent to ${result.sent} player(s).`;
+        statusEl.style.color = 'var(--green)';
+        if (result.errors && result.errors.length) {
+          statusEl.textContent += ' Some failed: ' + result.errors.join(', ');
+        }
+      } catch (e) {
+        statusEl.textContent = 'Send failed: ' + e.message;
+        statusEl.style.color = 'var(--danger)';
+      } finally { showLoading(false); }
+    });
+
+    // Generate random invite code
+    document.getElementById('btn-gen-reg-code')?.addEventListener('click', () => {
+      const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+      let code = '';
+      for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+      document.getElementById('cfg-reg-code').value = code;
     });
 
     // Add player
@@ -812,8 +1631,11 @@
             pin:    row.querySelector('[data-field="pin"]').value.trim(),
             group:  row.querySelector('[data-field="group"]').value,
             email:  row.querySelector('[data-field="email"]').value.trim(),
-            notify: row.querySelector('[data-field="notify"]').checked,
-            active: row.querySelector('[data-field="active"]').value === 'true'
+            notify:       row.querySelector('[data-field="notify"]').checked,
+            canScore:     row.querySelector('[data-field="canScore"]').checked,
+            initialRank:  (() => { const v = row.querySelector('[data-field="initialRank"]').value; return v ? parseInt(v) : null; })(),
+            role:         row.querySelector('[data-field="role"]').value || null,
+            active:       row.querySelector('[data-field="active"]').value === 'true'
           });
         }
       });
@@ -833,28 +1655,123 @@
     setupWeekNav('pair-week-prev', 'pair-week-next', 'currentPairWeek', () => {
       state.pendingPairings = null;
       renderPairingsPreview();
+      const epWeek = document.getElementById('ep-week');
+      if (epWeek) epWeek.value = state.currentPairWeek;
     });
-    setupWeekNav('score-week-prev', 'score-week-next', 'currentScoreWeek', renderScoresheet);
+    setupWeekNav('score-week-prev', 'score-week-next', 'currentScoreWeek', async () => {
+      // Fetch fresh scores for the newly selected week
+      try {
+        const data = await API.getScores(state.currentScoreWeek);
+        if (data && data.scores) {
+          const week = state.currentScoreWeek;
+          state.scores = state.scores.filter(s => parseInt(s.week) !== week);
+          state.scores.push(...data.scores.filter(s => parseInt(s.week) === week));
+        }
+      } catch (e) { /* use cached */ }
+      renderScoresheet();
+    });
+
+    document.getElementById('btn-refresh-scoresheet').addEventListener('click', async () => {
+      const btn = document.getElementById('btn-refresh-scoresheet');
+      btn.disabled = true; btn.textContent = '⏳';
+      try {
+        const data = await API.getScores(state.currentScoreWeek);
+        if (data && data.scores) {
+          const week = state.currentScoreWeek;
+          state.scores = state.scores.filter(s => parseInt(s.week) !== week);
+          state.scores.push(...data.scores.filter(s => parseInt(s.week) === week));
+        }
+        renderScoresheet();
+        toast('Scores refreshed.');
+      } catch (e) { toast('Refresh failed: ' + e.message, 'error'); }
+      finally { btn.disabled = false; btn.textContent = '🔄 Refresh'; }
+    });
+    // Tournament results week nav
+    setupWeekNav('tourn-week-prev', 'tourn-week-next', 'currentTournWeek', renderAdminTournamentResults);
+
+    // Refresh button for tournament results
+    document.getElementById('btn-refresh-tourn-results').addEventListener('click', () => {
+      renderAdminTournamentResults();
+      toast('Bracket refreshed.');
+    });
+
+    // Email tournament bracket results
+    document.getElementById('btn-send-tourn-report').addEventListener('click', async () => {
+      const week = state.currentTournWeek || state.currentSheetWeek;
+      const recipients = state.players.filter(p => p.active !== false && p.notify && p.email);
+      if (!recipients.length) {
+        toast('No players have email notifications enabled.', 'warn'); return;
+      }
+      if (!confirm(`Send Session ${week} tournament bracket to ${recipients.length} player(s)?`)) return;
+
+      const weekScores   = state.scores.filter(s => parseInt(s.week) === week);
+      const weekPairings = state.pairings.filter(p => parseInt(p.week) === week &&
+        (p.type === 'game' || p.type === 'tourn-game' || p.type === 'bye'));
+      const weekDate     = formatDateTime(week, state.config);
+
+      showLoading(true);
+      try {
+        await API.sendTournamentReport({
+          week,
+          weekDate,
+          leagueName: state.config.leagueName || 'Pickleball League',
+          replyTo:    state.config.replyTo    || '',
+          leagueUrl:  state.config.leagueUrl  || '',
+          weekScores,
+          weekPairings,
+          recipients: recipients.map(p => ({ name: p.name, email: p.email })),
+        });
+        toast(`Session ${week} tournament bracket sent to ${recipients.length} player(s)!`);
+      } catch (e) { toast('Send failed: ' + e.message, 'error'); }
+      finally { showLoading(false); }
+    });
+
     setupWeekNav('stand-week-prev', 'stand-week-next', 'currentStandWeek', () => {
       const weekStand = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, state.currentStandWeek, state.config.rankingMethod);
       document.getElementById('standings-weekly-table').innerHTML = renderStandingsTable(weekStand);
-      document.getElementById('stand-week-label').textContent = `Week ${state.currentStandWeek}`;
+      const swDate = formatDateTime(state.currentStandWeek, state.config);
+      document.getElementById('stand-week-label').textContent = `Session ${state.currentStandWeek}${swDate ? ' — ' + swDate : ''}`;
     });
 
     // Generate pairings
     document.getElementById('btn-generate').addEventListener('click', () => {
       const week = state.currentPairWeek;
+      const scope = document.getElementById('round-scope')?.value || 'all';
+      const totalRounds = parseInt(state.config.gamesPerSession || 7);
+      const lockedRounds = [...new Set(
+        state.pairings.filter(p => parseInt(p.week) === week).map(p => parseInt(p.round))
+      )].sort((a,b)=>a-b);
 
-      // Block generation if scores already exist for this week
-      const hasScores = state.scores.some(s => parseInt(s.week) === week);
+      // Determine which rounds to generate
+      let startRound, rounds;
+      if (scope === 'all') {
+        startRound = 1;
+        rounds = totalRounds;
+      } else if (scope === 'remaining') {
+        const nextRound = lockedRounds.length ? Math.max(...lockedRounds) + 1 : 1;
+        startRound = nextRound;
+        rounds = totalRounds - nextRound + 1;
+        if (rounds <= 0) {
+          toast(`All ${totalRounds} rounds are already generated for Session ${week}.`, 'warn'); return;
+        }
+      } else {
+        // Specific round
+        startRound = parseInt(scope);
+        rounds = 1;
+      }
+
+      // Block generation if scores exist for the rounds being generated
+      const hasScores = state.scores.some(s =>
+        parseInt(s.week) === week && parseInt(s.round) >= startRound &&
+        parseInt(s.round) < startRound + rounds
+      );
       if (hasScores) {
-        toast(`Week ${week} already has scores entered. Use the 🗑 Clear Week button to remove all pairings and scores before generating new pairings.`, 'warn');
+        toast(`Scores already exist for the selected round(s). Clear them first.`, 'warn');
         return;
       }
 
       const weeks = parseInt(state.config.weeks || 8);
       const courts = parseInt(state.config.courts || 3);
-      const rounds = parseInt(state.config.gamesPerSession || 7);
       const tries = parseInt(state.config.optimizerTries || 100);
 
       // Get present players for this week
@@ -870,7 +1787,12 @@
       const singles      = gameMode === 'singles';
       const playersPerCourt = singles ? 2 : 4;
       if (presentPlayers.length < courts * playersPerCourt) {
-        toast(`Need at least ${courts * playersPerCourt} players, only ${presentPlayers.length} available.`, 'warn');
+        const maxCourts = Math.floor(presentPlayers.length / playersPerCourt);
+        if (maxCourts === 0) {
+          toast(`Not enough players to fill even one court (${presentPlayers.length} present, need ${playersPerCourt}). No pairings generated.`, 'warn');
+          return;
+        }
+        toast(`Only ${presentPlayers.length} players present — pairings generated for ${maxCourts} of ${courts} court${maxCourts !== 1 ? 's' : ''}. Remaining players will receive a bye.`, 'warn');
       }
 
       // Show pickleball spinner and defer heavy work so browser paints first
@@ -882,7 +1804,11 @@
 
       setTimeout(() => {
         try {
+          // Include already-locked rounds of this week as session history for the optimizer
           const pastPairings = state.pairings.filter(p => parseInt(p.week) < week);
+          const lockedThisWeek = state.pairings.filter(p =>
+            parseInt(p.week) === week && parseInt(p.round) < startRound
+          );
 
           const weights = {
             sessionPartnerWeight:  state.config.wSessionPartner  ?? Pairings.DEFAULTS.sessionPartnerWeight,
@@ -891,7 +1817,8 @@
             historyOpponentWeight: state.config.wHistoryOpponent ?? Pairings.DEFAULTS.historyOpponentWeight,
             byeVarianceWeight:     state.config.wByeVariance     ?? Pairings.DEFAULTS.byeVarianceWeight,
             sessionByeWeight:      state.config.wSessionBye      ?? Pairings.DEFAULTS.sessionByeWeight,
-            rankBalanceWeight:     state.config.wRankBalance     ?? Pairings.DEFAULTS.rankBalanceWeight,
+            rankBalanceWeight:          state.config.wRankBalance           ?? Pairings.DEFAULTS.rankBalanceWeight,
+            rankStdDevWeight:           state.config.wRankStdDev            ?? Pairings.DEFAULTS.rankStdDevWeight,
           };
 
           const playerGroups = {};
@@ -902,6 +1829,8 @@
             standings: state.standings,
             gameMode,
             playerGroups,
+            startRound,
+            sessionHistory: lockedThisWeek,
           });
 
           overlay.classList.add('hidden');
@@ -913,7 +1842,18 @@
             toast(`⚠️ Mixed doubles: ${breakdown.mixedViolations.raw} same-gender partnership(s) could not be avoided — check player groups and attendance.`, 'warn');
           }
 
-          state.pendingPairings = result.map(p => ({ ...p, week }));
+          // Merge newly generated rounds with already-locked rounds of this week
+          const otherRounds = state.pairings.filter(p =>
+            parseInt(p.week) === week &&
+            (parseInt(p.round) < startRound || parseInt(p.round) >= startRound + rounds)
+          );
+          const newRounds = result.map(p => ({ ...p, week,
+            round: p.round + startRound - 1  // offset round numbers to correct position
+          }));
+          state.pendingPairings = [
+            ...otherRounds,
+            ...newRounds,
+          ].sort((a,b) => parseInt(a.round)-parseInt(b.round) || String(a.court).localeCompare(String(b.court), undefined, {numeric:true}));
 
           document.getElementById('optimizer-status').classList.remove('hidden');
           document.getElementById('optimizer-score').textContent = score.toFixed(1);
@@ -928,7 +1868,8 @@
         historyOpponent: 'Repeat Opponent (prior weeks)',
         sessionBye:      'Byes this session',
         byeVariance:     'Bye spread (season)',
-        rankBalance:     'Rank imbalance',
+        rankBalance:         'Rank imbalance',
+        rankStdDev:          'Rank std dev (all-player spread)',
       };
           if (breakdown) {
         // Map criterion key -> user weight and normalized weight
@@ -939,7 +1880,8 @@
           historyOpponent: 'historyOpponentWeight',
           sessionBye:      'sessionByeWeight',
           byeVariance:     'byeVarianceWeight',
-          rankBalance:     'rankBalanceWeight',
+          rankBalance:         'rankBalanceWeight',
+          rankStdDev:          'rankStdDevWeight',
         };
         let bhtml = `<table style="font-size:0.78rem; width:100%; border-collapse:collapse; margin-top:4px;">
           <thead><tr>
@@ -955,7 +1897,7 @@
           // User weight from the weights object passed to optimize
           const userW = wKey ? (weights[wKey] ?? Pairings.DEFAULTS[wKey] ?? '—') : '—';
           // Normalized weight from calibration (v.weight is now the normalized value)
-          const normW = (wKey && normalizedWeights) ? normalizedWeights[wKey].toFixed(2) : '—';
+          const normW = (wKey && normalizedWeights && normalizedWeights[wKey] != null) ? normalizedWeights[wKey].toFixed(2) : '—';
           bhtml += `<tr style="${nonzero ? 'color:var(--white);' : 'color:var(--muted);'}">
             <td style="padding:3px 8px;">${LABELS[key] || key}</td>
             <td style="text-align:right; padding:3px 8px;">${v.raw.toFixed(2)}</td>
@@ -984,13 +1926,25 @@
       const week = state.currentPairWeek;
       showLoading(true);
       try {
-        await API.savePairings(week, state.pendingPairings);
-        // Remove old pairings for this week from local state and add new
+        // Preserve tourn-game as a distinct type so tournament sessions
+        // can be detected later. Only tourn-bye normalizes to bye.
+        const normalizedPairings = state.pendingPairings.map(p => ({
+          ...p,
+          type: p.type === 'tourn-bye' ? 'bye'
+              : (p.type === 'tourn-game' || p.type === 'tourn-loser-game' || p.type === 'tourn-grand-final') ? 'tourn-game'
+              : p.type
+        }));
+        // For tournament rounds, preserve existing rounds by merging all week pairings
+        // (savePairings replaces the whole week, so we must send all rounds together)
+        const existingWeekPairings = state.pairings.filter(p => parseInt(p.week) === week);
+        const allWeekPairings = [...existingWeekPairings, ...normalizedPairings];
+        await API.savePairings(week, allWeekPairings);
+        // Update local state — add new round without removing existing rounds
         state.pairings = state.pairings.filter(p => parseInt(p.week) !== week);
-        state.pairings.push(...state.pendingPairings);
+        state.pairings.push(...allWeekPairings);
         state.pendingPairings = null;
         document.getElementById('btn-lock-pairings').disabled = true;
-        toast(`Pairings for Week ${week} saved!`);
+        toast(`Pairings for Session ${week} saved!`);
         renderPairingsPreview();
         renderScoresheet();
       } catch (e) { toast('Save failed: ' + e.message, 'error'); }
@@ -999,23 +1953,65 @@
 
     // Clear pairings (and scores for that week)
     document.getElementById('btn-clear-pairings').addEventListener('click', async () => {
+      if (isAssistant) { toast('Admin assistants cannot delete pairings.', 'warn'); return; }
       const week = state.currentPairWeek;
-      const hasScores = state.scores.some(s => parseInt(s.week) === week);
-      const msg = hasScores
-        ? `Clear all pairings AND scores for Week ${week}? This cannot be undone.`
-        : `Clear all pairings for Week ${week}?`;
+      const scope = document.getElementById('round-scope')?.value || 'all';
+      const totalRounds = parseInt(state.config.gamesPerSession || 7);
+      const lockedRounds = [...new Set(
+        state.pairings.filter(p => parseInt(p.week) === week).map(p => parseInt(p.round))
+      )].sort((a,b)=>a-b);
+
+      // Determine which rounds to clear
+      let clearRounds;
+      if (scope === 'all') {
+        clearRounds = null; // all rounds
+      } else if (scope === 'remaining') {
+        const nextRound = lockedRounds.length ? Math.max(...lockedRounds) + 1 : 1;
+        clearRounds = Array.from({length: totalRounds - nextRound + 1}, (_, i) => nextRound + i);
+      } else {
+        clearRounds = [parseInt(scope)];
+      }
+
+      const scopeLabel = scope === 'all' ? `all rounds of Session ${week}`
+        : scope === 'remaining' ? `remaining rounds of Session ${week}`
+        : `Round ${scope} of Session ${week}`;
+
+      const affectedScores = state.scores.filter(s =>
+        parseInt(s.week) === week &&
+        (!clearRounds || clearRounds.includes(parseInt(s.round)))
+      );
+      const msg = affectedScores.length
+        ? `Clear pairings AND scores for ${scopeLabel}? This cannot be undone.`
+        : `Clear pairings for ${scopeLabel}?`;
       if (!confirm(msg)) return;
+
       showLoading(true);
       try {
-        await API.savePairings(week, []);
-        state.pairings = state.pairings.filter(p => parseInt(p.week) !== week);
+        if (clearRounds) {
+          // Partial clear — keep other rounds, save updated set
+          const kept = state.pairings.filter(p =>
+            parseInt(p.week) !== week || !clearRounds.includes(parseInt(p.round))
+          );
+          const weekKept = kept.filter(p => parseInt(p.week) === week);
+          await API.savePairings(week, weekKept);
+          state.pairings = kept;
+        } else {
+          // Clear entire week
+          await API.savePairings(week, []);
+          state.pairings = state.pairings.filter(p => parseInt(p.week) !== week);
+        }
         state.pendingPairings = null;
-        if (hasScores) {
-          await API.saveScores(week, []);
-          state.scores = state.scores.filter(s => parseInt(s.week) !== week);
+
+        if (affectedScores.length) {
+          const keptScores = state.scores.filter(s =>
+            parseInt(s.week) !== week || !(!clearRounds || clearRounds.includes(parseInt(s.round)))
+          );
+          const weekKeptScores = keptScores.filter(s => parseInt(s.week) === week);
+          await API.saveScores(week, weekKeptScores);
+          state.scores = keptScores;
           state.standings = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod);
         }
-        toast(`Week ${week} cleared.`);
+        toast(`${scopeLabel.charAt(0).toUpperCase() + scopeLabel.slice(1)} cleared.`);
         renderPairingsPreview();
         renderScoresheet();
       } catch (e) { toast('Failed: ' + e.message, 'error'); }
@@ -1025,7 +2021,7 @@
     // Save scores
     document.getElementById('btn-save-scores').addEventListener('click', async () => {
       const week = state.currentScoreWeek;
-      const weekPairings = state.pairings.filter(p => parseInt(p.week) === week && p.type === 'game');
+      const weekPairings = state.pairings.filter(p => parseInt(p.week) === week && (p.type === 'game' || p.type === 'tourn-game'));
       const scores = [];
 
       document.querySelectorAll('#scoresheet [data-round]').forEach(card => {
@@ -1046,6 +2042,28 @@
         }
       });
 
+      // Warn if any scores being saved would overwrite existing different scores
+      const overwritten = scores.filter(s => {
+        const existing = state.scores.find(e =>
+          parseInt(e.week) === week && parseInt(e.round) === s.round && String(e.court) === String(s.court)
+        );
+        return existing &&
+          (String(existing.score1) !== String(s.score1) || String(existing.score2) !== String(s.score2));
+      });
+      if (isAssistant && overwritten.length) {
+        toast('Scores already exist for some games. Admin assistants cannot overwrite existing scores.', 'warn');
+        return;
+      }
+      if (overwritten.length) {
+        const msg = overwritten.map(s => {
+          const ex = state.scores.find(e =>
+            parseInt(e.week) === week && parseInt(e.round) === s.round && String(e.court) === String(s.court)
+          );
+          return `Round ${s.round} ${courtName(s.court)}: existing ${ex.score1}–${ex.score2} → new ${s.score1}–${s.score2}`;
+        }).join('\n');
+        if (!confirm(`⚠️ These scores already exist and will be overwritten:\n${msg}\n\nSave anyway?`)) return;
+      }
+
       // Warn on tied scores before saving
       const ties = scores.filter(s => s.score1 === s.score2);
       if (ties.length) {
@@ -1060,12 +2078,12 @@
         state.scores.push(...scores);
         // Refresh standings
         state.standings = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod);
-        toast(`Scores for Week ${week} saved!`);
+        toast(`Scores for Session ${week} saved!`);
       } catch (e) { toast('Save failed: ' + e.message, 'error'); }
       finally { showLoading(false); }
     });
 
-    // Send weekly email report
+    // Send session email report
     document.getElementById('btn-send-report').addEventListener('click', async () => {
       const week = state.currentScoreWeek;
       const recipients = state.players.filter(p => p.active !== false && p.notify && p.email);
@@ -1073,14 +2091,14 @@
         toast('No players have email notifications enabled.', 'warn');
         return;
       }
-      if (!confirm(`Send Week ${week} results to ${recipients.length} player(s)?`)) return;
+      if (!confirm(`Send Session ${week} results to ${recipients.length} player(s)?`)) return;
 
       // Build report data
       const weekScores   = state.scores.filter(s => parseInt(s.week) === week);
-      const weekPairings = state.pairings.filter(p => parseInt(p.week) === week && p.type === 'game');
+      const weekPairings = state.pairings.filter(p => parseInt(p.week) === week && (p.type === 'game' || p.type === 'tourn-game'));
       const weekStand    = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, week);
       const seasonStand  = Reports.computeStandings(state.scores, state.players, state.pairings);
-      const weekDate     = state.config['date_' + week] ? formatDate(state.config['date_' + week]) : '';
+      const weekDate     = formatDateTime(week, state.config);
 
       showLoading(true);
       try {
@@ -1092,6 +2110,7 @@
           sessionTime:  state.config.sessionTime || '',
           notes:        state.config.notes       || '',
           replyTo:      state.config.replyTo     || '',
+          leagueUrl:    state.config.leagueUrl    || '',
           weekScores,
           weekPairings,
           weekStandings:  weekStand,
@@ -1103,7 +2122,7 @@
             ])
           ),
         });
-        toast(`Week ${week} results sent to ${recipients.length} player(s)!`);
+        toast(`Session ${week} results sent to ${recipients.length} player(s)!`);
       } catch (e) { toast('Send failed: ' + e.message, 'error'); }
       finally { showLoading(false); }
     });
@@ -1111,6 +2130,30 @@
     // Player report select
     document.getElementById('report-player-select').addEventListener('change', e => {
       renderPlayerReport(e.target.value);
+      document.getElementById('btn-email-player-report').disabled = !e.target.value;
+    });
+
+    document.getElementById('btn-email-player-report').addEventListener('click', async () => {
+      const playerName = document.getElementById('report-player-select').value;
+      if (!playerName) return;
+      const player = state.players.find(p => p.name === playerName);
+      if (!player || !player.email) {
+        toast(`${playerName} has no email address on file.`, 'warn'); return;
+      }
+      if (!confirm(`Email report for ${playerName} to ${player.email}?`)) return;
+      const report = Reports.computePlayerReport(playerName, state.scores, state.standings);
+      showLoading(true);
+      try {
+        await API.sendPlayerReport({
+          playerName,
+          email: player.email,
+          report,
+          leagueName: state.config.leagueName || 'Pickleball League',
+          replyTo:    state.config.replyTo    || '',
+        });
+        toast(`Report emailed to ${player.email}.`);
+      } catch (e) { toast('Send failed: ' + e.message, 'error'); }
+      finally { showLoading(false); }
     });
 
     // Add league toggle
@@ -1129,20 +2172,26 @@
       const name     = document.getElementById('new-league-name').value.trim();
       const sheetId  = document.getElementById('new-league-sheet').value.trim();
 
-      if (!leagueId || !name || !sheetId) {
-        toast('All three fields are required.', 'warn'); return;
+      if (!leagueId || !name) {
+        toast('League ID and Display Name are required.', 'warn'); return;
       }
 
       showLoading(true);
       try {
-        const sourceLeagueId = Auth.getSession()?.leagueId;
-        const copyConfig  = document.getElementById('new-league-copy-config').checked;
-        const copyPlayers = document.getElementById('new-league-copy-players').checked;
-        const result = await API.addLeague(leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers);
+        const sourceLeagueId  = Auth.getSession()?.leagueId;
+        const copyConfig      = document.getElementById('new-league-copy-config').checked;
+        const copyPlayers     = document.getElementById('new-league-copy-players').checked;
+        const canCreateLeagues = document.getElementById('new-league-can-create').checked;
+        const hidden = document.getElementById('new-league-hidden').checked;
+        const result = await API.addLeague(leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden);
         if (result.warnings && result.warnings.length) {
           result.warnings.forEach(w => toast('Copy warning: ' + w, 'warn'));
         }
-        toast(`League "${name}" added!`);
+        if (result.sheetUrl) {
+          toast(`League "${name}" added! Sheet created: ${result.sheetUrl}`);
+        } else {
+          toast(`League "${name}" added!`);
+        }
         document.getElementById('new-league-id').value = '';
         document.getElementById('new-league-name').value = '';
         document.getElementById('new-league-sheet').value = '';
@@ -1155,19 +2204,36 @@
   }
 
   // ── Leagues ────────────────────────────────────────────────
+  function updateTournamentResultsNav() {
+    const hasTournament = state.pairings.some(p => p.type === 'tourn-game');
+    const navEl = document.getElementById('nav-tourn-results');
+    if (navEl) navEl.classList.toggle('hidden', !hasTournament);
+    if (hasTournament && !state.currentTournWeek) {
+      // Default to latest tournament week
+      const tournWeeks = [...new Set(
+        state.pairings.filter(p => p.type === 'tourn-game').map(p => parseInt(p.week))
+      )].sort((a,b)=>b-a);
+      if (tournWeeks.length) state.currentTournWeek = tournWeeks[0];
+    }
+  }
+
   async function renderLeagues() {
     const session = Auth.getSession();
     let leagues = [];
     try {
-      const data = await API.getLeagues();
+      const data = await API.getLeaguesAll(); // admin always sees all leagues including hidden
       leagues = data.leagues || [];
     } catch (e) {
       toast('Failed to load leagues: ' + e.message, 'error');
     }
 
+    // Gate + Add League button from the registry entry for this league
     const currentId = session?.leagueId;
+    const thisLeague = leagues.find(l => l.leagueId === currentId);
+    const canCreate = !thisLeague || thisLeague.canCreateLeagues !== false;
+    document.getElementById('btn-show-add-league').style.display = canCreate ? '' : 'none';
     let html = `<table>
-      <thead><tr><th>ID</th><th>Name</th><th>Sheet ID</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>ID</th><th>Name</th><th>Sheet ID</th><th>Status</th><th>Can Create</th><th>Visibility</th><th></th></tr></thead>
       <tbody>`;
 
     if (!leagues.length) {
@@ -1181,10 +2247,21 @@
         <td class="player-name">${esc(l.name)}${isCurrent ? ' <span class="badge badge-green">current</span>' : ''}</td>
         <td><code style="font-size:0.72rem; color:var(--muted);">${esc(l.sheetId)}</code></td>
         <td><span class="badge ${l.active ? 'badge-green' : 'badge-muted'}">${l.active ? 'Active' : 'Inactive'}</span></td>
-        <td>
+        <td><span class="badge ${l.canCreateLeagues !== false ? 'badge-green' : 'badge-muted'}">${l.canCreateLeagues !== false ? 'Yes' : 'No'}</span></td>
+        <td><span class="badge ${l.hidden ? 'badge-muted' : 'badge-green'}">${l.hidden ? 'Hidden' : 'Visible'}</span></td>
+        <td style="display:flex; gap:4px;">
           <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.72rem;"
             data-toggle-league="${esc(l.leagueId)}" data-active="${l.active}">
             ${l.active ? 'Deactivate' : 'Activate'}
+          </button>
+          <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.72rem;"
+            data-toggle-create="${esc(l.leagueId)}" data-can-create="${l.canCreateLeagues !== false}"
+            ${!canCreate ? 'disabled title="Your league cannot create leagues"' : ''}>
+            ${l.canCreateLeagues !== false ? 'Disallow Create' : 'Allow Create'}
+          </button>
+          <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.72rem;"
+            data-toggle-hidden="${esc(l.leagueId)}" data-hidden="${!!l.hidden}">
+            ${l.hidden ? 'Make Visible' : 'Hide'}
           </button>
         </td>
       </tr>`;
@@ -1198,8 +2275,33 @@
         const lid = btn.dataset.toggleLeague;
         const nowActive = btn.dataset.active === 'true';
         try {
-          await API.updateLeague(lid, undefined, undefined, !nowActive);
+          await API.updateLeague(lid, undefined, undefined, !nowActive, undefined);
           toast(`League ${nowActive ? 'deactivated' : 'activated'}.`);
+          renderLeagues();
+        } catch (e) { toast('Failed: ' + e.message, 'error'); }
+      });
+    });
+
+    document.querySelectorAll('[data-toggle-hidden]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const lid = btn.dataset.toggleHidden;
+        const nowHidden = btn.dataset.hidden === 'true';
+        try {
+          await API.updateLeague(lid, undefined, undefined, undefined, undefined, !nowHidden);
+          toast(`League is now ${nowHidden ? 'visible' : 'hidden'}.`);
+          renderLeagues();
+        } catch (e) { toast('Failed: ' + e.message, 'error'); }
+      });
+    });
+
+    document.querySelectorAll('[data-toggle-create]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const lid = btn.dataset.toggleCreate;
+        const nowCan = btn.dataset.canCreate === 'true';
+        try {
+          const callerLeagueId = Auth.getSession()?.leagueId;
+          await API.updateLeagueWithCaller(lid, undefined, undefined, undefined, !nowCan, callerLeagueId);
+          toast(`League ${nowCan ? 'can no longer' : 'can now'} create leagues.`);
           renderLeagues();
         } catch (e) { toast('Failed: ' + e.message, 'error'); }
       });
@@ -1230,7 +2332,7 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Wk</th><th>Rd</th><th>Partner</th><th>Opponents</th><th>Score</th><th>Result</th></tr></thead>
+          <thead><tr><th>Ses</th><th>Rd</th><th>Partner</th><th>Opponents</th><th>Score</th><th>Result</th></tr></thead>
           <tbody>`;
 
     report.games.forEach(g => {
@@ -1272,6 +2374,25 @@
       const parts = d.split('-');
       return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
     } catch { return d; }
+  }
+
+  function formatDateTime(w, config) {
+    const d = config['date_' + w];
+    const t = config['time_' + w];
+    if (!d && !t) return '';
+    let s = d ? formatDate(d) : '';
+    if (t) s += (s ? ' ' : '') + formatTime(t);
+    return s;
+  }
+
+  function formatTime(t) {
+    if (!t) return '';
+    try {
+      const [h, m] = t.split(':').map(Number);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      return m === 0 ? `${h12}${ampm}` : `${h12}:${String(m).padStart(2,'0')}${ampm}`;
+    } catch { return t; }
   }
 
   function esc(s) {

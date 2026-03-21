@@ -6,14 +6,7 @@
 // ============================================================
 
 const API = (() => {
-  // !! REPLACE THIS with your deployed GAS Web App URL !!
-  
-  // for released project:
-  // const GAS_URL = 'https://script.google.com/macros/s/AKfycbziZPrG5fSM_ufJYei6r_DoFTCjt4ymGuof-UBJRRj84oChtHtE67r6orMUJnGk7hbk/exec';
-
-// for beta project:
- // const GAS_URL = 'https://script.google.com/macros/s/AKfycbzudYO4IDqCJt92kR4gu6dVJyGN5LoKtxpD3RYR1pNHepxU_liEdpogjCnE8mWTOXqU/exec';
- const GAS_URL = 'https://script.google.com/macros/s/AKfycbzHqnBE-7Eb87v7zgE16RZmNsutTMS_SW3beNt4DbSzXp3JHZkIeuTV8PxvmpBTaqhq6Q/exec';
+  // GAS_URL is defined in settings.js, loaded before this file.
   // Get the active leagueId from session (set at login)
   function leagueId() {
     try {
@@ -56,12 +49,16 @@ const API = (() => {
 
   return {
     // League registry (no leagueId needed)
-    getLeagues:       ()                      => get('getLeagues'),
-    addLeague:        (leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers) => post({ action: 'addLeague', leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers }),
-    updateLeague:     (leagueId, name, sheetId, active) => post({ action: 'updateLeague', leagueId, name, sheetId, active }),
+    getLeagues:             ()           => get('getLeagues'),
+    getLeaguesAll:          ()           => get('getLeagues', { includeHidden: true }),
+    getLeagueAndPlayers:    (leagueId)   => get('getLeagueAndPlayers', { leagueId }),
+    addLeague:        (leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden) => post({ action: 'addLeague', leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden }),
+    updateLeague:          (leagueId, name, sheetId, active, canCreateLeagues, hidden) => post({ action: 'updateLeague', leagueId, name, sheetId, active, canCreateLeagues, hidden }),
+    updateLeagueWithCaller: (leagueId, name, sheetId, active, canCreateLeagues, callerLeagueId) => post({ action: 'updateLeague', leagueId, name, sheetId, active, canCreateLeagues, callerLeagueId }),
 
     // League-scoped (leagueId auto-injected from session)
-    getAllData:        ()               => get('getAllData'),
+    getAllData:        (sinceWeek)      => get('getAllData', sinceWeek ? { sinceWeek } : {}),
+    getEarlyData:     ()               => get('getEarlyData'),
     getConfig:        ()               => get('getConfig'),
     getPlayers:       ()               => get('getPlayers'),
     getAttendance:    ()               => get('getAttendance'),
@@ -70,13 +67,19 @@ const API = (() => {
     getStandings:     (week)           => get('getStandings', { week }),
     getPlayerReport:  (player)         => get('getPlayerReport', { player }),
 
-    validatePIN:      (name, pin)      => post({ action: 'validatePIN', name, pin }),
+    validatePIN:             (name, pin)  => post({ action: 'validatePIN', name, pin }),
+    validateAdminPassword:   (password)   => post({ action: 'validateAdminPassword', password }),
+    validateAppManager:      (password)   => post({ action: 'validateAppManager', password }),
+    registerPlayer:   (payload)        => post({ action: 'registerPlayer', ...payload }),
     saveConfig:       (config)         => post({ action: 'saveConfig', config }),
     savePlayers:      (players)        => post({ action: 'savePlayers', players }),
     setAttendance:    (player, week, status) => post({ action: 'setAttendance', player, week, status }),
     savePairings:     (week, pairings) => post({ action: 'savePairings', week, pairings }),
     saveScores:       (week, scores)   => post({ action: 'saveScores', week, scores }),
-    sendWeeklyReport: (payload)        => post({ action: 'sendWeeklyReport', ...payload }),
+    sendWeeklyReport:   (payload)      => post({ action: 'sendWeeklyReport', ...payload }),
+    sendLeagueMessage:     (payload)   => post({ action: 'sendLeagueMessage', ...payload }),
+    sendTournamentReport:  (payload)   => post({ action: 'sendTournamentReport', ...payload }),
+    sendPlayerReport:   (payload)      => post({ action: 'sendPlayerReport', ...payload }),
     changePin:        (name, currentPin, newPin) => post({ action: 'changePin', name, currentPin, newPin }),
     emailPin:         (name)             => post({ action: 'emailPin', name }),
   };
