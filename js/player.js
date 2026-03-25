@@ -1,3 +1,16 @@
+// ── Google Analytics helpers ─────────────────────────────────
+function gaEvent(eventName, params = {}) {
+  try {
+    if (typeof gtag === 'function' && window.__gaReady) gtag('event', eventName, params);
+  } catch(e) {}
+}
+function gaPage(pageName) {
+  try {
+    if (typeof gtag === 'function' && window.__gaReady)
+      gtag('event', 'page_view', { page_title: pageName, page_location: window.location.href });
+  } catch(e) {}
+}
+
 // ============================================================
 // player.js — Player dashboard logic
 // ============================================================
@@ -22,18 +35,6 @@
     roleEl.style.background = roleColors[userRole] || 'rgba(255,255,255,0.07)';
     roleEl.style.color = roleTextColors[userRole] || 'var(--muted)';
     roleEl.style.display = '';
-  }
-
-  // ── Analytics helper ───────────────────────────────────────
-  function gaEvent(eventName, params = {}) {
-    if (typeof gtag === 'function' && window.__gaReady) {
-      gtag('event', eventName, params);
-    }
-  }
-  function gaPage(pageName) {
-    if (typeof gtag === 'function' && window.__gaReady) {
-      gtag('event', 'page_view', { page_title: pageName, page_location: window.location.href });
-    }
   }
 
   if (canScore) {

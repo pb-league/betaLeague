@@ -1,3 +1,54 @@
+// ── Google Analytics helpers ─────────────────────────────────
+function gaEvent(eventName, params = {}) {
+  try {
+    if (typeof gtag === 'function' && window.__gaReady) gtag('event', eventName, params);
+  } catch(e) {}
+}
+function gaPage(pageName) {
+  try {
+    if (typeof gtag === 'function' && window.__gaReady)
+      gtag('event', 'page_view', { page_title: pageName, page_location: window.location.href });
+  } catch(e) {}
+}
+
+// ── QR Code modal ────────────────────────────────────────────
+function showLeagueQR(event, url) {
+  event.preventDefault();
+  const modal = document.getElementById('qr-modal');
+  const wrap  = document.getElementById('qr-canvas-wrap');
+  const label = document.getElementById('qr-url-label');
+  if (!modal || !wrap) return;
+
+  label.textContent = url;
+  wrap.innerHTML = ''; // clear previous
+
+  if (typeof QRCode === 'undefined') {
+    wrap.innerHTML = '<p style="color:#333; font-size:0.8rem;">QR library not loaded.<br>Check your internet connection.</p>';
+  } else {
+    new QRCode(wrap, {
+      text: url,
+      width: 220,
+      height: 220,
+      colorDark: '#0d1b2a',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  }
+
+  // Download button
+  document.getElementById('btn-qr-download').onclick = () => {
+    const canvas = wrap.querySelector('canvas');
+    if (!canvas) return;
+    const a = document.createElement('a');
+    a.download = 'league-qr.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  };
+
+  modal.style.display = 'flex';
+  modal.onclick = e => { if (e.target === modal) modal.style.display = 'none'; };
+}
+
 // ============================================================
 // admin.js — Admin dashboard logic
 // ============================================================
@@ -115,8 +166,8 @@
   }
 
   loadWeekPrefs(); // restore last-used session selections
-  // gaPage('Admin Dashboard');
-  // gaEvent('login', { role: userRole });
+  gaPage('Admin Dashboard');
+  gaEvent('login', { role: userRole });
   renderAll();
   setupNav();
   setupEvents();
@@ -375,9 +426,13 @@
     if (c.sessionTime) infoParts.push(`<span>🕐 ${esc(c.sessionTime)}</span>`);
     if (c.notes)       infoParts.push(`<span>📌 ${esc(c.notes)}</span>`);
     if (c.leagueUrl) {
-      const lid = Auth.getSession()?.leagueId || '';
-      infoParts.push(`<span>🔗 <a href="${esc(c.leagueUrl)}"
-        target="_blank" style="color:var(--green);">League Link</a></span>`);
+      infoParts.push(`<span style="display:inline-flex; align-items:center; gap:6px;">
+        🔗 <a href="${esc(c.leagueUrl)}" target="_blank" style="color:var(--green);">League Link</a>
+        <a href="#" onclick="showLeagueQR(event, '${esc(c.leagueUrl)}')"
+          style="color:var(--muted); font-size:0.75rem; text-decoration:none; border:1px solid rgba(255,255,255,0.15);
+                 border-radius:4px; padding:1px 6px; line-height:1.6;"
+          title="Show QR code">&#x25A6; QR</a>
+      </span>`);
     }
 
     // Build rules section
