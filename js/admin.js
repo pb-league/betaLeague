@@ -115,8 +115,8 @@
   }
 
   loadWeekPrefs(); // restore last-used session selections
-  gaPage('Admin Dashboard');
-  gaEvent('login', { role: userRole });
+  // gaPage('Admin Dashboard');
+  // gaEvent('login', { role: userRole });
   renderAll();
   setupNav();
   setupEvents();
