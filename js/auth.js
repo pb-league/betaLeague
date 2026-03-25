@@ -34,7 +34,7 @@ const Auth = (() => {
       window.location.href = slug ? 'index.html?league=' + encodeURIComponent(slug) : 'index.html';
       return null;
     }
-    if (adminOnly && !session.isAdmin) {
+    if (adminOnly && !session.isAdmin && session.role !== 'assistant') {
       window.location.href = 'player.html';
       return null;
     }

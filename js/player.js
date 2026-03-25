@@ -11,6 +11,31 @@
   document.getElementById('topbar-league').textContent = session.leagueName || 'Pickleball';
   const userRole = session.role || (session.isAdmin ? 'admin' : (session.canScore ? 'scorer' : 'player'));
   const canScore = session.canScore || session.isAdmin || userRole === 'scorer' || userRole === 'assistant';
+
+  // Show role badge for non-standard roles
+  const roleLabels = { scorer: 'Scorer', assistant: 'Admin Assistant', spectator: 'Spectator', sub: 'Sub' };
+  const roleColors = { scorer: 'rgba(45,122,58,0.2)', assistant: 'rgba(42,63,84,0.8)', spectator: 'rgba(232,184,75,0.15)', sub: 'rgba(122,155,181,0.15)' };
+  const roleTextColors = { scorer: 'var(--green)', assistant: 'var(--muted)', spectator: 'var(--gold)', sub: 'var(--muted)' };
+  const roleEl = document.getElementById('topbar-role');
+  if (roleEl && roleLabels[userRole]) {
+    roleEl.textContent = roleLabels[userRole];
+    roleEl.style.background = roleColors[userRole] || 'rgba(255,255,255,0.07)';
+    roleEl.style.color = roleTextColors[userRole] || 'var(--muted)';
+    roleEl.style.display = '';
+  }
+
+  // ── Analytics helper ───────────────────────────────────────
+  function gaEvent(eventName, params = {}) {
+    if (typeof gtag === 'function' && window.__gaReady) {
+      gtag('event', eventName, params);
+    }
+  }
+  function gaPage(pageName) {
+    if (typeof gtag === 'function' && window.__gaReady) {
+      gtag('event', 'page_view', { page_title: pageName, page_location: window.location.href });
+    }
+  }
+
   if (canScore) {
     document.getElementById('nav-score-entry')?.classList.remove('hidden');
   }
@@ -18,7 +43,8 @@
   let state = {
     config: {}, players: [], attendance: [],
     pairings: [], scores: [], standings: [],
-    currentSheetWeek: 1, currentWstandWeek: 1
+    currentSheetWeek: 1, currentWstandWeek: 1,
+    dataLoaded: false  // true after phase 2 pairings/scores are loaded
   };
 
   // ── Phase 1: Fast load — config, players, attendance ────────
@@ -91,6 +117,9 @@
       }
 
       // Re-render now that we have scores and pairings
+      state.dataLoaded = true;
+      gaPage('Player Dashboard');
+      gaEvent('login', { role: userRole });
       renderAll();
     } catch (e) {
       toast('Background data load failed: ' + e.message, 'error');
@@ -106,6 +135,7 @@
         item.classList.add('active');
         const page = item.dataset.page;
         document.getElementById('page-' + page)?.classList.add('active');
+        gaPage('Player: ' + page);
         if (page === 'player-report') renderPlayerReportSelect();
         if (page === 'score-entry') renderScoreEntry();
         if (page === 'standings') renderPlayerStandings();
@@ -262,7 +292,12 @@
     }
 
     if (!report.games.length) {
-      document.getElementById('my-game-history').innerHTML = '<p class="text-muted">No games recorded yet.</p>';
+      document.getElementById('my-game-history').innerHTML = state.dataLoaded
+        ? '<p class="text-muted">No games recorded yet.</p>'
+        : `<div style="text-align:center; padding:24px; color:var(--muted); font-size:0.85rem;">
+             <div style="font-size:1.6rem; margin-bottom:8px; animation:spin 0.8s linear infinite; display:inline-block;">⏳</div>
+             <div>Loading games…</div>
+           </div>`;
       return;
     }
 
@@ -309,7 +344,9 @@
 
     document.querySelectorAll('#my-attendance-grid .att-cell.editable').forEach(cell => {
       cell.addEventListener('click', async () => {
-        const states = ['present', 'absent', 'tbd'];
+        const myPlayer = state.players.find(pl => pl.name === playerName);
+        const isSpectatorRole = myPlayer && myPlayer.role === 'spectator';
+        const states = isSpectatorRole ? ['absent', 'tbd'] : ['present', 'absent', 'tbd', 'sit-out'];
         const curStatus = states.find(s => cell.classList.contains(s)) || 'tbd';
         const next = states[(states.indexOf(curStatus) + 1) % states.length];
         const week = cell.dataset.week;
@@ -647,7 +684,7 @@
   // ── Full Attendance ────────────────────────────────────────
   function renderFullAttendance() {
     const weeks = parseInt(state.config.weeks || 8);
-    const players = state.players.filter(p => p.active !== false);
+    const players = state.players.filter(p => p.active === true);
 
     let html = '<div class="att-grid">';
     html += '<div class="att-row"><div></div>';
@@ -765,7 +802,15 @@
     document.getElementById('sheet-week-prev').addEventListener('click', async () => {
       if (state.currentSheetWeek > 1) {
         state.currentSheetWeek--;
+        document.getElementById('sheet-week-label').textContent = `Session ${state.currentSheetWeek}`;
+        document.getElementById('player-scoresheet').innerHTML =
+          `<div style="text-align:center; padding:32px; color:var(--muted); font-size:0.85rem;">
+            <div style="font-size:1.8rem; margin-bottom:8px; animation:spin 0.8s linear infinite; display:inline-block;">⏳</div>
+            <div>Loading Session ${state.currentSheetWeek}…</div>
+          </div>`;
+        ['sheet-week-prev','sheet-week-next'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = true; });
         await ensureWeekLoaded(state.currentSheetWeek);
+        ['sheet-week-prev','sheet-week-next'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = false; });
         renderScoresheet();
       }
     });
@@ -773,7 +818,15 @@
       const max = parseInt(state.config.weeks || 8);
       if (state.currentSheetWeek < max) {
         state.currentSheetWeek++;
+        document.getElementById('sheet-week-label').textContent = `Session ${state.currentSheetWeek}`;
+        document.getElementById('player-scoresheet').innerHTML =
+          `<div style="text-align:center; padding:32px; color:var(--muted); font-size:0.85rem;">
+            <div style="font-size:1.8rem; margin-bottom:8px; animation:spin 0.8s linear infinite; display:inline-block;">⏳</div>
+            <div>Loading Session ${state.currentSheetWeek}…</div>
+          </div>`;
+        ['sheet-week-prev','sheet-week-next'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = true; });
         await ensureWeekLoaded(state.currentSheetWeek);
+        ['sheet-week-prev','sheet-week-next'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = false; });
         renderScoresheet();
       }
     });
@@ -838,9 +891,9 @@
       }
     }
 
-    const current = sel.value;
+    const current = sel.value || playerName;  // default to logged-in player
     sel.innerHTML = '<option value="">— Select Player —</option>';
-    state.players.filter(p => p.active !== false).forEach(p => {
+    state.players.filter(p => p.active === true).forEach(p => {
       const o = document.createElement('option');
       o.value = p.name;
       o.textContent = p.name;
@@ -848,6 +901,9 @@
       sel.appendChild(o);
     });
     sel.onchange = () => renderPlayerReport(sel.value);
+
+    // Auto-render on first load if no report shown yet
+    if (sel.value) renderPlayerReport(sel.value);
   }
 
   function renderPlayerReport(name) {
@@ -953,7 +1009,7 @@
         <td class="text-muted">${s.games}</td>
       </tr>`;
     });
-    const secHeader = usePtsPct ? '<th>Pts%</th>' : '<th>Avg+/-</th>';
+    const secHeader = usePtsPct ? '<th>Pts%</th>' : '<th title="Average point differential per game — your average score minus your opponent\'s average score. Positive means you score more than your opponents on average; used as a tiebreaker when win percentage is equal." style="cursor:help;">Avg+/-</th>';
     return `<table>
       <thead><tr><th>#</th><th>Player</th><th>W/L</th><th>Win%</th>${secHeader}<th>Games</th></tr></thead>
       <tbody>${rows.join('')}</tbody>
@@ -961,11 +1017,11 @@
   }
 
   function statusLabel(s) {
-    return s === 'present' ? 'In' : s === 'absent' ? 'Out' : 'TBD';
+    return s === 'present' ? 'In' : s === 'absent' ? 'Out' : s === 'sit-out' ? 'Sit Out' : 'TBD';
   }
 
   function statusIcon(s) {
-    return s === 'present' ? '✅' : s === 'absent' ? '❌' : '❓';
+    return s === 'present' ? '✅' : s === 'absent' ? '❌' : s === 'sit-out' ? '⏸' : '❓';
   }
 
   function formatDate(d) {
@@ -1010,7 +1066,7 @@
     if (!canvas || !legend) return;
 
     const totalWeeks   = parseInt(chartState.config.weeks || 8);
-    const activePlayers = chartState.players.filter(p => p.active !== false);
+    const activePlayers = chartState.players.filter(p => p.active === true);
     if (!activePlayers.length) {
       legend.innerHTML = '<span class="text-muted">No players yet.</span>';
       return;

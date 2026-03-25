@@ -31,9 +31,9 @@ const API = (() => {
   }
 
   async function post(body) {
-    // Inject leagueId for all league-scoped actions
+    // Inject leagueId for all league-scoped actions (don't overwrite if already set in payload)
     const registryActions = ['addLeague', 'updateLeague'];
-    if (!registryActions.includes(body.action)) {
+    if (!registryActions.includes(body.action) && !body.leagueId) {
       const lid = leagueId();
       if (lid) body.leagueId = lid;
     }
@@ -49,10 +49,10 @@ const API = (() => {
 
   return {
     // League registry (no leagueId needed)
-    getLeagues:             ()           => get('getLeagues'),
+    getLeagues:             (customerId) => get('getLeagues', customerId ? { customerId } : {}),
     getLeaguesAll:          ()           => get('getLeagues', { includeHidden: true }),
-    getLeagueAndPlayers:    (leagueId)   => get('getLeagueAndPlayers', { leagueId }),
-    addLeague:        (leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden) => post({ action: 'addLeague', leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden }),
+    getLeagueAndPlayers:    (leagueId, customerId) => get('getLeagueAndPlayers', customerId ? { leagueId, customerId } : { leagueId }),
+    addLeague:        (leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId) => post({ action: 'addLeague', leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId }),
     updateLeague:          (leagueId, name, sheetId, active, canCreateLeagues, hidden) => post({ action: 'updateLeague', leagueId, name, sheetId, active, canCreateLeagues, hidden }),
     updateLeagueWithCaller: (leagueId, name, sheetId, active, canCreateLeagues, callerLeagueId) => post({ action: 'updateLeague', leagueId, name, sheetId, active, canCreateLeagues, callerLeagueId }),
 
@@ -71,6 +71,8 @@ const API = (() => {
     validateAdminPassword:   (password)   => post({ action: 'validateAdminPassword', password }),
     validateAppManager:      (password)   => post({ action: 'validateAppManager', password }),
     registerPlayer:   (payload)        => post({ action: 'registerPlayer', ...payload }),
+    submitApplication:(payload)        => post({ action: 'submitApplication', ...payload }),
+    approvePlayer:    (playerName)     => post({ action: 'approvePlayer', playerName }),
     saveConfig:       (config)         => post({ action: 'saveConfig', config }),
     savePlayers:      (players)        => post({ action: 'savePlayers', players }),
     setAttendance:    (player, week, status) => post({ action: 'setAttendance', player, week, status }),
