@@ -418,7 +418,7 @@ function showLeagueQR(event, url) {
   // ── Dashboard ──────────────────────────────────────────────
   function renderDashboard() {
     document.getElementById('dash-league-name').textContent =
-      state.config.leagueName || 'League Dashboard';
+      state.config.leagueName || ' Dashboard';
 
     const c = state.config;
     const infoParts = [];
