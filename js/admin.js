@@ -2884,7 +2884,7 @@ function showLeagueQR(event, url) {
     const sortedPartners  = Object.entries(partnerMap).sort((a, b) => b[1].count - a[1].count);
 
     const freqTable = (rows, colHeader) => `
-      <table>
+      <table class="compact-table">
         <thead><tr><th>Player</th><th>Games</th><th>${colHeader}</th></tr></thead>
         <tbody>${rows.length ? rows.map(([n, d]) =>
           `<tr><td class="player-name">${esc(n)}</td><td>${d.count}</td>

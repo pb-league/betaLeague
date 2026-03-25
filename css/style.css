@@ -290,6 +290,10 @@ td {
   vertical-align: middle;
 }
 
+.compact-table td { padding: 5px 10px; }
+.compact-table thead th { padding: 5px 10px; }
+.compact-table .rank-cell { font-size: 0.95rem; }
+
 .rank-cell {
   font-family: var(--font-display);
   font-size: 1.1rem;

@@ -948,7 +948,7 @@ function gaPage(pageName) {
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
         <div>
           <div class="card-title" style="font-size:0.8rem; margin-bottom:8px; color:var(--muted);">FACED AS OPPONENT</div>
-          <table>
+          <table class="compact-table">
             <thead><tr><th>Player</th><th>Games</th><th>W/L vs them</th></tr></thead>
             <tbody>${sortedOpponents.length ? sortedOpponents.map(([n, d]) =>
               `<tr><td class="player-name">${esc(n)}</td><td>${d.count}</td>
@@ -958,7 +958,7 @@ function gaPage(pageName) {
         </div>
         <div>
           <div class="card-title" style="font-size:0.8rem; margin-bottom:8px; color:var(--muted);">PLAYED AS PARTNER</div>
-          <table>
+          <table class="compact-table">
             <thead><tr><th>Player</th><th>Games</th><th>W/L together</th></tr></thead>
             <tbody>${sortedPartners.length ? sortedPartners.map(([n, d]) =>
               `<tr><td class="player-name">${esc(n)}</td><td>${d.count}</td>
@@ -1011,7 +1011,7 @@ function gaPage(pageName) {
       </tr>`;
     });
     const secHeader = usePtsPct ? '<th>Pts%</th>' : '<th title="Average point differential per game — your average score minus your opponent\'s average score. Positive means you score more than your opponents on average; used as a tiebreaker when win percentage is equal." style="cursor:help;">Avg+/-</th>';
-    return `<table>
+    return `<table class="compact-table">
       <thead><tr><th>#</th><th>Player</th><th>W/L</th><th>Win%</th>${secHeader}<th>Games</th></tr></thead>
       <tbody>${rows.join('')}</tbody>
     </table>`;
