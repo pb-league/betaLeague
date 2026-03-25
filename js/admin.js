@@ -4,6 +4,7 @@ function gaEvent(eventName, params = {}) {
     if (typeof gtag === 'function' && window.__gaReady) gtag('event', eventName, params);
   } catch(e) {}
 }
+
 function gaPage(pageName) {
   try {
     if (typeof gtag === 'function' && window.__gaReady)
