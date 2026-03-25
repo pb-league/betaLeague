@@ -667,6 +667,30 @@
   </div>
 </div>
 
+<!-- QR Code Modal -->
+<div id="qr-modal" style="display:none; position:fixed; inset:0; z-index:200;
+  background:rgba(0,0,0,0.7); backdrop-filter:blur(4px);
+  align-items:center; justify-content:center;">
+  <div style="background:#152232; border:1px solid rgba(255,255,255,0.12); border-radius:14px;
+    padding:28px 28px 22px; max-width:340px; width:90%; text-align:center; position:relative;">
+    <button onclick="document.getElementById('qr-modal').style.display='none'"
+      style="position:absolute; top:12px; right:14px; background:none; border:none;
+             color:rgba(255,255,255,0.35); font-size:1.3rem; cursor:pointer; line-height:1;">✕</button>
+    <div style="font-weight:600; font-size:0.95rem; color:var(--white); margin-bottom:4px;">League QR Code</div>
+    <div id="qr-url-label" style="font-size:0.72rem; color:var(--muted); margin-bottom:16px;
+      word-break:break-all; max-height:40px; overflow:hidden;"></div>
+    <div id="qr-canvas-wrap" style="background:#fff; border-radius:10px; padding:14px;
+      display:inline-block; margin-bottom:16px;"></div>
+    <div style="display:flex; gap:8px; justify-content:center;">
+      <button id="btn-qr-download" class="btn btn-secondary" style="font-size:0.8rem; padding:6px 16px;">
+        ⬇ Download
+      </button>
+      <button onclick="document.getElementById('qr-modal').style.display='none'"
+        class="btn btn-secondary" style="font-size:0.8rem; padding:6px 16px;">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 
 <!-- Changelog modal -->
@@ -734,6 +758,7 @@
     }
   }, true);
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="js/settings.js"></script>
   <!-- Google Analytics — loads only if GA_MEASUREMENT_ID is set in settings.js -->
   <script>
