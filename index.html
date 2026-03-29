@@ -326,7 +326,7 @@
 
 <div id="toast-container"></div>
 
-<script src="js/settings.js"></script>
+<script src="js/settings.js?v=1.3.1"></script>
   <!-- Google Analytics — loads only if GA_MEASUREMENT_ID is set in settings.js -->
   <script>
     window.__gaReady = false;
@@ -348,8 +348,8 @@
       window.__gaReady = true;
     });
   </script>
-<script src="js/api.js"></script>
-<script src="js/auth.js"></script>
+<script src="js/api.js?v=1.3.1"></script>
+<script src="js/auth.js?v=1.3.1"></script>
 <script>
 (async function init() {
   // If already logged in with a valid league, redirect
@@ -997,6 +997,7 @@
     container.appendChild(t);
     setTimeout(() => t.remove(), 5000);
   }
+
   // Version footer
   const verEl = document.getElementById('index-version');
   if (verEl && typeof APP_VERSION !== 'undefined') {
