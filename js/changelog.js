@@ -5,6 +5,36 @@
 // ============================================================
 
 const CHANGELOG = [
+{
+    version: '1.3.6',
+    date: '2026-03-30',
+    changes: [
+'issue warning if tie scores are saved',
+'fix issues with four players getting asigned buys even though a court is available',
+'fix issue with initial rankings not properly factoring in to force like-ranked players on same court when multiple people have same rank',
+'added verbose mode for generate to show histogram of the scores checked',
+'add swap feature where admin can swap between best and 2nd best pairings to see difference in calculation and pick which to use',
+'warn if navigate away from player changes or pairing generation without saving',
+'add option to use initial rankings instead of season standings for any pairing generation',
+'fix bug with adminOnlyEmail not working',
+'add refresh to player standings report',
+'add buttons in email to request attendance update to support updating all remaining games',
+'add ability to request player report through URL command, and included in request for attendance email',
+'add ability to include standings in message to players',
+'add analysis of each players scenarios for placing. Only shown when reach last round of last session',
+'prevent score entry sheet from temporary clearing if anohter user is viewing scores'
+]},
+{
+    version: '1.3.4',
+    date: '2026-03-29',
+    changes: [
+'improve clearing of cached files',
+'support email attendance recording',
+'remove SIT-OUT as option since redundant with OUT',
+'rearrange admin config to put generate weights with pairing',
+'put messaging tasks on own menu tab'
+]},
+
   {
     version: '1.3.1',
     date: '2026-03-28',

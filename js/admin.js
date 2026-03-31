@@ -173,20 +173,22 @@ const ROLE_COLORS = {
   showLoading(true);
   try {
     const early = await API.getEarlyData();
-    state.config     = early.config     || {};
+    state.config = sanitizeConfig(early.config     || {});
     state.players    = early.players    || [];
     state.attendance = early.attendance || [];
+    state._playersLoaded = true;
   } catch (e) {
     // Phase 1 failed — fall back to full load so we don't leave user stuck
     try {
       const data = await API.getAllData();
-      state.config     = data.config     || {};
+      state.config = sanitizeConfig(data.config     || {});
       state.players    = data.players    || [];
       state.attendance = data.attendance || [];
       state.pairings   = data.pairings   || [];
       state.scores     = data.scores     || [];
       state.standings  = data.standings  || [];
       if (data.limits) state.limits = data.limits;
+      state._playersLoaded = true;
     } catch (e2) {
       toast('Failed to load data: ' + e2.message, 'error');
     }
@@ -248,6 +250,27 @@ const ROLE_COLORS = {
   function setupNav() {
     document.querySelectorAll('.nav-item').forEach(item => {
       item.addEventListener('click', () => {
+        // Warn if navigating away from players page with unsaved changes
+        const currentPage = document.querySelector('.tab-panel.active')?.id?.replace('page-', '');
+        if (currentPage === 'players' && state._playersDirty) {
+          if (!confirm('You have unsaved changes to the player list. Leave without saving?')) return;
+          state._playersDirty = false;
+        }
+        // Warn if navigating away from pairings with generated but unlocked pairings
+        if (currentPage === 'pairings' && state.pendingPairings) {
+          if (!confirm('Pairings have been generated but not locked and saved. Leave without locking?')) return;
+        }
+        // Pre-emptively show spinner on scores page BEFORE making panel visible
+        // so there is zero window where stale inputs are visible and enterable
+        if (item.dataset.page === 'scores') {
+          const scoreEl = document.getElementById('scoresheet');
+          if (scoreEl) scoreEl.innerHTML = `
+            <div style="text-align:center; padding:32px; color:var(--muted); font-size:0.85rem;">
+              <div style="font-size:1.8rem; margin-bottom:8px; animation:spin 0.8s linear infinite; display:inline-block;">⏳</div>
+              <div>Loading Session ${state.currentScoreWeek}…</div>
+            </div>`;
+        }
+
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         item.classList.add('active');
@@ -259,23 +282,25 @@ const ROLE_COLORS = {
         if (page === 'tourn-results') renderAdminTournamentResults();
         if (page === 'player-report') renderPlayerReportSelect();
         if (page === 'dashboard') refreshDashboard();
-        if (page === 'messaging') initAvailUI();
+        if (page === 'messaging') {
+          initAvailUI();
+          refreshSendMessageUI();
+        }
         if (page === 'scores') {
-          // Show loading indicator immediately before fetching
-          const scoreEl = document.getElementById('scoresheet');
-          if (scoreEl) scoreEl.innerHTML = `
-            <div style="text-align:center; padding:32px; color:var(--muted); font-size:0.85rem;">
-              <div style="font-size:1.8rem; margin-bottom:8px; animation:spin 0.8s linear infinite; display:inline-block;">⏳</div>
-              <div>Loading Session ${state.currentScoreWeek}…</div>
-            </div>`;
+          const fetchId = Date.now();
+          state._scoresFetchId = fetchId;
           API.getScores(state.currentScoreWeek).then(data => {
+            if (state._scoresFetchId !== fetchId) return;
             if (data && data.scores) {
               const week = state.currentScoreWeek;
               state.scores = state.scores.filter(s => parseInt(s.week) !== week);
               state.scores.push(...data.scores.filter(s => parseInt(s.week) === week));
             }
             renderScoresheet();
-          }).catch(() => renderScoresheet());
+          }).catch(() => {
+            if (state._scoresFetchId !== fetchId) return;
+            renderScoresheet();
+          });
         }
         if (page === 'pairings') { renderPairingsPreview(); renderEditPairingForm(); }
         if (page === 'attendance') {
@@ -314,6 +339,7 @@ const ROLE_COLORS = {
     renderLeagues();
     initAvailUI();
     renderMessaging();
+    refreshSendMessageUI();
   }
 
   // ── Head-to-Head ───────────────────────────────────────────
@@ -526,6 +552,30 @@ const ROLE_COLORS = {
       toast('Refresh failed: ' + e.message, 'error');
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = '🔄 Refresh'; }
+    }
+  }
+
+  function refreshSendMessageUI() {
+    const adminOnly = state.config.adminOnlyEmail === true || state.config.adminOnlyEmail === 'true';
+    const replyTo   = state.config.replyTo || '';
+    const preview   = document.getElementById('msg-recipient-preview');
+    const statusEl  = document.getElementById('msg-status');
+
+    // Clear previous send status
+    if (statusEl) { statusEl.textContent = ''; statusEl.style.color = ''; }
+
+    if (!preview) return;
+    if (adminOnly) {
+      preview.textContent = replyTo
+        ? `Admin-only mode: will send only to ${replyTo}`
+        : 'Admin-only mode is on but no Admin Email is set — set it above.';
+      preview.style.color = replyTo ? 'var(--gold)' : 'var(--danger)';
+    } else {
+      const recips = state.players.filter(p => p.active === true && p.email);
+      preview.textContent = recips.length
+        ? `Will send to ${recips.length} player${recips.length !== 1 ? 's' : ''} with email addresses.`
+        : 'No active players have email addresses on file.';
+      preview.style.color = recips.length ? 'var(--muted)' : 'var(--danger)';
     }
   }
 
@@ -870,6 +920,8 @@ const ROLE_COLORS = {
     if (localImproveEl) localImproveEl.checked = c.localImprove === undefined ? true : (c.localImprove === true || c.localImprove === 'true');
     const swapPassesEl = document.getElementById('cfg-swap-passes');
     if (swapPassesEl) swapPassesEl.value = c.swapPasses !== undefined ? c.swapPasses : 5;
+    const useInitialRankEl = document.getElementById('cfg-use-initial-rank');
+    if (useInitialRankEl) useInitialRankEl.checked = c.useInitialRank === true || c.useInitialRank === 'true';
 
     // Session dates — each session on its own row, date+time side by side
     const weeks = parseInt(c.weeks || 8);
@@ -943,6 +995,12 @@ const ROLE_COLORS = {
   function renderPlayers() {
     const list = document.getElementById('player-list');
     list.innerHTML = '';
+
+    // If players haven't loaded yet, show a waiting indicator
+    if (!state._playersLoaded && (!state.players || state.players.length === 0)) {
+      list.innerHTML = '<div style="padding:24px; text-align:center; color:var(--muted); font-size:0.85rem;">⏳ Loading player data…</div>';
+      return;
+    }
 
     // Group players by role key
     const groups = {};
@@ -1092,7 +1150,7 @@ const ROLE_COLORS = {
     document.querySelectorAll('.att-cell.editable').forEach(cell => {
       cell.addEventListener('click', async () => {
         const isSpectatorRole = (() => { const p = state.players.find(pl => pl.name === cell.dataset.player); return p && p.role === 'spectator'; })();
-        const states = isSpectatorRole ? ['absent', 'tbd'] : ['tbd', 'present', 'absent', 'sit-out'];
+        const states = isSpectatorRole ? ['absent', 'tbd'] : ['tbd', 'present', 'absent'];
         const cur = states.indexOf(cell.className.split(' ').find(c => states.includes(c)));
         const next = states[(cur + 1) % states.length];
         const player = cell.dataset.player;
@@ -1130,7 +1188,47 @@ const ROLE_COLORS = {
   function renderPairingsPreview() {
     const week = state.currentPairWeek;
     const genBtn = document.getElementById('btn-generate');
-    if (genBtn) genBtn.textContent = `🎲 Generate Pairings for Session ${week}`;
+    if (genBtn) {
+      const scope = document.getElementById('round-scope')?.value || 'all';
+      const totalRounds = parseInt(state.config.gamesPerSession || 7);
+      const lockedRounds = [...new Set(
+        state.pairings.filter(p => parseInt(p.week) === week).map(p => parseInt(p.round))
+      )].sort((a,b) => a-b);
+
+      let roundLabel;
+      if (scope === 'all') {
+        roundLabel = `Rounds 1-${totalRounds}`;
+      } else if (scope === 'remaining') {
+        const nextRound = lockedRounds.length ? Math.max(...lockedRounds) + 1 : 1;
+        if (nextRound > totalRounds) {
+          roundLabel = 'all rounds generated';
+        } else if (nextRound === totalRounds) {
+          roundLabel = `Round ${nextRound}`;
+        } else {
+          roundLabel = `Rounds ${nextRound}-${totalRounds}`;
+        }
+      } else {
+        roundLabel = `Round ${scope}`;
+      }
+      genBtn.textContent = `🎲 Generate — Session ${week}, ${roundLabel}`;
+
+      // Compute present player count and effective court count for display
+      const gameMode = state.config.gameMode || 'doubles';
+      const ppc = gameMode === 'singles' ? 2 : 4;
+      const presentCount = state.players
+        .filter(p => p.active === true && p.role !== 'spectator')
+        .filter(p => {
+          const rec = state.attendance.find(a => a.player === p.name && String(a.week) === String(week));
+          return rec && rec.status === 'present';
+        }).length;
+      const configCourts = state.config.courts || 3;
+      const effectiveCourts = presentCount < configCourts * ppc
+        ? Math.max(1, Math.floor(presentCount / ppc))
+        : configCourts;
+      if (presentCount > 0) {
+        genBtn.textContent += ` · ${effectiveCourts} court${effectiveCourts !== 1 ? 's' : ''}, ${presentCount} players`;
+      }
+    }
 
     // Update tournament advance button visibility
     const advBtn   = document.getElementById('btn-tourn-advance');
@@ -1216,13 +1314,42 @@ const ROLE_COLORS = {
       for (let r = 1; r <= totalRounds; r++) {
         const opt = document.createElement('option');
         opt.value = String(r);
-        const locked = lockedRounds.includes(r) ? ' ✓' : '';
+        const locked = lockedRounds.includes(r) ? ' \u2713' : '';
         opt.textContent = `Round ${r}${locked}`;
         scopeSel.appendChild(opt);
       }
       // Restore selection if still valid
       if ([...scopeSel.options].some(o => o.value === cur)) scopeSel.value = cur;
+      // Update clear button text to match scope
+      updateClearBtn(scopeSel.value, week, totalRounds, lockedRounds);
+      // Update generate and clear button text when scope changes
+      if (!scopeSel._genBtnListenerAdded) {
+        scopeSel.addEventListener('change', () => renderPairingsPreview());
+        scopeSel._genBtnListenerAdded = true;
+      }
     }
+  }
+
+  function updateClearBtn(scope, week, totalRounds, lockedRounds) {
+    const clearBtn = document.getElementById('btn-clear-pairings');
+    if (!clearBtn) return;
+    let roundLabel;
+    if (scope === 'all') {
+      roundLabel = 'Rounds 1-' + totalRounds;
+    } else if (scope === 'remaining') {
+      const scoredRounds = new Set(
+        state.scores
+          .filter(s => parseInt(s.week) === week &&
+            s.score1 !== '' && s.score1 !== null &&
+            s.score2 !== '' && s.score2 !== null)
+          .map(s => parseInt(s.round))
+      );
+      const unscored = (lockedRounds || []).filter(r => !scoredRounds.has(r));
+      roundLabel = unscored.length ? 'Rounds ' + unscored.join(', ') : 'no unscored rounds';
+    } else {
+      roundLabel = 'Round ' + scope;
+    }
+    clearBtn.textContent = '\uD83D\uDDD1 Clear \u2014 Session ' + week + ', ' + roundLabel;
   }
 
   // ── Print / PDF Scoresheet ─────────────────────────────────
@@ -1341,6 +1468,8 @@ const ROLE_COLORS = {
     const scoreWkSel = document.getElementById('score-week-select');
     if (scoreWkSel && scoreWkSel.value != week) scoreWkSel.value = week;
 
+    renderFinishScenarios();
+
     // Update card title with session number and date
     const scoresheetTitle = document.querySelector('#page-scores .card-title');
     if (scoresheetTitle) {
@@ -1458,6 +1587,14 @@ const ROLE_COLORS = {
 
     document.getElementById('scoresheet').innerHTML = html;
 
+    // Assign sequential tabindex to all score inputs so Tab skips round headings.
+    // Also remove summary elements from tab order — they are natively focusable
+    // (tabIndex=0) and would intercept Tab between rounds without this.
+    document.querySelectorAll('#scoresheet summary').forEach(s => { s.tabIndex = -1; });
+    document.querySelectorAll('#scoresheet .score-input').forEach((input, i) => {
+      input.tabIndex = i + 1;
+    });
+
     // Restore collapsed state
     if (collapsedRounds.size) {
       document.querySelectorAll('#scoresheet details').forEach(d => {
@@ -1486,6 +1623,11 @@ const ROLE_COLORS = {
 
           const score1 = parseInt(s1val) || 0;
           const score2 = parseInt(s2val) || 0;
+
+          // Warn on tied scores — non-blocking toast since this is auto-save
+          if (score1 === score2) {
+            toast(`Tied score ${score1}–${score2} on Round ${round} ${courtName(court)} — correct if this is a mistake.`, 'warn');
+          }
 
           // Check for overwrite by assistant
           const existing = state.scores.find(e =>
@@ -1518,12 +1660,13 @@ const ROLE_COLORS = {
           card.appendChild(indicator);
 
           try {
-            // Build full week scores to send (merge this score with existing week scores)
-            const weekScores = state.scores.filter(s => parseInt(s.week) === wk);
-
             // Queue saves per week — prevents concurrent writes causing duplicate rows
+            // IMPORTANT: weekScores must be captured INSIDE the lock callback, not outside,
+            // so it always reflects the latest state.scores at the moment of actual
+            // transmission — not a stale snapshot that could be overwritten by auto-refresh.
             const prevLock = state.saveLocks[wk] || Promise.resolve();
             const thisLock = prevLock.then(async () => {
+              const weekScores = state.scores.filter(s => parseInt(s.week) === wk);
               await API.saveScores(wk, weekScores);
             });
             state.saveLocks[wk] = thisLock.catch(() => {});
@@ -1532,6 +1675,8 @@ const ROLE_COLORS = {
             indicator.textContent = '✓ saved';
             indicator.style.color = 'var(--green)';
             setTimeout(() => indicator.remove(), 1800);
+            // Update finish scenarios as scores are entered
+            renderFinishScenarios();
             // Re-render just this card to apply win/loss styling, without touching
             // the rest of the scoresheet (preserves focus and other in-progress inputs)
             const s1now = parseInt(card.querySelector('[data-score="1"]').value) || 0;
@@ -1550,6 +1695,86 @@ const ROLE_COLORS = {
         });
       });
     });
+  }
+
+  // ── Final Round Finish Scenarios ───────────────────────────
+  function renderFinishScenarios() {
+    const card    = document.getElementById('finish-scenarios-card');
+    const content = document.getElementById('finish-scenarios-content');
+    if (!card || !content) return;
+
+    const totalWeeks  = parseInt(state.config.weeks || 0);
+    const totalRounds = parseInt(state.config.gamesPerSession || 0);
+    const week        = state.currentScoreWeek;
+
+    // Only show on the last session
+    if (!totalWeeks || !totalRounds || week !== totalWeeks) {
+      card.style.display = 'none';
+      return;
+    }
+
+    // Check that the final round has pairings
+    const finalPairings = state.pairings.filter(p =>
+      parseInt(p.week) === week && parseInt(p.round) === totalRounds &&
+      (p.type === 'game' || p.type === 'tourn-game')
+    );
+    if (!finalPairings.length) {
+      card.style.display = 'none';
+      return;
+    }
+
+    card.style.display = '';
+
+    const result = Reports.computeFinishScenarios(
+      state.scores, state.players, state.pairings,
+      week, totalRounds,
+      state.config.rankingMethod || 'avgptdiff',
+      state.attendance
+    );
+
+    if (!result) {
+      content.innerHTML = '<p class="text-muted" style="font-size:0.85rem; padding:8px 0;">All final round scores entered — standings are final.</p>';
+      return;
+    }
+
+    const { results, games, enteredCount } = result;
+
+    if (!results.length) {
+      content.innerHTML = '<p class="text-muted" style="font-size:0.85rem; padding:8px 0;">No players can reach the top 3.</p>';
+      return;
+    }
+
+    const remaining = games.length;
+    let html = `<p style="font-size:0.82rem; color:var(--muted); margin-bottom:12px;">
+      ${enteredCount} of ${enteredCount + remaining} final round game${enteredCount + remaining !== 1 ? 's' : ''} scored.
+      ${remaining} game${remaining !== 1 ? 's' : ''} remaining.
+      Showing all possible top-3 finishes.
+    </p>`;
+
+    results.forEach(r => {
+      const medal = r.bestRank === 1 ? '🥇' : r.bestRank === 2 ? '🥈' : '🥉';
+      const rankLabel = r.bestRank === 1 ? '1st' : r.bestRank === 2 ? '2nd' : '3rd';
+      const currentLabel = r.currentRank === 1 ? '1st' : r.currentRank === 2 ? '2nd' : r.currentRank === 3 ? '3rd' : `${r.currentRank}th`;
+
+      html += `<div style="margin-bottom:14px; padding:10px 14px; background:var(--card-bg); border-radius:8px; border-left:3px solid ${r.bestRank === 1 ? '#ffd700' : r.bestRank === 2 ? '#c0c0c0' : '#cd7f32'};">`;
+      html += `<div style="font-weight:700; font-size:0.95rem; margin-bottom:6px;">${medal} ${esc(r.name)} <span style="color:var(--muted); font-weight:400; font-size:0.82rem;">currently ${currentLabel}</span></div>`;
+
+      if (r.guaranteed) {
+        html += `<div style="color:var(--green); font-size:0.85rem;">Guaranteed to finish ${rankLabel} regardless of remaining results.</div>`;
+      } else if (r.scenarios.length === 0) {
+        html += `<div style="color:var(--muted); font-size:0.82rem;">Can finish ${rankLabel} — calculating scenarios…</div>`;
+      } else {
+        html += `<div style="font-size:0.82rem; color:var(--muted); margin-bottom:4px;">Can finish ${rankLabel} if:</div>`;
+        html += `<ul style="margin:0; padding-left:18px; font-size:0.82rem; line-height:1.8;">`;
+        r.scenarios.forEach(s => {
+          html += `<li>${esc(s)}</li>`;
+        });
+        html += `</ul>`;
+      }
+      html += `</div>`;
+    });
+
+    content.innerHTML = html;
   }
 
   // ── Standings ──────────────────────────────────────────────
@@ -2560,7 +2785,7 @@ const ROLE_COLORS = {
       const newConfig    = { ...state.config, replyTo, adminOnlyEmail: adminOnly };
       try {
         await API.saveConfig(newConfig);
-        state.config = newConfig;
+        state.config = sanitizeConfig(newConfig);
         // Also update registry so app manager sees current admin email
         const sess = Auth.getSession();
         if (sess?.leagueId && replyTo) {
@@ -2579,7 +2804,8 @@ const ROLE_COLORS = {
         ...state.config,
         optimizerTries:   parseInt(document.getElementById('cfg-tries')?.value) || 100,
         localImprove:     document.getElementById('cfg-local-improve')?.checked === true,
-        swapPasses:       parseInt(document.getElementById('cfg-swap-passes')?.value) || 5,
+        swapPasses:       (v => isNaN(v) ? 5 : v)(parseInt(document.getElementById('cfg-swap-passes')?.value)),
+        useInitialRank:   document.getElementById('cfg-use-initial-rank')?.checked === true,
         wSessionPartner:  parseFloat(document.getElementById('cfg-w-session-partner')?.value) ?? D.sessionPartnerWeight,
         wSessionOpponent: parseFloat(document.getElementById('cfg-w-session-opponent')?.value) ?? D.sessionOpponentWeight,
         wHistoryPartner:  parseFloat(document.getElementById('cfg-w-history-partner')?.value) ?? D.historyPartnerWeight,
@@ -2592,10 +2818,10 @@ const ROLE_COLORS = {
       };
       try {
         await API.saveConfig(newConfig);
-        state.config = newConfig;
+        state.config = sanitizeConfig(newConfig);
       } catch (e) { toast('Auto-save failed: ' + e.message, 'error'); }
     }
-    ['cfg-tries','cfg-local-improve','cfg-swap-passes',
+    ['cfg-tries','cfg-local-improve','cfg-swap-passes','cfg-use-initial-rank',
      'cfg-w-session-partner','cfg-w-session-opponent','cfg-w-history-partner',
      'cfg-w-history-opponent','cfg-w-bye-variance','cfg-w-session-bye',
      'cfg-w-rank-balance','cfg-w-rank-std-dev','cfg-w-mixed-violation'].forEach(id => {
@@ -2616,12 +2842,12 @@ const ROLE_COLORS = {
         notes:          document.getElementById('cfg-notes').value.trim(),
         leagueUrl:           document.getElementById('cfg-league-url').value.trim(),
         allowRegistration:   document.getElementById('cfg-allow-registration').checked,
-        adminOnlyEmail:      document.getElementById('cfg-admin-only-email')?.checked === true,
+        adminOnlyEmail:      state.config.adminOnlyEmail || false,
         registrationCode:    document.getElementById('cfg-reg-code').value.trim(),
         maxPendingReg:       parseInt(document.getElementById('cfg-reg-max-pending').value) || 10,
         rules:          document.getElementById('cfg-rules').value.trim(),
         adminPin:       document.getElementById('cfg-admin-pin').value || state.config.adminPin,
-        replyTo:        document.getElementById('cfg-reply-to').value.trim(),
+        replyTo:        state.config.replyTo || '',
         weeks,
         courts:         parseInt(document.getElementById('cfg-courts').value),
         gamesPerSession:parseInt(document.getElementById('cfg-games').value),
@@ -2638,7 +2864,7 @@ const ROLE_COLORS = {
         wRankBalance:     parseFloat(document.getElementById('cfg-w-rank-balance').value),
         wRankStdDev:      parseFloat(document.getElementById('cfg-w-rank-std-dev').value),
         localImprove:     document.getElementById('cfg-local-improve')?.checked === true,
-        swapPasses:       parseInt(document.getElementById('cfg-swap-passes')?.value) || 5,
+        swapPasses:       (v => isNaN(v) ? 5 : v)(parseInt(document.getElementById('cfg-swap-passes')?.value)),
       };
       for (let w = 1; w <= weeks; w++) {
         const el = document.getElementById('cfg-date-' + w);
@@ -2671,7 +2897,7 @@ const ROLE_COLORS = {
       showLoading(true);
       try {
         await API.saveConfig(config);
-        state.config = config;
+        state.config = sanitizeConfig(config);
 
         // Update registry with league name and admin email so the app manager sees current values
         const session = Auth.getSession();
@@ -2694,6 +2920,10 @@ const ROLE_COLORS = {
     document.getElementById('avail-filter')?.addEventListener('change', updateAvailPreview);
     document.querySelector('.card:has(#avail-week-select) details')?.addEventListener('toggle', function() {
       if (this.open) initAvailUI();
+    });
+    // Refresh send message UI when the collapsible is opened
+    document.querySelector('.card:has(#msg-subject) details')?.addEventListener('toggle', function() {
+      if (this.open) refreshSendMessageUI();
     });
 
     document.getElementById('btn-send-avail')?.addEventListener('click', async () => {
@@ -2795,8 +3025,9 @@ const ROLE_COLORS = {
       const incTime     = document.getElementById('msg-inc-time').checked;
       const incRules    = document.getElementById('msg-inc-rules').checked;
       const incDates    = document.getElementById('msg-inc-dates').checked;
-      const incUrl      = document.getElementById('msg-inc-url').checked;
-      const incPlayers  = document.getElementById('msg-inc-players').checked;
+      const incUrl       = document.getElementById('msg-inc-url').checked;
+      const incPlayers   = document.getElementById('msg-inc-players').checked;
+      const incStandings = document.getElementById('msg-inc-standings').checked;
 
       const leagueInfo = {
         leagueName:  incName     ? (c.leagueName  || '') : '',
@@ -2805,6 +3036,9 @@ const ROLE_COLORS = {
         rules:       incRules    ? (c.rules       || '') : '',
         leagueUrl:   incUrl      ? (c.leagueUrl || '') : '',
         players:     incPlayers  ? state.players.filter(p => p.active === true).map(p => p.name) : [],
+        standings:   incStandings ? Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance)
+                                      .filter(s => state.players.find(p => p.name === s.name && p.active === true))
+                                  : [],
         dates:       incDates    ? (() => {
           const weeks = parseInt(c.weeks || 8);
           const d = [];
@@ -2854,7 +3088,12 @@ const ROLE_COLORS = {
     });
 
     // Save players
+    // Track unsaved changes on the players page
+    document.getElementById('player-list')?.addEventListener('input',  () => { state._playersDirty = true; });
+    document.getElementById('player-list')?.addEventListener('change', () => { state._playersDirty = true; });
+
     document.getElementById('btn-save-players').addEventListener('click', async () => {
+      state._playersDirty = false; // clear before save attempt — reset on error below if needed
       if (isAssistant) { toast('Admin assistants cannot manage players.', 'warn'); return; }
       // Collect from DOM
       const rows = document.querySelectorAll('#player-list .player-row');
@@ -2900,7 +3139,7 @@ const ROLE_COLORS = {
         renderDashboard();
         renderAttendance();
         renderPlayerReportSelect();
-      } catch (e) { toast('Save failed: ' + e.message, 'error'); }
+      } catch (e) { state._playersDirty = true; toast('Save failed: ' + e.message, 'error'); }
       finally { showLoading(false); }
     });
 
@@ -2973,6 +3212,8 @@ const ROLE_COLORS = {
       if (!scoresPageActive) return;
       // Don't refresh if the user is mid-edit (any score input is focused)
       if (document.activeElement && document.activeElement.classList.contains('score-input')) return;
+      // Don't refresh if a save is in flight — would overwrite state.scores mid-save
+      if (state.saveLocks[state.currentScoreWeek]) return;
       try {
         const week = state.currentScoreWeek;
         const data = await API.getScores(week);
@@ -3062,7 +3303,7 @@ const ROLE_COLORS = {
       );
       if (hasScores) { toast('Scores already exist for the selected round(s). Clear them first.', 'warn'); return; }
 
-      const courts = parseInt(state.config.courts || 3);
+      let courts = parseInt(state.config.courts || 3);
       const tries  = parseInt(state.config.optimizerTries || 100);
 
       const presentPlayers = state.players
@@ -3080,6 +3321,7 @@ const ROLE_COLORS = {
         const maxCourts = Math.floor(presentPlayers.length / playersPerCourt);
         if (maxCourts === 0) { toast(`Not enough players to fill even one court (${presentPlayers.length} present, need ${playersPerCourt}). No pairings generated.`, 'warn'); return; }
         toast(`Only ${presentPlayers.length} players present — pairings generated for ${maxCourts} of ${courts} court${maxCourts !== 1 ? 's' : ''}. Remaining players will receive a bye.`, 'warn');
+        courts = maxCourts; // ← actually use the capped value
       }
 
       const maxR = state.limits && state.limits.maxRounds;
@@ -3105,6 +3347,8 @@ const ROLE_COLORS = {
       overlayMsg.textContent = state.bestGeneration
         ? `${tries} more iterations · ${totalTriesSoFar} total · ${presentPlayers.length} players`
         : `${tries} iterations · ${presentPlayers.length} players`;
+      // If user was viewing 2nd best, reset to best before starting a new run
+      if (state.bestGeneration) state.pendingPairings = state.bestGeneration.pairings;
       overlay.classList.remove('hidden');
       overlay.style.display = 'flex';
 
@@ -3130,12 +3374,14 @@ const ROLE_COLORS = {
       state.players.forEach(p => { playerGroups[p.name] = p.group || 'M'; });
 
       const useLocalImprove = state.config.localImprove === undefined ? true : (state.config.localImprove === true || state.config.localImprove === 'true');
-      const swapPasses = parseInt(state.config.swapPasses) || 5;
+      const swapPasses = (v => isNaN(v) ? 5 : v)(parseInt(state.config.swapPasses));
+      const useInitialRank = state.config.useInitialRank === true || state.config.useInitialRank === 'true';
+      const verbose = document.getElementById('cfg-verbose-optimizer')?.checked === true;
       const workerParams = {
         presentPlayers, courts, rounds, pastPairings, tries, weights,
         standings: state.standings, gameMode, playerGroups,
         startRound, sessionHistory: lockedThisWeek, players: state.players,
-        useLocalImprove, swapPasses,
+        useLocalImprove, swapPasses, useInitialRank, verbose,
       };
 
       // Derive worker URL from the page location so it works on any deployment.
@@ -3180,19 +3426,47 @@ const ROLE_COLORS = {
         const CHUNK = 10; // attempts per chunk
         let remaining = workerParams.tries;
         let best = null;
+        const accumulatedScores = workerParams.verbose ? [] : null;
 
         // We run optimize with small try counts and accumulate the best result
         function nextChunk() {
           try {
             const batchTries = Math.min(CHUNK, remaining);
             const res = Pairings.optimize({ ...workerParams, tries: batchTries });
-            if (!best || res.score < best.score) best = res;
+
+            // Accumulate all scores across chunks
+            if (accumulatedScores && res.allScores) {
+              accumulatedScores.push(...res.allScores);
+            }
+
+            // Only consider valid results (pairings may be null if not enough players)
+            if (res.pairings) {
+              if (!best || res.score < best.score) {
+                // New best — demote old best to second if better than current second
+                if (best && best.pairings) {
+                  if (!res.secondPairings || best.score < res.secondScore) {
+                    res.secondPairings  = best.pairings;
+                    res.secondScore     = best.score;
+                    res.secondBreakdown = best.breakdown;
+                  }
+                }
+                best = res;
+              } else if (!best.secondPairings || res.score < best.secondScore) {
+                // This chunk's best is worse than overall best but better than current 2nd
+                best.secondPairings  = res.pairings;
+                best.secondScore     = res.score;
+                best.secondBreakdown = res.breakdown;
+              }
+            }
+
             remaining -= batchTries;
             overlayMsg.textContent = `${workerParams.tries - remaining}/${workerParams.tries} iterations · ${workerParams.presentPlayers.length} players`;
             if (remaining > 0) {
               setTimeout(nextChunk, 0);
             } else {
-              resolve(best);
+              // Attach accumulated scores to final result
+              if (accumulatedScores && best) best.allScores = accumulatedScores;
+              resolve(best || { pairings: null, score: Infinity, error: 'No valid pairings could be generated.' });
             }
           } catch (err) {
             reject(err);
@@ -3201,10 +3475,11 @@ const ROLE_COLORS = {
         setTimeout(nextChunk, 0);
       }
 
-      runOptimize().then(({ pairings: result, score, breakdown, normalizedWeights, error }) => {
+      runOptimize().then(({ pairings: result, score, breakdown, normalizedWeights, error, secondPairings, secondScore, secondBreakdown, allScores }) => {
           overlay.classList.add('hidden');
           overlay.style.display = 'none';
           if (error) { toast(error, 'error'); return; }
+          if (!result) { toast('No valid pairings could be generated — check player count and court settings.', 'error'); return; }
 
           if (gameMode === 'mixed-doubles' && breakdown?.mixedViolations?.raw > 0) {
             toast(`⚠️ Mixed doubles: ${breakdown.mixedViolations.raw} same-gender partnership(s) could not be avoided — check player groups and attendance.`, 'warn');
@@ -3223,7 +3498,13 @@ const ROLE_COLORS = {
             const merged = [...otherRounds, ...newRounds]
               .sort((a,b) => parseInt(a.round)-parseInt(b.round) || String(a.court).localeCompare(String(b.court), undefined, {numeric:true}));
 
-            state.bestGeneration = { score, pairings: merged, breakdown, normalizedWeights, inputHash, totalTries: totalTriesSoFar };
+            state.bestGeneration = {
+              score, pairings: merged, breakdown, normalizedWeights, inputHash,
+              totalTries: totalTriesSoFar,
+              secondPairings: secondPairings ? secondPairings.map(p => ({ ...p, week, round: p.round + startRound - 1 })) : null,
+              secondScore, secondBreakdown,
+              allScores: allScores ? [...(previousBest?.allScores || []), ...allScores] : null,
+            };
             state.pendingPairings = merged;
           }
 
@@ -3240,11 +3521,18 @@ const ROLE_COLORS = {
             improvedEl.innerHTML = '';
           }
 
+          // Accumulate allScores across runs even when not improving
+          if (allScores && allScores.length) {
+            if (!state.bestGeneration.allScores) state.bestGeneration.allScores = [];
+            // Only push scores not already accumulated during the isImprovement branch
+            if (!isImprovement) state.bestGeneration.allScores.push(...allScores);
+          }
+
           document.getElementById('optimizer-status').classList.remove('hidden');
           document.getElementById('optimizer-score').textContent = best.score.toFixed(1);
           const swapInfo = useLocalImprove ? ` · swap ${swapPasses} passes` : ' · no swap';
           document.getElementById('optimizer-msg').textContent =
-            `${best.totalTries} iterations${swapInfo} · ${presentPlayers.length} players — press again to keep searching`;
+            `${best.totalTries} iterations${swapInfo} · ${courts} court${courts!==1?'s':''} · ${presentPlayers.length} players — press again to keep searching`;
           document.getElementById('btn-generate-fresh').classList.remove('hidden');
 
           const LABELS = {
@@ -3264,20 +3552,23 @@ const ROLE_COLORS = {
             sessionBye:      'sessionByeWeight',      byeVariance:     'byeVarianceWeight',
             rankBalance:     'rankBalanceWeight',      rankStdDev:      'rankStdDevWeight',
           };
-          if (best.breakdown) {
+
+          // ── Breakdown table renderer ────────────────────────
+          function renderBreakdownTable(bd, nw, label) {
+            if (!bd) return '';
             let bhtml = `<table style="font-size:0.78rem; width:100%; border-collapse:collapse; margin-top:4px;">
               <thead><tr>
-                <th style="text-align:left; padding:3px 8px; color:var(--muted); font-weight:500;">Criterion</th>
+                <th style="text-align:left; padding:3px 8px; color:var(--muted); font-weight:500;">${label || 'Criterion'}</th>
                 <th style="text-align:right; padding:3px 8px; color:var(--muted); font-weight:500;">Raw</th>
                 <th style="text-align:right; padding:3px 8px; color:var(--muted); font-weight:500;">User Weight</th>
                 <th style="text-align:right; padding:3px 8px; color:var(--muted); font-weight:500;">Norm. Weight</th>
                 <th style="text-align:right; padding:3px 8px; color:var(--muted); font-weight:500;">Score</th>
               </tr></thead><tbody>`;
-            Object.entries(best.breakdown).forEach(([key, v]) => {
+            Object.entries(bd).forEach(([key, v]) => {
               const nonzero = v.weighted > 0;
               const wKey  = USER_WEIGHT_KEYS[key];
               const userW = wKey ? (weights[wKey] ?? Pairings.DEFAULTS[wKey] ?? '—') : '—';
-              const normW = (wKey && best.normalizedWeights?.[wKey] != null) ? best.normalizedWeights[wKey].toFixed(2) : '—';
+              const normW = (wKey && nw?.[wKey] != null) ? nw[wKey].toFixed(2) : '—';
               bhtml += `<tr style="${nonzero ? 'color:var(--white);' : 'color:var(--muted);'}">
                 <td style="padding:3px 8px;">${LABELS[key] || key}</td>
                 <td style="text-align:right; padding:3px 8px;">${typeof v.raw === 'number' ? v.raw.toFixed(2) : '—'}</td>
@@ -3287,7 +3578,86 @@ const ROLE_COLORS = {
               </tr>`;
             });
             bhtml += `</tbody></table>`;
-            document.getElementById('optimizer-breakdown').innerHTML = bhtml;
+            return bhtml;
+          }
+
+          // Show best breakdown by default
+          document.getElementById('optimizer-breakdown').innerHTML =
+            renderBreakdownTable(best.breakdown, best.normalizedWeights, `Criterion — Best (score ${best.score.toFixed(1)})`);
+
+          // ── 2nd best toggle ─────────────────────────────────
+          const secondBtn = document.getElementById('btn-show-second');
+          if (best.secondBreakdown && best.secondScore < Infinity && best.secondPairings) {
+            secondBtn.classList.remove('hidden');
+            secondBtn.dataset.showing = 'best';
+            // Remove any previous listener by cloning
+            const freshBtn = secondBtn.cloneNode(true);
+            secondBtn.parentNode.replaceChild(freshBtn, secondBtn);
+            freshBtn.addEventListener('click', () => {
+              const showing = freshBtn.dataset.showing;
+              if (showing === 'best') {
+                // Switch to 2nd best
+                document.getElementById('optimizer-breakdown').innerHTML =
+                  renderBreakdownTable(best.secondBreakdown, best.normalizedWeights,
+                    `Criterion — 2nd Best (score ${best.secondScore.toFixed(1)})`);
+                document.getElementById('optimizer-score').textContent = best.secondScore.toFixed(1);
+                state.pendingPairings = best.secondPairings;
+                freshBtn.textContent = 'Show Best';
+                freshBtn.dataset.showing = 'second';
+              } else {
+                // Switch back to best
+                document.getElementById('optimizer-breakdown').innerHTML =
+                  renderBreakdownTable(best.breakdown, best.normalizedWeights,
+                    `Criterion — Best (score ${best.score.toFixed(1)})`);
+                document.getElementById('optimizer-score').textContent = best.score.toFixed(1);
+                state.pendingPairings = best.pairings;
+                freshBtn.textContent = 'Show 2nd Best';
+                freshBtn.dataset.showing = 'best';
+              }
+              renderPairingsPreview();
+            });
+          } else {
+            secondBtn.classList.add('hidden');
+          }
+
+          // ── Score distribution histogram (verbose mode only) ─
+          const distEl = document.getElementById('optimizer-distribution');
+          const scores = best.allScores;
+          if (scores && scores.length > 1) {
+            distEl.style.display = '';
+            const minS = Math.min(...scores);
+            const maxS = Math.max(...scores);
+            const range = maxS - minS || 1;
+            const BINS = Math.min(20, Math.ceil(Math.sqrt(scores.length)));
+            const binSize = range / BINS;
+            const bins = Array(BINS).fill(0);
+            scores.forEach(s => {
+              const idx = Math.min(BINS - 1, Math.floor((s - minS) / binSize));
+              bins[idx]++;
+            });
+            const maxBin = Math.max(...bins);
+            const BAR_H = 40; // max bar height px
+
+            let dhtml = `<div style="font-size:0.75rem; color:var(--muted); margin-bottom:6px; letter-spacing:0.06em; text-transform:uppercase;">
+              Score Distribution — ${scores.length} attempts · best ${minS.toFixed(1)} · worst ${maxS.toFixed(1)} · spread ${range.toFixed(1)}
+            </div>`;
+            dhtml += `<div style="display:flex; align-items:flex-end; gap:2px; height:${BAR_H + 18}px;">`;
+            bins.forEach((count, i) => {
+              const h = maxBin > 0 ? Math.round((count / maxBin) * BAR_H) : 0;
+              const lo = (minS + i * binSize).toFixed(1);
+              const hi = (minS + (i + 1) * binSize).toFixed(1);
+              const isBest = (minS + i * binSize) <= minS && minS < (minS + (i + 1) * binSize);
+              const color = isBest ? 'var(--green)' : 'rgba(122,155,181,0.5)';
+              dhtml += `<div style="display:flex; flex-direction:column; align-items:center; flex:1; min-width:0;" title="${count} attempt${count!==1?'s':''}: ${lo}–${hi}">
+                <div style="font-size:0.6rem; color:var(--muted); margin-bottom:1px;">${count||''}</div>
+                <div style="width:100%; height:${h}px; background:${color}; border-radius:2px 2px 0 0; min-height:${count>0?2:0}px;"></div>
+                <div style="font-size:0.6rem; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${i===0||i===BINS-1?lo:''}</div>
+              </div>`;
+            });
+            dhtml += `</div>`;
+            distEl.innerHTML = dhtml;
+          } else {
+            distEl.style.display = 'none';
           }
 
           document.getElementById('btn-lock-pairings').disabled = false;
@@ -3346,14 +3716,23 @@ const ROLE_COLORS = {
       if (scope === 'all') {
         clearRounds = null; // all rounds
       } else if (scope === 'remaining') {
-        const nextRound = lockedRounds.length ? Math.max(...lockedRounds) + 1 : 1;
-        clearRounds = Array.from({length: totalRounds - nextRound + 1}, (_, i) => nextRound + i);
+        // "Remaining" for clear = rounds with no scores entered yet
+        const scoredRounds = new Set(
+          state.scores
+            .filter(s => parseInt(s.week) === week && (s.score1 !== '' && s.score1 !== null && s.score2 !== '' && s.score2 !== null))
+            .map(s => parseInt(s.round))
+        );
+        clearRounds = lockedRounds.filter(r => !scoredRounds.has(r));
+        if (!clearRounds.length) {
+          toast(`No unscored rounds to clear for Session ${week}.`, 'warn');
+          return;
+        }
       } else {
         clearRounds = [parseInt(scope)];
       }
 
       const scopeLabel = scope === 'all' ? `all rounds of Session ${week}`
-        : scope === 'remaining' ? `remaining rounds of Session ${week}`
+        : scope === 'remaining' ? `${clearRounds.length} unscored round${clearRounds.length !== 1 ? 's' : ''} of Session ${week} (Round${clearRounds.length !== 1 ? 's' : ''} ${clearRounds.join(', ')})`
         : `Round ${scope} of Session ${week}`;
 
       const affectedScores = state.scores.filter(s =>
@@ -3469,12 +3848,22 @@ const ROLE_COLORS = {
     document.getElementById('btn-send-report').addEventListener('click', async () => {
       if (isAssistant) { toast('Admin assistants cannot send email reports.', 'warn'); return; }
       const week = state.currentScoreWeek;
+      const adminOnly = state.config.adminOnlyEmail === true || state.config.adminOnlyEmail === 'true';
       const recipients = state.players.filter(p => p.active === true && p.notify && p.email);
-      if (!recipients.length) {
-        toast('No players have email notifications enabled.', 'warn');
-        return;
+
+      if (adminOnly) {
+        if (!state.config.replyTo) {
+          toast('Admin-only email is enabled but no Admin Email is set. Set it on the Messaging page.', 'warn');
+          return;
+        }
+        if (!confirm(`Send Session ${week} results to admin (${state.config.replyTo})?`)) return;
+      } else {
+        if (!recipients.length) {
+          toast('No players have email notifications enabled.', 'warn');
+          return;
+        }
+        if (!confirm(`Send Session ${week} results to ${recipients.length} player(s)${state.config.replyTo ? ' + admin' : ''}?`)) return;
       }
-      if (!confirm(`Send Session ${week} results to ${recipients.length} player(s)?`)) return;
 
       // Build report data
       const weekScores   = state.scores.filter(s => parseInt(s.week) === week);
@@ -3498,16 +3887,23 @@ const ROLE_COLORS = {
           weekPairings,
           weekStandings:  weekStand,
           seasonStandings: seasonStand,
-          recipients:   (state.config.adminOnlyEmail === true || state.config.adminOnlyEmail === 'true') && state.config.replyTo
-            ? [{ name: 'Admin', email: state.config.replyTo }]
-            : recipients.map(p => ({ name: p.name, email: p.email })),
+          recipients:   (() => {
+            const list = adminOnly && state.config.replyTo
+              ? []
+              : recipients.map(p => ({ name: p.name, email: p.email }));
+            // Always include admin email when set (as CC on player sends, or sole recipient in admin-only mode)
+            if (state.config.replyTo && !list.find(r => r.email === state.config.replyTo)) {
+              list.push({ name: 'Admin', email: state.config.replyTo });
+            }
+            return list;
+          })(),
           courtNames:   Object.fromEntries(
             Array.from({ length: parseInt(state.config.courts || 3) }, (_, i) => [
               i + 1, state.config['courtName_' + (i + 1)] || ('Court ' + (i + 1))
             ])
           ),
         });
-        const actualCount = (state.config.adminOnlyEmail === true || state.config.adminOnlyEmail === 'true') && state.config.replyTo ? 1 : recipients.length;
+        const actualCount = adminOnly && state.config.replyTo ? 1 : recipients.length + (state.config.replyTo ? 1 : 0);
         toast(`Session ${week} results sent to ${actualCount} recipient(s)!`);
       } catch (e) { toast('Send failed: ' + e.message, 'error'); }
       finally { showLoading(false); }
