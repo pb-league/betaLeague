@@ -250,8 +250,13 @@ const ROLE_COLORS = {
   function setupNav() {
     document.querySelectorAll('.nav-item').forEach(item => {
       item.addEventListener('click', () => {
-        // Warn if navigating away from players page with unsaved changes
         const currentPage = document.querySelector('.tab-panel.active')?.id?.replace('page-', '');
+        // Warn if navigating away from setup page with unsaved changes
+        if (currentPage === 'setup' && state._setupDirty) {
+          if (!confirm('You have unsaved changes to the league setup. Leave without saving?')) return;
+          state._setupDirty = false;
+        }
+        // Warn if navigating away from players page with unsaved changes
         if (currentPage === 'players' && state._playersDirty) {
           if (!confirm('You have unsaved changes to the player list. Leave without saving?')) return;
           state._playersDirty = false;
@@ -314,7 +319,11 @@ const ROLE_COLORS = {
             grid.prepend(indicator);
           }
           API.getAttendance().then(data => {
-            if (data && data.attendance) state.attendance = data.attendance;
+            if (data && data.attendance) {
+              // Don't overwrite attendance if pairings generation is in progress
+              const generationActive = !document.getElementById('pairing-overlay')?.classList.contains('hidden');
+              if (!generationActive) state.attendance = data.attendance;
+            }
             renderAttendance();
           }).catch(() => renderAttendance());
         }
@@ -461,7 +470,7 @@ const ROLE_COLORS = {
     // In opponents mode (doubles), each game adds 2 opponent entries to the matrix,
     // so we divide totalGames by 2 to get actual game count.
     const gameMode    = state.config.gameMode || 'doubles';
-    const isSingles   = gameMode === 'singles' || gameMode === 'fixed-pair';
+    const isSingles   = gameMode === 'singles' || gameMode === 'fixed-pairs';
     const oppsPerGame = (h2hMode === 'opponents' && !isSingles) ? 2 : 1;
 
     const avgRankData = players.map(player => {
@@ -905,6 +914,8 @@ const ROLE_COLORS = {
     document.getElementById('cfg-min-participation').value = c.minParticipation !== undefined ? c.minParticipation : '';
     // Cap inputs per registry limits
     applyLimitRestrictions();
+    // Clear dirty flag — population of fields above may have triggered change events
+    state._setupDirty = false;
 
     // Optimizer weights
     const D = Pairings.DEFAULTS;
@@ -959,11 +970,12 @@ const ROLE_COLORS = {
 
   // ── Players ────────────────────────────────────────────────
   function makePlayerRow(p, i) {
+    const isFixedPairs = (state.config.gameMode || 'doubles') === 'fixed-pairs';
     const row = document.createElement('div');
     row.className = 'player-row';
     row.style.gridTemplateColumns = 'minmax(120px,1fr) 68px 90px minmax(140px,180px) 44px 44px 54px 90px 72px 34px';
     row.innerHTML = `
-      <input class="form-control" data-field="name" data-idx="${i}" value="${esc(p.name)}" placeholder="Player name">
+      <input class="form-control" data-field="name" data-idx="${i}" value="${esc(p.name)}" placeholder="${isFixedPairs ? 'Team name e.g. Doug&Kim' : 'Player name'}">
       <input class="form-control" data-field="pin" data-idx="${i}" type="text" value="${esc(String(p.pin || ''))}" placeholder="PIN" maxlength="8">
       <select class="form-control" data-field="group" data-idx="${i}">
         <option value="M" ${p.group==='M'?'selected':''}>Male</option>
@@ -975,8 +987,8 @@ const ROLE_COLORS = {
       <input type="checkbox" data-field="canScore" data-idx="${i}" ${p.canScore ? 'checked' : ''} style="width:18px;height:18px;margin:auto;">
       <input class="form-control" data-field="initialRank" data-idx="${i}" type="number" min="1" value="${p.initialRank || ''}" placeholder="—" style="text-align:center;">
       <select class="form-control" data-field="role" data-idx="${i}">
-        <option value="" ${!p.role?'selected':''}>Player</option>
-        <option value="scorer" ${p.role==='scorer'?'selected':''}>Scorer</option>
+        <option value="" ${!p.role||p.role===''?'selected':''}>Player</option>
+        ${p.role==='scorer' ? `<option value="scorer" selected>Scorer (use Can Score instead)</option>` : ''}
         <option value="assistant" ${p.role==='assistant'?'selected':''}>Assistant</option>
         <option value="admin" ${p.role==='admin'?'selected':''}>Admin</option>
         <option value="spectator" ${p.role==='spectator'?'selected':''}>Spectator</option>
@@ -993,6 +1005,16 @@ const ROLE_COLORS = {
   }
 
   function renderPlayers() {
+    const isFixedPairs = (state.config.gameMode || 'doubles') === 'fixed-pairs';
+
+    // Show/hide fixed-pairs hint and update button/column label
+    const hintEl = document.getElementById('fixed-pairs-hint');
+    if (hintEl) hintEl.style.display = isFixedPairs ? '' : 'none';
+    const addBtn = document.getElementById('btn-add-player');
+    if (addBtn) addBtn.textContent = isFixedPairs ? '+ Add Team' : '+ Add Player';
+    const nameLabel = document.querySelector('#page-players .label');
+    if (nameLabel) nameLabel.textContent = isFixedPairs ? 'Team Name' : 'Name';
+
     const list = document.getElementById('player-list');
     list.innerHTML = '';
 
@@ -1214,7 +1236,7 @@ const ROLE_COLORS = {
 
       // Compute present player count and effective court count for display
       const gameMode = state.config.gameMode || 'doubles';
-      const ppc = gameMode === 'singles' ? 2 : 4;
+      const ppc = (gameMode === 'singles' || gameMode === 'fixed-pairs') ? 2 : 4;
       const presentCount = state.players
         .filter(p => p.active === true && p.role !== 'spectator')
         .filter(p => {
@@ -1270,21 +1292,21 @@ const ROLE_COLORS = {
               .flatMap(p => [p.p1, p.p2].filter(Boolean))
       )];
 
-      html += `<div class="round-header">Round ${r}</div>`;
+      html += `<div style="font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; padding:4px 2px 3px; margin-top:4px;"><strong style="color:var(--white); font-size:0.8rem;">Round ${r}</strong></div>`;
 
       // Games first
       roundGames.forEach(game => {
-        html += `<div style="background:var(--card-bg); border-radius:10px; padding:10px 12px; margin-bottom:8px;">
-            <div style="display:grid; grid-template-columns:auto 1fr auto 1fr; align-items:center; gap:6px;">
-              <div style="font-size:0.7rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); padding-right:4px; white-space:nowrap;">${courtName(game.court)}</div>
+        html += `<div style="background:var(--card-bg); border-radius:8px; padding:5px 10px; margin-bottom:4px;">
+            <div style="display:grid; grid-template-columns:auto 1fr auto 1fr; align-items:center; gap:4px;">
+              <div style="font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); padding-right:4px; white-space:nowrap;">${courtName(game.court)}</div>
               <div style="min-width:0; text-align:right;">
-                <div style="font-size:0.9rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p1)}</div>
-                ${game.p2 ? `<div style="font-size:0.9rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p2)}</div>` : ''}
+                <div style="font-size:0.85rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p1)}</div>
+                ${game.p2 ? `<div style="font-size:0.85rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p2)}</div>` : ''}
               </div>
-              <div style="text-align:center; color:var(--muted); font-size:0.8rem; font-weight:600; flex-shrink:0; padding:0 4px;">VS</div>
+              <div style="text-align:center; color:var(--muted); font-size:0.75rem; font-weight:600; flex-shrink:0; padding:0 4px;">VS</div>
               <div style="min-width:0;">
-                <div style="font-size:0.9rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p3)}</div>
-                ${game.p4 ? `<div style="font-size:0.9rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p4)}</div>` : ''}
+                <div style="font-size:0.85rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p3)}</div>
+                ${game.p4 ? `<div style="font-size:0.85rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p4)}</div>` : ''}
               </div>
             </div>
           </div>`;
@@ -1509,18 +1531,18 @@ const ROLE_COLORS = {
                        : scored > 0 ? `${scored}/${total} · ${remaining} left`
                        : `${total} game${total !== 1 ? 's' : ''}`;
 
-      html += `<details open style="margin-bottom:6px;">
+      html += `<details open style="margin-bottom:3px;">
         <summary style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;
-                        padding:5px 8px; border-radius:7px; background:var(--card-bg);
+                        padding:3px 8px; border-radius:6px; background:var(--card-bg);
                         list-style:none; user-select:none;"
                  class="round-summary">
           <span style="display:flex; align-items:center; gap:6px;">
             <span class="collapse-arrow" style="font-size:0.72rem; color:var(--green); opacity:0.6;">${!allDone ? '▲' : '▼'}</span>
-            <span style="font-size:0.78rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Round ${r}</span>
+            <span style="font-size:0.76rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Round ${r}</span>
           </span>
           <span class="round-badge" style="font-size:0.73rem; color:${badgeColor}; font-weight:600;">${badgeText}</span>
         </summary>
-        <div style="padding-top:4px;">`;
+        <div style="padding-top:3px;">`;
 
       roundGames.forEach(game => {
         const existingScore = state.scores.find(
@@ -2604,7 +2626,7 @@ const ROLE_COLORS = {
         .map(p => p.name);
 
       const gameMode = state.config.gameMode || 'doubles';
-      const doubles  = gameMode !== 'singles';
+      const doubles  = gameMode !== 'singles' && gameMode !== 'fixed-pairs';
 
       if (presentPlayers.length < 2) {
         toast('Need at least 2 present players for a tournament.', 'warn'); return;
@@ -2832,6 +2854,30 @@ const ROLE_COLORS = {
     });
 
     // Save config
+    // Rebuild session dates rows when number of sessions changes
+    document.getElementById('cfg-weeks')?.addEventListener('change', () => {
+      const weeks = parseInt(document.getElementById('cfg-weeks').value) || 8;
+      let datesHtml = '';
+      for (let w = 1; w <= weeks; w++) {
+        const existingDate = document.getElementById(`cfg-date-${w}`)?.value || '';
+        const existingTime = document.getElementById(`cfg-time-${w}`)?.value || '';
+        datesHtml += `
+          <div class="form-row" style="margin-top:6px; align-items:flex-end;">
+            <div class="form-group" style="flex:0 0 auto;">
+              <label class="form-label">Session ${w}</label>
+              <input class="form-control" id="cfg-date-${w}" type="date" value="${existingDate}" style="width:160px;">
+            </div>
+            <div class="form-group" style="flex:0 0 auto;">
+              <label class="form-label" title="Optional — leave blank if time varies">
+                Time <span style="color:var(--muted); font-size:0.75rem; cursor:help;" title="Optional — leave blank if time varies">ℹ</span>
+              </label>
+              <input class="form-control" id="cfg-time-${w}" type="time" value="${existingTime}" style="width:130px;">
+            </div>
+          </div>`;
+      }
+      document.getElementById('cfg-dates-area').innerHTML = datesHtml;
+    });
+
     document.getElementById('btn-save-config').addEventListener('click', async () => {
       if (isAssistant) { toast('Admin assistants cannot change league settings.', 'warn'); return; }
       const weeks = parseInt(document.getElementById('cfg-weeks').value);
@@ -2909,6 +2955,7 @@ const ROLE_COLORS = {
         }
 
         toast('Configuration saved!');
+        state._setupDirty = false;
         renderDashboard();
         renderAttendance();
       } catch (e) { toast('Save failed: ' + e.message, 'error'); }
@@ -3088,6 +3135,21 @@ const ROLE_COLORS = {
     });
 
     // Save players
+    // Track unsaved changes on the setup page (exclude auto-saving optimizer/messaging fields)
+    const AUTO_SAVE_IDS = new Set([
+      'cfg-reply-to', 'cfg-admin-only-email',
+      'cfg-local-improve', 'cfg-swap-passes', 'cfg-use-initial-rank', 'cfg-verbose-optimizer',
+      'cfg-w-session-partner', 'cfg-w-session-opponent', 'cfg-w-history-partner',
+      'cfg-w-history-opponent', 'cfg-w-bye-variance', 'cfg-w-session-bye',
+      'cfg-w-rank-balance', 'cfg-w-rank-std-dev', 'cfg-w-mixed-violation', 'cfg-tries',
+    ]);
+    document.getElementById('page-setup')?.addEventListener('input',  e => {
+      if (!AUTO_SAVE_IDS.has(e.target?.id)) state._setupDirty = true;
+    });
+    document.getElementById('page-setup')?.addEventListener('change', e => {
+      if (!AUTO_SAVE_IDS.has(e.target?.id)) state._setupDirty = true;
+    });
+
     // Track unsaved changes on the players page
     document.getElementById('player-list')?.addEventListener('input',  () => { state._playersDirty = true; });
     document.getElementById('player-list')?.addEventListener('change', () => { state._playersDirty = true; });
@@ -3315,7 +3377,7 @@ const ROLE_COLORS = {
         .map(p => p.name);
 
       const gameMode = state.config.gameMode || 'doubles';
-      const singles  = gameMode === 'singles';
+      const singles  = gameMode === 'singles' || gameMode === 'fixed-pairs';
       const playersPerCourt = singles ? 2 : 4;
       if (presentPlayers.length < courts * playersPerCourt) {
         const maxCourts = Math.floor(presentPlayers.length / playersPerCourt);
@@ -3423,13 +3485,25 @@ const ROLE_COLORS = {
       // Chunked fallback: runs batches of attempts with setTimeout(0) between
       // each batch so the browser can repaint and stay responsive.
       function runInChunks(resolve, reject) {
-        const CHUNK = 10; // attempts per chunk
+        const CHUNK = 25; // attempts per chunk — larger = fewer setTimeout yields = faster overall
         let remaining = workerParams.tries;
         let best = null;
+        let cancelled = false;
         const accumulatedScores = workerParams.verbose ? [] : null;
+
+        // Cancel if user navigates away from pairings page mid-generation
+        const cancelIfNavAway = () => {
+          const onPairings = document.getElementById('page-pairings')?.classList.contains('active');
+          if (!onPairings) { cancelled = true; overlay.classList.add('hidden'); overlay.style.display = 'none'; }
+        };
 
         // We run optimize with small try counts and accumulate the best result
         function nextChunk() {
+          cancelIfNavAway();
+          if (cancelled) {
+            resolve(best || { pairings: null, score: Infinity, error: 'Generation cancelled.' });
+            return;
+          }
           try {
             const batchTries = Math.min(CHUNK, remaining);
             const res = Pairings.optimize({ ...workerParams, tries: batchTries });
@@ -4072,12 +4146,13 @@ const ROLE_COLORS = {
       toast('Failed to load leagues: ' + e.message, 'error');
     }
 
-    // Gate + Add League button from the registry entry for this league
+    // Gate + Add League button from the registry entry for this league.
+    // App manager always has full access regardless of canCreateLeagues flag.
+    const isMgr = (userRole === 'manager') || (typeof isManager !== 'undefined' && isManager);
     const currentId = session?.leagueId;
     const thisLeague = leagues.find(l => l.leagueId === currentId);
-    const canCreate = !thisLeague || thisLeague.canCreateLeagues !== false;
+    const canCreate = isMgr || !thisLeague || thisLeague.canCreateLeagues !== false;
     document.getElementById('btn-show-add-league').style.display = canCreate ? '' : 'none';
-    const isMgr = (userRole === 'manager') || (typeof isManager !== 'undefined' && isManager);
     let html = `<table>
       <thead><tr><th>ID</th><th>Name</th><th>Sheet ID</th><th>Status</th><th>Can Create</th><th>Visibility</th>${isMgr ? '<th>Customer</th><th>Created</th><th>Expires</th><th>Limits</th><th>Edit Limits</th>' : ''}<th></th></tr></thead>
       <tbody>`;
@@ -4167,7 +4242,8 @@ const ROLE_COLORS = {
         const lid = btn.dataset.toggleCreate;
         const nowCan = btn.dataset.canCreate === 'true';
         try {
-          const callerLeagueId = Auth.getSession()?.leagueId;
+          // Manager bypasses caller permission check by not passing callerLeagueId
+          const callerLeagueId = isMgr ? null : Auth.getSession()?.leagueId;
           await API.updateLeagueWithCaller(lid, undefined, undefined, undefined, !nowCan, callerLeagueId);
           toast(`League ${nowCan ? 'can no longer' : 'can now'} create leagues.`);
           renderLeagues();

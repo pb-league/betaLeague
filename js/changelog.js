@@ -6,9 +6,10 @@
 
 const CHANGELOG = [
 {
-    version: '1.3.6',
-    date: '2026-03-30',
+    version: '1.3.7',
+    date: '2026-03-31',
     changes: [
+'log each score written as a backup should the score database get corrupted',
 'issue warning if tie scores are saved',
 'fix issues with four players getting asigned buys even though a court is available',
 'fix issue with initial rankings not properly factoring in to force like-ranked players on same court when multiple people have same rank',

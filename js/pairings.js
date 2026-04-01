@@ -145,28 +145,76 @@ const Pairings = (() => {
           }
         }
       } else {
-        // Doubles: pick best 4-player group with best team split
-        for (let i = 0; i < pool.length - 3; i++) {
-          for (let j = i + 1; j < pool.length - 2; j++) {
-            for (let k = j + 1; k < pool.length - 1; k++) {
-              for (let l = k + 1; l < pool.length; l++) {
-                const four = [pool[i], pool[j], pool[k], pool[l]];
-                [
-                  [four[0], four[1], four[2], four[3]],
-                  [four[0], four[2], four[1], four[3]],
-                  [four[0], four[3], four[1], four[2]],
-                ].forEach(([a, b, c2, d]) => {
-                  const sc = gameScore(a, b, c2, d, sessionPartners, sessionOpponents, history, w)
-                           + Math.random() * noise;
-                  if (sc < bestScore - 1e-9) {
-                    bestScore = sc;
-                    bestCombos = [{ p1: a, p2: b, p3: c2, p4: d }];
-                  } else if (sc < bestScore + 1e-9) {
-                    bestCombos.push({ p1: a, p2: b, p3: c2, p4: d });
-                  }
-                });
+        // Doubles: pick best 4-player group with best team split.
+        // For large pools, exhaustive C(n,4) search becomes prohibitively slow.
+        // Use a capped random-sample approach: try up to MAX_COMBOS random groups
+        // so generation stays fast even with 20+ players.
+        const MAX_COMBOS = 300;
+        const poolLen = pool.length;
+        const totalCombos = (poolLen * (poolLen-1) * (poolLen-2) * (poolLen-3)) / 24;
+
+        if (totalCombos <= MAX_COMBOS) {
+          // Small pool — exhaustive search
+          for (let i = 0; i < poolLen - 3; i++) {
+            for (let j = i + 1; j < poolLen - 2; j++) {
+              for (let k = j + 1; k < poolLen - 1; k++) {
+                for (let l = k + 1; l < poolLen; l++) {
+                  const four = [pool[i], pool[j], pool[k], pool[l]];
+                  [
+                    [four[0], four[1], four[2], four[3]],
+                    [four[0], four[2], four[1], four[3]],
+                    [four[0], four[3], four[1], four[2]],
+                  ].forEach(([a, b, c2, d]) => {
+                    const sc = gameScore(a, b, c2, d, sessionPartners, sessionOpponents, history, w)
+                             + Math.random() * noise;
+                    if (sc < bestScore - 1e-9) {
+                      bestScore = sc;
+                      bestCombos = [{ p1: a, p2: b, p3: c2, p4: d }];
+                    } else if (sc < bestScore + 1e-9) {
+                      bestCombos.push({ p1: a, p2: b, p3: c2, p4: d });
+                    }
+                  });
+                }
               }
             }
+          }
+        } else {
+          // Large pool — random sampling to stay within budget.
+          // Pick MAX_COMBOS random 4-player groups by shuffling and taking first 4.
+          const seen = new Set();
+          let sampled = 0;
+          let attempts = 0;
+          const maxAttempts = MAX_COMBOS * 8;
+          while (sampled < MAX_COMBOS && attempts < maxAttempts) {
+            attempts++;
+            // Pick 4 distinct random indices via partial Fisher-Yates
+            const idxs = [];
+            const avail = Array.from({ length: poolLen }, (_, i) => i);
+            for (let s = 0; s < 4; s++) {
+              const r = s + Math.floor(Math.random() * (poolLen - s));
+              [avail[s], avail[r]] = [avail[r], avail[s]];
+              idxs.push(avail[s]);
+            }
+            const key = idxs.slice().sort((a,b)=>a-b).join(',');
+            if (seen.has(key)) continue;
+            seen.add(key);
+            sampled++;
+
+            const four = idxs.map(i => pool[i]);
+            [
+              [four[0], four[1], four[2], four[3]],
+              [four[0], four[2], four[1], four[3]],
+              [four[0], four[3], four[1], four[2]],
+            ].forEach(([p1, p2, p3, p4]) => {
+              const sc = gameScore(p1, p2, p3, p4, sessionPartners, sessionOpponents, history, w)
+                       + Math.random() * noise;
+              if (sc < bestScore - 1e-9) {
+                bestScore = sc;
+                bestCombos = [{ p1, p2, p3, p4 }];
+              } else if (sc < bestScore + 1e-9) {
+                bestCombos.push({ p1, p2, p3, p4 });
+              }
+            });
           }
         }
       }
@@ -705,7 +753,7 @@ const Pairings = (() => {
   // true relative importance regardless of criterion magnitude.
 
   function optimize({ presentPlayers, courts, rounds, pastPairings, tries = 100, weights = {}, standings = [], gameMode = 'doubles', playerGroups = {}, startRound = 1, sessionHistory = [], players = [], useLocalImprove = true, swapPasses = 5, onProgress = null, useInitialRank = false, verbose = false }) {
-    const singles      = gameMode === 'singles';
+    const singles      = gameMode === 'singles' || gameMode === 'fixed-pairs';
     const mixedDoubles = gameMode === 'mixed-doubles';
     const playersPerCourt = singles ? 2 : 4;
     if (presentPlayers.length < playersPerCourt) {
