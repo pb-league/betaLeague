@@ -211,6 +211,9 @@ function gaPage(pageName) {
         }
         if (page === 'tournament') renderTournamentBracket();
         if (page === 'attendance') {
+          // Show loading spinner immediately before async fetch
+          const attGrid = document.getElementById('my-attendance-grid');
+          if (attGrid) attGrid.innerHTML = '<div style="padding:24px; text-align:center; color:var(--muted); font-size:0.85rem;"><span style="animation:spin 0.8s linear infinite; display:inline-block; font-size:1.4rem;">⏳</span><div style="margin-top:8px;">Loading availability…</div></div>';
           // Re-fetch attendance so player sees latest state from server
           API.getAttendance().then(data => {
             if (data && data.attendance) state.attendance = data.attendance;
@@ -222,6 +225,9 @@ function gaPage(pageName) {
           }).catch(() => renderMyAttendance());
         }
         if (page === 'attendance-all') {
+          // Show loading spinner immediately before async fetch
+          const fullGrid = document.getElementById('full-attendance-grid');
+          if (fullGrid) fullGrid.innerHTML = '<div style="padding:24px; text-align:center; color:var(--muted); font-size:0.85rem;"><span style="animation:spin 0.8s linear infinite; display:inline-block; font-size:1.4rem;">⏳</span><div style="margin-top:8px;">Loading attendance…</div></div>';
           // Re-fetch attendance for the full grid view too
           API.getAttendance().then(data => {
             if (data && data.attendance) state.attendance = data.attendance;
@@ -398,7 +404,7 @@ function gaPage(pageName) {
                            cursor:pointer;">Copy</button>
           </div>
           <div style="font-size:0.7rem; color:var(--muted); margin-top:5px;">
-            Bookmark this link to go straight to your PIN entry next time.
+            Bookmark this link to go straight to your password entry next time.
           </div>
         </div>`;
       }
@@ -675,29 +681,29 @@ function gaPage(pageName) {
     });
   }
 
-  // ── Change PIN ────────────────────────────────────────────
+  // ── Change Password ────────────────────────────────────────
   function renderChangePin() {
     const el = document.getElementById('change-pin-section');
     if (!el) return;
 
     el.innerHTML = `
       <div class="card mt-2">
-        <div class="card-header"><div class="card-title">Change PIN</div></div>
+        <div class="card-header"><div class="card-title">Change Password</div></div>
         <div class="form-row" style="align-items:flex-end; gap:12px; flex-wrap:wrap;">
           <div class="form-group" style="min-width:120px;">
-            <label class="form-label">Current PIN</label>
-            <input class="form-control" id="pin-current" type="password" maxlength="8" placeholder="••••" autocomplete="off">
+            <label class="form-label">Current Password</label>
+            <input class="form-control" id="pin-current" type="password" maxlength="20" inputmode="text" placeholder="••••••" autocomplete="off">
           </div>
           <div class="form-group" style="min-width:120px;">
-            <label class="form-label">New PIN</label>
-            <input class="form-control" id="pin-new" type="password" maxlength="8" placeholder="••••" autocomplete="off">
+            <label class="form-label">New Password</label>
+            <input class="form-control" id="pin-new" type="password" maxlength="20" inputmode="text" placeholder="••••••" autocomplete="off">
           </div>
           <div class="form-group" style="min-width:120px;">
-            <label class="form-label">Confirm New PIN</label>
-            <input class="form-control" id="pin-confirm" type="password" maxlength="8" placeholder="••••" autocomplete="off">
+            <label class="form-label">Confirm New Password</label>
+            <input class="form-control" id="pin-confirm" type="password" maxlength="20" inputmode="text" placeholder="••••••" autocomplete="off">
           </div>
           <div class="form-group" style="flex:0;">
-            <button class="btn btn-primary" id="btn-change-pin">Update PIN</button>
+            <button class="btn btn-primary" id="btn-change-pin">Update Password</button>
           </div>
         </div>
         <div id="pin-change-status" style="font-size:0.82rem; margin-top:6px;"></div>
@@ -719,12 +725,12 @@ function gaPage(pageName) {
         return;
       }
       if (newPin !== confirm) {
-        status.textContent = 'New PIN and confirmation do not match.';
+        status.textContent = 'New password and confirmation do not match.';
         status.style.color = 'var(--danger)';
         return;
       }
       if (newPin.length < 1) {
-        status.textContent = 'New PIN cannot be empty.';
+        status.textContent = 'New password cannot be empty.';
         status.style.color = 'var(--danger)';
         return;
       }
@@ -734,13 +740,13 @@ function gaPage(pageName) {
       try {
         const result = await API.changePin(playerName, current, newPin);
         if (result.success) {
-          status.textContent = '✓ PIN updated successfully.';
+          status.textContent = '✓ Password updated successfully.';
           status.style.color = 'var(--green)';
           document.getElementById('pin-current').value = '';
           document.getElementById('pin-new').value = '';
           document.getElementById('pin-confirm').value = '';
         } else {
-          status.textContent = result.reason || 'Could not update PIN.';
+          status.textContent = result.reason || 'Could not update password.';
           status.style.color = 'var(--danger)';
         }
       } catch (e) {
@@ -748,7 +754,7 @@ function gaPage(pageName) {
         status.style.color = 'var(--danger)';
       } finally {
         btn.disabled = false;
-        btn.textContent = 'Update PIN';
+        btn.textContent = 'Update Password';
       }
     });
   }
@@ -1148,9 +1154,24 @@ function gaPage(pageName) {
             // nothing to update, and re-rendering would lose focus and clear
             // any scores currently being typed.
           } catch (e) {
-            indicator.textContent = '⚠ save failed';
-            indicator.style.color = 'var(--danger)';
-            setTimeout(() => indicator.remove(), 3000);
+            indicator.textContent = '⚠ save failed — tap to retry';
+            indicator.style.cssText = 'font-size:0.65rem; color:var(--danger); text-align:center; margin-top:2px; cursor:pointer; text-decoration:underline;';
+            indicator.addEventListener('click', async () => {
+              indicator.style.cssText = 'font-size:0.65rem; color:var(--muted); text-align:center; margin-top:2px;';
+              indicator.textContent = '⏳ retrying…';
+              try {
+                const weekScores = state.scores.filter(s => parseInt(s.week) === wk);
+                await API.saveScores(wk, weekScores);
+                indicator.textContent = '✓ saved';
+                indicator.style.color = 'var(--green)';
+                setTimeout(() => indicator.remove(), 1800);
+              } catch (e2) {
+                indicator.style.cssText = 'font-size:0.65rem; color:var(--danger); text-align:center; margin-top:2px;';
+                indicator.textContent = '⚠ still failing — contact organizer';
+                toast('Score save failed. Please notify the league organizer.', 'error');
+              }
+            });
+            toast('⚠ Score save failed — tap the card indicator to retry.', 'error');
           }
         });
       });

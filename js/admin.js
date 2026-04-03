@@ -141,6 +141,15 @@ const ROLE_COLORS = {
     saveLocks: {}       // per-week save queue to prevent concurrent writes
   };
 
+  // Helper: returns relay config from state.config for inclusion in email API calls.
+  // This lets Code.gs route emails through the admin's personal Apps Script if configured.
+  function getRelayConfig() {
+    return {
+      emailScriptUrl:    state.config.emailScriptUrl    || '',
+      emailScriptSecret: state.config.emailScriptSecret || '',
+    };
+  }
+
   // ── Load persisted week selections from localStorage ────────
   const PREFS_KEY = `pb_week_prefs_${session.leagueId}`;
   function saveWeekPrefs() {
@@ -309,7 +318,7 @@ const ROLE_COLORS = {
         }
         if (page === 'pairings') { renderPairingsPreview(); renderEditPairingForm(); }
         if (page === 'attendance') {
-          // Show refreshing indicator immediately, then fetch and re-render
+          // Show refreshing indicator and block grid interaction until fetch completes
           const grid = document.getElementById('attendance-grid');
           if (grid) {
             const indicator = document.createElement('div');
@@ -317,15 +326,44 @@ const ROLE_COLORS = {
             indicator.style.cssText = 'font-size:0.78rem; color:var(--muted); padding:8px 4px; display:flex; align-items:center; gap:6px;';
             indicator.innerHTML = '<span style="animation:spin 0.8s linear infinite; display:inline-block;">⏳</span> Refreshing attendance…';
             grid.prepend(indicator);
+            // Block pointer events on the grid while loading
+            grid.style.pointerEvents = 'none';
+            grid.style.opacity = '0.5';
           }
-          API.getAttendance().then(data => {
-            if (data && data.attendance) {
-              // Don't overwrite attendance if pairings generation is in progress
-              const generationActive = !document.getElementById('pairing-overlay')?.classList.contains('hidden');
-              if (!generationActive) state.attendance = data.attendance;
-            }
-            renderAttendance();
-          }).catch(() => renderAttendance());
+          state._attRefreshing = true;
+          // Wait for any in-flight attendance saves to complete before fetching
+          // fresh data — prevents the refresh from returning stale pre-save values
+          const doFetch = () => {
+            API.getAttendance().then(data => {
+              if (data && data.attendance) {
+                const generationActive = !document.getElementById('pairing-overlay')?.classList.contains('hidden');
+                if (!generationActive) {
+                  // Apply server data but preserve any locally-queued unsaved changes
+                  // (queue entries are intentional admin changes not yet confirmed by server)
+                  const queue = state._attQueue || {};
+                  state.attendance = data.attendance.map(a => {
+                    const queued = queue[`${a.player}|${a.week}`];
+                    return queued ? { ...a, status: queued.status } : a;
+                  });
+                  // Add queued entries for player+week combos not yet in server data
+                  Object.values(queue).forEach(q => {
+                    if (!state.attendance.find(a => a.player === q.player && String(a.week) === String(q.week))) {
+                      state.attendance.push({ player: q.player, week: q.week, status: q.status });
+                    }
+                  });
+                }
+              }
+              renderAttendance();
+            }).catch(() => renderAttendance())
+              .finally(() => {
+                state._attRefreshing = false;
+                const grid2 = document.getElementById('attendance-grid');
+                if (grid2) { grid2.style.pointerEvents = ''; grid2.style.opacity = ''; }
+              });
+          };
+          // Attempt to flush any queued saves before fetching, but don't block
+          flushAttQueue();
+          doFetch();
         }
         if (page === 'leagues') renderLeagues();
         if (page === 'head-to-head') renderHeadToHead();
@@ -976,7 +1014,7 @@ const ROLE_COLORS = {
     row.style.gridTemplateColumns = 'minmax(120px,1fr) 68px 90px minmax(140px,180px) 44px 44px 54px 90px 72px 34px';
     row.innerHTML = `
       <input class="form-control" data-field="name" data-idx="${i}" value="${esc(p.name)}" placeholder="${isFixedPairs ? 'Team name e.g. Doug&Kim' : 'Player name'}">
-      <input class="form-control" data-field="pin" data-idx="${i}" type="text" value="${esc(String(p.pin || ''))}" placeholder="PIN" maxlength="8">
+      <input class="form-control" data-field="pin" data-idx="${i}" type="text" value="${esc(String(p.pin || ''))}" placeholder="Password" maxlength="20">
       <select class="form-control" data-field="group" data-idx="${i}">
         <option value="M" ${p.group==='M'?'selected':''}>Male</option>
         <option value="F" ${p.group==='F'?'selected':''}>Female</option>
@@ -1076,7 +1114,7 @@ const ROLE_COLORS = {
           // Trigger approval email when transitioning pend → active
           if (prev === 'pend' && val === true) {
             const pName = state.players[idx].name;
-            API.approvePlayer(pName).then(r => {
+            API.approvePlayer(pName, getRelayConfig()).then(r => {
               if (r.emailSent) toast(`${esc(pName)} approved — approval email sent.`);
               else toast(`${esc(pName)} approved (no email on file).`);
             }).catch(err => toast(`${esc(pName)} approved but approval email failed: ` + err.message, 'warn'));
@@ -1102,7 +1140,109 @@ const ROLE_COLORS = {
     if (replyEl) replyEl.value = c.replyTo || '';
     const adminOnlyEl = document.getElementById('cfg-admin-only-email');
     if (adminOnlyEl) adminOnlyEl.checked = c.adminOnlyEmail === true || c.adminOnlyEmail === 'true';
+
+    // Personal email script fields
+    const urlEl = document.getElementById('cfg-email-script-url');
+    const secEl = document.getElementById('cfg-email-script-secret');
+    if (urlEl) urlEl.value = c.emailScriptUrl || '';
+    if (secEl) secEl.value = c.emailScriptSecret || '';
+
+    const activeLabel = document.getElementById('email-script-active-label');
+    if (activeLabel) {
+      activeLabel.textContent = c.emailScriptUrl
+        ? '✓ Personal email script active — league emails will be sent from your account.'
+        : 'No personal script configured — emails will be sent from the app developer\'s account.';
+      activeLabel.style.color = c.emailScriptUrl ? 'var(--green)' : '';
+    }
+
+    // Populate the code snippet with the current secret
+    const codeEl = document.getElementById('email-script-code');
+    if (codeEl) {
+      const secret = c.emailScriptSecret || 'YOUR_SECRET_HERE';
+      codeEl.textContent = getEmailRelayScript(secret);
+    }
   }
+
+  function getEmailRelayScript(secret) {
+    return `// Pickleball League Manager — Personal Email Relay
+// Deploy as Web App: Execute as Me, Access: Anyone
+// Paste your Web App URL and secret into the league setup page.
+
+const SECRET = '${secret}';
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    if (data.secret !== SECRET) {
+      return ContentService.createTextOutput(
+        JSON.stringify({ success: false, error: 'Invalid secret' })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+    const opts = { htmlBody: data.htmlBody || data.body || '', name: data.name || '' };
+    if (data.replyTo) opts.replyTo = data.replyTo;
+    GmailApp.sendEmail(data.to, data.subject, '', opts);
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: true })
+    ).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: false, error: err.toString() })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+  }
+
+  // ── Attendance save queue ───────────────────────────────────
+  // Allows offline attendance changes — saves queue locally and flush
+  // automatically when connectivity returns. Generate uses local state
+  // so it works offline with whatever attendance is currently showing.
+  let _attFlushInProgress = false;
+  async function flushAttQueue() {
+    if (_attFlushInProgress) return;
+    const queue = state._attQueue || {};
+    const entries = Object.values(queue);
+    if (!entries.length) return;
+    _attFlushInProgress = true;
+
+    // Show a subtle indicator if there are pending saves
+    const pendingCount = entries.length;
+    const indicator = document.getElementById('att-pending-indicator');
+    if (indicator) {
+      indicator.textContent = `⏳ ${pendingCount} attendance change${pendingCount !== 1 ? 's' : ''} pending sync…`;
+      indicator.style.display = '';
+    }
+
+    let anyFailed = false;
+    for (const entry of entries) {
+      try {
+        await API.setAttendance(entry.player, entry.week, entry.status);
+        // Remove from queue on success
+        delete state._attQueue[`${entry.player}|${entry.week}`];
+      } catch (e) {
+        anyFailed = true;
+      }
+    }
+    _attFlushInProgress = false;
+
+    if (indicator) {
+      const remaining = Object.keys(state._attQueue || {}).length;
+      if (remaining === 0) {
+        indicator.textContent = '✓ Attendance synced';
+        indicator.style.color = 'var(--green)';
+        setTimeout(() => { indicator.style.display = 'none'; indicator.style.color = ''; }, 2500);
+      } else {
+        indicator.textContent = `⚠ ${remaining} attendance change${remaining !== 1 ? 's' : ''} not yet synced — will retry when online`;
+        indicator.style.color = 'var(--gold)';
+      }
+    }
+  }
+
+  // Retry queued attendance saves when connectivity returns
+  window.addEventListener('online', () => {
+    if (state._attQueue && Object.keys(state._attQueue).length > 0) {
+      flushAttQueue();
+    }
+  });
 
   function renderAttendance() {
     const weeks = parseInt(state.config.weeks || 8);
@@ -1171,9 +1311,12 @@ const ROLE_COLORS = {
 
     document.querySelectorAll('.att-cell.editable').forEach(cell => {
       cell.addEventListener('click', async () => {
+        // Block clicks while attendance is being refreshed from server
+        if (state._attRefreshing) return;
         const isSpectatorRole = (() => { const p = state.players.find(pl => pl.name === cell.dataset.player); return p && p.role === 'spectator'; })();
         const states = isSpectatorRole ? ['absent', 'tbd'] : ['tbd', 'present', 'absent'];
-        const cur = states.indexOf(cell.className.split(' ').find(c => states.includes(c)));
+        const prev = cell.className.split(' ').find(c => states.includes(c)) || states[0];
+        const cur = states.indexOf(prev);
         const next = states[(cur + 1) % states.length];
         const player = cell.dataset.player;
         const week = cell.dataset.week;
@@ -1197,11 +1340,11 @@ const ROLE_COLORS = {
           totalCell.style.color = count > 0 ? 'var(--green)' : 'var(--muted)';
         }
 
-        try {
-          await API.setAttendance(player, week, next);
-        } catch (e) {
-          toast('Failed to save attendance', 'error');
-        }
+        // Queue the save — local state already updated above, so generate works offline.
+        // The queue flushes automatically when connectivity returns.
+        if (!state._attQueue) state._attQueue = {};
+        state._attQueue[`${player}|${week}`] = { player, week, status: next };
+        flushAttQueue(); // attempt immediately; retries on reconnect if offline
       });
     });
   }
@@ -1261,6 +1404,8 @@ const ROLE_COLORS = {
       advBtn.classList.toggle('hidden', !inTournament);
       resetBtn.classList.toggle('hidden', !inTournament);
       if (lockBtn) lockBtn.classList.toggle('hidden', !inTournament || !state.pendingPairings);
+      // Hide the regular Generate button when a tournament is in progress
+      if (genBtn) genBtn.classList.toggle('hidden', !!inTournament);
       if (inTournament) {
         renderTournamentStatus();
       } else {
@@ -1273,7 +1418,12 @@ const ROLE_COLORS = {
     if (pairWkSel && pairWkSel.value != week) pairWkSel.value = week;
 
     const existing = state.pairings.filter(p => parseInt(p.week) === week);
-    const toShow = state.pendingPairings || existing;
+    // For tournament mode, show all locked rounds plus the pending new round.
+    // For regular mode, pending pairings replace existing (re-generate workflow).
+    const inTournament = state.tournament && state.tournament.week === week;
+    const toShow = inTournament && state.pendingPairings
+      ? [...existing, ...state.pendingPairings.filter(p => !existing.find(e => e.round === p.round && e.court === p.court))]
+      : (state.pendingPairings || existing);
 
     if (!toShow.length) {
       document.getElementById('pairings-preview').innerHTML =
@@ -1710,9 +1860,28 @@ const ROLE_COLORS = {
             card.querySelectorAll('[data-team="1"] div').forEach(el => el.style.cssText = t1win ? winSty : loseSty);
             card.querySelectorAll('[data-team="2"] div').forEach(el => el.style.cssText = t2win ? winSty : loseSty);
           } catch (e) {
-            indicator.textContent = '⚠ save failed';
-            indicator.style.color = 'var(--danger)';
-            setTimeout(() => indicator.remove(), 3000);
+            // Persistent failure indicator — stays until retried or manually saved
+            indicator.style.cssText = 'font-size:0.65rem; color:var(--danger); text-align:center; margin-top:2px; cursor:pointer; text-decoration:underline;';
+            indicator.textContent = '⚠ save failed — tap to retry';
+            indicator.title = e.message || 'Network error';
+            indicator.addEventListener('click', async () => {
+              indicator.style.cssText = 'font-size:0.65rem; color:var(--muted); text-align:center; margin-top:2px;';
+              indicator.textContent = '⏳ retrying…';
+              try {
+                const weekScores = state.scores.filter(s => parseInt(s.week) === wk);
+                await API.saveScores(wk, weekScores);
+                indicator.textContent = '✓ saved';
+                indicator.style.color = 'var(--green)';
+                setTimeout(() => indicator.remove(), 1800);
+                toast('Scores saved after retry.');
+              } catch (e2) {
+                indicator.style.cssText = 'font-size:0.65rem; color:var(--danger); text-align:center; margin-top:2px; cursor:pointer; text-decoration:underline;';
+                indicator.textContent = '⚠ still failing — use Save Scores button';
+                toast('Auto-save failed. Use the Save Scores button to save all scores.', 'error');
+              }
+            });
+            // Also show a toast directing them to the manual save button
+            toast('⚠ Score auto-save failed — use the Save Scores button below.', 'error');
           }
         });
       });
@@ -2819,6 +2988,60 @@ const ROLE_COLORS = {
     document.getElementById('cfg-reply-to')?.addEventListener('blur', saveMessagingSettings);
     document.getElementById('cfg-admin-only-email')?.addEventListener('change', saveMessagingSettings);
 
+    // ── Personal email script: Save and Test buttons ────────────────────────
+    document.getElementById('btn-save-email-script')?.addEventListener('click', async () => {
+      const url    = document.getElementById('cfg-email-script-url')?.value.trim() || '';
+      const secret = document.getElementById('cfg-email-script-secret')?.value.trim() || '';
+      const statusEl = document.getElementById('email-script-status');
+      const newConfig = { ...state.config, emailScriptUrl: url, emailScriptSecret: secret };
+      try {
+        await API.saveConfig(newConfig);
+        state.config = sanitizeConfig(newConfig);
+        // Update code snippet with new secret
+        const codeEl = document.getElementById('email-script-code');
+        if (codeEl) codeEl.textContent = getEmailRelayScript(secret || 'YOUR_SECRET_HERE');
+        const activeLabel = document.getElementById('email-script-active-label');
+        if (activeLabel) {
+          activeLabel.textContent = url
+            ? '✓ Personal email script active — league emails will be sent from your account.'
+            : 'No personal script configured — emails will be sent from the app developer\'s account.';
+          activeLabel.style.color = url ? 'var(--green)' : '';
+        }
+        if (statusEl) { statusEl.textContent = '✓ Saved'; statusEl.style.color = 'var(--green)'; }
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+        toast('Email script settings saved.');
+      } catch (e) {
+        if (statusEl) { statusEl.textContent = '⚠ Save failed'; statusEl.style.color = 'var(--danger)'; }
+        toast('Save failed: ' + e.message, 'error');
+      }
+    });
+
+    document.getElementById('btn-test-email-script')?.addEventListener('click', async () => {
+      const url    = document.getElementById('cfg-email-script-url')?.value.trim();
+      const secret = document.getElementById('cfg-email-script-secret')?.value.trim();
+      const statusEl = document.getElementById('email-script-status');
+      if (!url || !secret) {
+        toast('Enter the Web App URL and secret first.', 'warn'); return;
+      }
+      const testEmail = state.config.replyTo;
+      if (!testEmail) {
+        toast('Set your Admin Email (reply-to) first — test email will be sent there.', 'warn'); return;
+      }
+      if (statusEl) { statusEl.textContent = '⏳ Sending test…'; statusEl.style.color = 'var(--muted)'; }
+      try {
+        const result = await API.testEmailRelay({ emailScriptUrl: url, emailScriptSecret: secret }, testEmail);
+        if (result.success) {
+          if (statusEl) { statusEl.textContent = `✓ Test sent to ${testEmail} via ${result.via}`; statusEl.style.color = 'var(--green)'; }
+          toast(`Test email sent to ${testEmail}! Check your inbox.`);
+        } else {
+          throw new Error(result.error || 'Unknown error');
+        }
+      } catch (e) {
+        if (statusEl) { statusEl.textContent = '⚠ Test failed: ' + e.message; statusEl.style.color = 'var(--danger)'; }
+        toast('Test failed: ' + e.message, 'error');
+      }
+    });
+
     // ── Auto-save: optimizer weight fields (blur/change) ────────────────────
     async function saveOptimizerSettings() {
       const D = Pairings.DEFAULTS;
@@ -3000,7 +3223,7 @@ const ROLE_COLORS = {
       statusEl.style.color = 'var(--muted)';
       showLoading(true);
       try {
-        const result = await API.sendAvailabilityRequest({
+        const result = await API.sendAvailabilityRequest({ relayConfig: getRelayConfig(),
           week,
           leagueId,
           leagueName: sess?.leagueName || state.config.leagueName || 'League',
@@ -3099,7 +3322,7 @@ const ROLE_COLORS = {
       showLoading(true);
       const statusEl = document.getElementById('msg-status');
       try {
-        const result = await API.sendLeagueMessage({
+        const result = await API.sendLeagueMessage({ relayConfig: getRelayConfig(),
           subject,
           body,
           leagueInfo,
@@ -3163,6 +3386,8 @@ const ROLE_COLORS = {
       rows.forEach(row => {
         const name = row.querySelector('[data-field="name"]').value.trim();
         if (name) {
+          // Look up avtoken from state.players — it's not in the DOM but must be preserved
+          const existing = state.players.find(p => p.name === name);
           players.push({
             name,
             pin:    row.querySelector('[data-field="pin"]').value.trim(),
@@ -3172,7 +3397,8 @@ const ROLE_COLORS = {
             canScore:     row.querySelector('[data-field="canScore"]').checked,
             initialRank:  (() => { const v = row.querySelector('[data-field="initialRank"]').value; return v ? parseInt(v) : null; })(),
             role:         row.querySelector('[data-field="role"]').value || null,
-            active:       row.querySelector('[data-field="active"]').value === 'true' ? true : row.querySelector('[data-field="active"]').value === 'pend' ? 'pend' : false
+            active:       row.querySelector('[data-field="active"]').value === 'true' ? true : row.querySelector('[data-field="active"]').value === 'pend' ? 'pend' : false,
+            avtoken:      existing?.avtoken || ''
           });
         }
       });
@@ -3206,7 +3432,23 @@ const ROLE_COLORS = {
     });
 
     // Week navigators
+    // Warn before changing session if pending pairings exist.
+    // _prevPairWeek captures the current week before setupWeekSelect updates state.
+    const pairSel = document.getElementById('pair-week-select');
+    let _prevPairWeek = state.currentPairWeek;
+
     setupWeekSelect('pair-week-select', 'currentPairWeek', () => {
+      if (state.pendingPairings) {
+        if (!confirm('Pairings have been generated but not locked and saved. Switch session and discard them?')) {
+          // Revert to previous week
+          if (pairSel) pairSel.value = _prevPairWeek;
+          state.currentPairWeek = _prevPairWeek;
+          saveWeekPrefs();
+          renderPairingsPreview();
+          return;
+        }
+      }
+      _prevPairWeek = state.currentPairWeek; // update after confirmed change
       state.pendingPairings = null;
       state.bestGeneration  = null;
       document.getElementById('btn-generate-fresh')?.classList.add('hidden');
@@ -3312,7 +3554,7 @@ const ROLE_COLORS = {
 
       showLoading(true);
       try {
-        await API.sendTournamentReport({
+        await API.sendTournamentReport({ relayConfig: getRelayConfig(),
           week,
           weekDate,
           leagueName: Auth.getSession()?.leagueName || state.config.leagueName || 'League',
@@ -3364,6 +3606,13 @@ const ROLE_COLORS = {
         parseInt(s.week) === week && parseInt(s.round) >= startRound && parseInt(s.round) < startRound + rounds
       );
       if (hasScores) { toast('Scores already exist for the selected round(s). Clear them first.', 'warn'); return; }
+
+      // Always fetch fresh attendance from server before generating —
+      // avoids using stale cached data that could include wrong player counts.
+      try {
+        const attData = await API.getAttendance();
+        if (attData && attData.attendance) state.attendance = attData.attendance;
+      } catch (e) { /* non-fatal — use cached state.attendance if fetch fails */ }
 
       let courts = parseInt(state.config.courts || 3);
       const tries  = parseInt(state.config.optimizerTries || 100);
@@ -3757,13 +4006,28 @@ const ROLE_COLORS = {
               : (p.type === 'tourn-game' || p.type === 'tourn-loser-game' || p.type === 'tourn-grand-final') ? 'tourn-game'
               : p.type
         }));
-        // pendingPairings already contains all rounds for the week (existing locked
-        // rounds outside the generated scope are merged in during generation).
-        // Do NOT re-merge with existingWeekPairings here — that causes duplicates.
-        await API.savePairings(week, normalizedPairings);
-        // Update local state — replace entire week
+
+        // For tournament mode, merge new round with existing locked rounds.
+        // For regular mode, pendingPairings already contains all rounds for
+        // the week (merged during generation) so replace the whole week.
+        const inTournament = state.tournament && state.tournament.week === week;
+        let finalPairings;
+        if (inTournament) {
+          const existingWeek = state.pairings.filter(p => parseInt(p.week) === week);
+          const newRounds = new Set(normalizedPairings.map(p => p.round));
+          // Keep existing rounds not covered by the new lock, add new rounds
+          finalPairings = [
+            ...existingWeek.filter(p => !newRounds.has(p.round)),
+            ...normalizedPairings,
+          ].sort((a,b) => a.round - b.round);
+        } else {
+          finalPairings = normalizedPairings;
+        }
+
+        await API.savePairings(week, finalPairings);
+        // Update local state
         state.pairings = state.pairings.filter(p => parseInt(p.week) !== week);
-        state.pairings.push(...normalizedPairings);
+        state.pairings.push(...finalPairings);
         state.pendingPairings = null;
         state.bestGeneration  = null;
         document.getElementById('btn-generate-fresh')?.classList.add('hidden');
@@ -3877,6 +4141,26 @@ const ROLE_COLORS = {
         }
       });
 
+      // Warn about partially-entered scores (one side filled, other blank)
+      document.querySelectorAll('#scoresheet [data-round]').forEach(card => {
+        const s1 = card.querySelector('[data-score="1"]')?.value;
+        const s2 = card.querySelector('[data-score="2"]')?.value;
+        if ((s1 !== '' && s2 === '') || (s1 === '' && s2 !== '')) {
+          const round = card.dataset.round;
+          const court = card.dataset.court;
+          card.style.outline = '2px solid var(--danger)';
+          setTimeout(() => card.style.outline = '', 4000);
+        }
+      });
+      const partial = [...document.querySelectorAll('#scoresheet [data-round]')].filter(card => {
+        const s1 = card.querySelector('[data-score="1"]')?.value;
+        const s2 = card.querySelector('[data-score="2"]')?.value;
+        return (s1 !== '' && s2 === '') || (s1 === '' && s2 !== '');
+      });
+      if (partial.length) {
+        if (!confirm(`⚠️ ${partial.length} game(s) have only one score entered. They will not be saved.\n\nSave the complete scores anyway?`)) return;
+      }
+
       // Warn if any scores being saved would overwrite existing different scores
       const overwritten = scores.filter(s => {
         const existing = state.scores.find(e =>
@@ -3948,7 +4232,7 @@ const ROLE_COLORS = {
 
       showLoading(true);
       try {
-        await API.sendWeeklyReport({
+        await API.sendWeeklyReport({ relayConfig: getRelayConfig(),
           week,
           weekDate,
           leagueName:   Auth.getSession()?.leagueName || state.config.leagueName || 'League',
@@ -4000,7 +4284,7 @@ const ROLE_COLORS = {
       const report = Reports.computePlayerReport(playerName, state.scores, state.standings);
       showLoading(true);
       try {
-        await API.sendPlayerReport({
+        await API.sendPlayerReport({ relayConfig: getRelayConfig(),
           playerName,
           email: player.email,
           report,
@@ -4058,19 +4342,22 @@ const ROLE_COLORS = {
         const copyPlayers     = document.getElementById('new-league-copy-players').checked;
         const canCreateLeagues = document.getElementById('new-league-can-create').checked;
         const hidden     = document.getElementById('new-league-hidden').checked;
-        const customerId = document.getElementById('new-league-customer-id').value.trim() || null;
-        const result = await API.addLeague(leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId);
+        const customerId  = document.getElementById('new-league-customer-id').value.trim() || null;
+        const adminEmail  = document.getElementById('new-league-admin-email').value.trim() || null;
+        const result = await API.addLeague(leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId, adminEmail);
         if (result.warnings && result.warnings.length) {
-          result.warnings.forEach(w => toast('Copy warning: ' + w, 'warn'));
+          result.warnings.forEach(w => toast('Warning: ' + w, 'warn'));
         }
         if (result.sheetUrl) {
           toast(`League "${name}" added! Sheet created: ${result.sheetUrl}`);
         } else {
-          toast(`League "${name}" added!`);
+          toast(`League "${name}" added!${result.shared ? ' Sheet shared with ' + adminEmail + '.' : ''}`);
         }
         document.getElementById('new-league-id').value = '';
         document.getElementById('new-league-name').value = '';
         document.getElementById('new-league-sheet').value = '';
+        document.getElementById('new-league-admin-email').value = '';
+        document.getElementById('new-league-customer-id').value = '';
         document.getElementById('add-league-form').classList.add('hidden');
         document.getElementById('btn-show-add-league').classList.remove('hidden');
         renderLeagues();
@@ -4154,22 +4441,62 @@ const ROLE_COLORS = {
     const canCreate = isMgr || !thisLeague || thisLeague.canCreateLeagues !== false;
     document.getElementById('btn-show-add-league').style.display = canCreate ? '' : 'none';
     let html = `<table>
-      <thead><tr><th>ID</th><th>Name</th><th>Sheet ID</th><th>Status</th><th>Can Create</th><th>Visibility</th>${isMgr ? '<th>Customer</th><th>Created</th><th>Expires</th><th>Limits</th><th>Edit Limits</th>' : ''}<th></th></tr></thead>
+      <thead><tr>
+        <th>ID</th><th>Name</th><th title="Google Sheet ID — hover for full ID">Sheet</th>
+        <th>Status</th>
+        <th title="Whether this league's admin can create new leagues">Create</th>
+        <th>Visibility</th>
+        ${isMgr ? '<th>Customer</th><th>Created</th><th>Expires</th><th>Limits</th><th></th>' : ''}
+      </tr></thead>
       <tbody>`;
 
     if (!leagues.length) {
-      html += '<tr><td colspan="5" class="text-muted">No leagues yet. Add one above.</td></tr>';
+      html += '<tr><td colspan="6" class="text-muted">No leagues yet. Add one above.</td></tr>';
     }
 
     leagues.forEach(l => {
-      const isCurrent = l.leagueId === currentId;
+      const isCurrent  = l.leagueId === currentId;
+      const isActive   = !!l.active;
+      const canToggleCreate = isMgr || canCreate;
+
+      // Truncate sheet ID — show first 8 chars, full on hover
+      const sheetShort = l.sheetId ? l.sheetId.substring(0, 8) + '…' : '—';
+
+      // Single toggle buttons: show current state, click to toggle
+      const btnActive = `<button class="btn ${isActive ? 'btn-primary' : 'btn-secondary'}"
+        style="padding:3px 10px; font-size:0.72rem; min-width:76px;"
+        title="${isActive ? 'Click to deactivate' : 'Click to activate'}"
+        data-toggle-league="${esc(l.leagueId)}" data-active="${isActive}"
+        data-league-name="${esc(l.name)}">
+        ${isActive ? '● Active' : '○ Inactive'}
+      </button>`;
+
+      const canCreateNow = l.canCreateLeagues !== false;
+      const btnCreate = `<button class="btn ${canCreateNow ? 'btn-primary' : 'btn-secondary'}"
+        style="padding:3px 10px; font-size:0.72rem; min-width:60px; ${!canToggleCreate ? 'opacity:0.45; cursor:not-allowed;' : ''}"
+        title="${canCreateNow ? 'Can create leagues — click to disallow' : 'Cannot create leagues — click to allow'}${!canToggleCreate ? ' (no permission)' : ''}"
+        data-toggle-create="${esc(l.leagueId)}" data-can-create="${canCreateNow}"
+        data-league-name="${esc(l.name)}"
+        ${!canToggleCreate ? 'disabled' : ''}>
+        ${canCreateNow ? '● Yes' : '○ No'}
+      </button>`;
+
+      const isHidden = !!l.hidden;
+      const btnVisible = `<button class="btn ${!isHidden ? 'btn-primary' : 'btn-secondary'}"
+        style="padding:3px 10px; font-size:0.72rem; min-width:72px;"
+        title="${isHidden ? 'Hidden — click to make visible' : 'Visible — click to hide'}"
+        data-toggle-hidden="${esc(l.leagueId)}" data-hidden="${isHidden}"
+        data-league-name="${esc(l.name)}">
+        ${!isHidden ? '● Visible' : '○ Hidden'}
+      </button>`;
+
       html += `<tr>
-        <td><code style="font-size:0.8rem; color:var(--muted);">${esc(l.leagueId)}</code></td>
+        <td><code style="font-size:0.78rem; color:var(--muted);">${esc(l.leagueId)}</code></td>
         <td class="player-name">${esc(l.name)}${isCurrent ? ' <span class="badge badge-green">current</span>' : ''}</td>
-        <td><code style="font-size:0.72rem; color:var(--muted);">${esc(l.sheetId)}</code></td>
-        <td><span class="badge ${l.active ? 'badge-green' : 'badge-muted'}">${l.active ? 'Active' : 'Inactive'}</span></td>
-        <td><span class="badge ${l.canCreateLeagues !== false ? 'badge-green' : 'badge-muted'}">${l.canCreateLeagues !== false ? 'Yes' : 'No'}</span></td>
-        <td><span class="badge ${l.hidden ? 'badge-muted' : 'badge-green'}">${l.hidden ? 'Hidden' : 'Visible'}</span></td>
+        <td><code style="font-size:0.72rem; color:var(--muted);" title="${esc(l.sheetId || '')}">${esc(sheetShort)}</code></td>
+        <td>${btnActive}</td>
+        <td>${btnCreate}</td>
+        <td>${btnVisible}</td>
         ${isMgr ? `
         <td style="font-size:0.75rem; color:var(--muted);">${l.customerId || '<span style="opacity:0.4;">—</span>'}</td>
         <td style="font-size:0.75rem; color:var(--muted);">${l.createdDate || '—'}</td>
@@ -4185,27 +4512,12 @@ const ROLE_COLORS = {
           l.maxRounds   !== null && l.maxRounds   !== undefined ? 'Rounds: '  + l.maxRounds   : '',
           l.maxSessions !== null && l.maxSessions !== undefined ? 'Sessions: '+ l.maxSessions : '',
         ].filter(Boolean).join(' · ') || 'No limits'}</td>
-        <td><button class="btn btn-secondary" style="padding:4px 10px; font-size:0.72rem;"
+        <td><button class="btn btn-secondary" style="padding:3px 10px; font-size:0.72rem;"
           data-edit-limits="${esc(l.leagueId)}"
           data-league-name="${esc(l.name)}"
           data-limits='${JSON.stringify({expiryDays:l.expiryDays,maxPlayers:l.maxPlayers,maxCourts:l.maxCourts,maxRounds:l.maxRounds,maxSessions:l.maxSessions,customerId:l.customerId})}'>
           ✏️ Limits
         </button></td>` : ''}
-        <td style="display:flex; gap:4px;">
-          <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.72rem;"
-            data-toggle-league="${esc(l.leagueId)}" data-active="${l.active}">
-            ${l.active ? 'Deactivate' : 'Activate'}
-          </button>
-          <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.72rem;"
-            data-toggle-create="${esc(l.leagueId)}" data-can-create="${l.canCreateLeagues !== false}"
-            ${!canCreate ? 'disabled title="Your league cannot create leagues"' : ''}>
-            ${l.canCreateLeagues !== false ? 'Disallow Create' : 'Allow Create'}
-          </button>
-          <button class="btn btn-secondary" style="padding:4px 10px; font-size:0.72rem;"
-            data-toggle-hidden="${esc(l.leagueId)}" data-hidden="${!!l.hidden}">
-            ${l.hidden ? 'Make Visible' : 'Hide'}
-          </button>
-        </td>
       </tr>`;
     });
 
@@ -4216,10 +4528,11 @@ const ROLE_COLORS = {
     document.querySelectorAll('[data-toggle-league]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const lid = btn.dataset.toggleLeague;
+        const name = btn.dataset.leagueName || lid;
         const nowActive = btn.dataset.active === 'true';
         try {
           await API.updateLeague(lid, undefined, undefined, !nowActive, undefined);
-          toast(`League ${nowActive ? 'deactivated' : 'activated'}.`);
+          toast(`"${name}" ${nowActive ? 'deactivated' : 'activated'}.`);
           renderLeagues();
         } catch (e) { toast('Failed: ' + e.message, 'error'); }
       });
@@ -4228,10 +4541,11 @@ const ROLE_COLORS = {
     document.querySelectorAll('[data-toggle-hidden]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const lid = btn.dataset.toggleHidden;
+        const name = btn.dataset.leagueName || lid;
         const nowHidden = btn.dataset.hidden === 'true';
         try {
           await API.updateLeague(lid, undefined, undefined, undefined, undefined, !nowHidden);
-          toast(`League is now ${nowHidden ? 'visible' : 'hidden'}.`);
+          toast(`"${name}" is now ${nowHidden ? 'visible' : 'hidden'}.`);
           renderLeagues();
         } catch (e) { toast('Failed: ' + e.message, 'error'); }
       });
@@ -4240,12 +4554,12 @@ const ROLE_COLORS = {
     document.querySelectorAll('[data-toggle-create]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const lid = btn.dataset.toggleCreate;
+        const name = btn.dataset.leagueName || lid;
         const nowCan = btn.dataset.canCreate === 'true';
         try {
-          // Manager bypasses caller permission check by not passing callerLeagueId
           const callerLeagueId = isMgr ? null : Auth.getSession()?.leagueId;
           await API.updateLeagueWithCaller(lid, undefined, undefined, undefined, !nowCan, callerLeagueId);
-          toast(`League ${nowCan ? 'can no longer' : 'can now'} create leagues.`);
+          toast(`"${name}" ${nowCan ? 'can no longer' : 'can now'} create leagues.`);
           renderLeagues();
         } catch (e) { toast('Failed: ' + e.message, 'error'); }
       });
