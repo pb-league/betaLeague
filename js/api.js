@@ -97,5 +97,12 @@ const API = (() => {
     testEmailRelay:     (relayConfig, testEmail) => post({ action: 'testEmailRelay', relayConfig, testEmail }),
     changePin:        (name, currentPin, newPin) => post({ action: 'changePin', name, currentPin, newPin }),
     emailPin:         (name)             => post({ action: 'emailPin', name }),
+
+    // Push notifications
+    saveVapidPrivateKey:    (password, privateKey)         => post({ action: 'saveVapidPrivateKey', password, privateKey }),
+    getVapidPrivateKey:     (password)                     => post({ action: 'getVapidPrivateKey',  password }),
+    savePushSubscription:   (subscription, playerName)     => post({ action: 'savePushSubscription', subscription, playerName }),
+    deletePushSubscription: (endpoint)                     => post({ action: 'deletePushSubscription', endpoint }),
+    getPushSubscriptions:   (password)                     => post({ action: 'getPushSubscriptions',  password }),
   };
 })();

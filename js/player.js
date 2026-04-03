@@ -66,6 +66,7 @@ function gaPage(pageName) {
   renderAll();
   setupNav();
   setupEvents();
+  initPushSubscribeUI();
   // Reconcile scoresheet and score-entry week — always start on the same session.
   if (canScore) {
     const reconciled = Math.max(state.currentSheetWeek || 1, state.currentScoreEntryWeek || 1);
@@ -2116,6 +2117,60 @@ function gaPage(pageName) {
   function courtName(courtNum) {
     const name = state.config['courtName_' + courtNum];
     return name && name.trim() ? esc(name.trim()) : `Court ${courtNum}`;
+  }
+
+  // ── Push notification subscribe (player side) ─────────────────────────────
+  // Shown when: browser supports push AND App Manager has configured VAPID keys
+  // AND player hasn't already subscribed on this device.
+
+  const PUSH_DISMISS_KEY = `pb_push_dismissed_${session?.leagueId || ''}`;
+
+  async function initPushSubscribeUI() {
+    const bar = document.getElementById('push-subscribe-bar');
+    if (!bar) return;
+
+    // Hide if push not supported or VAPID key not yet configured
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (!state.config.vapidPublicKey) return;
+
+    // Don't nag if the player already dismissed the bar this session
+    if (sessionStorage.getItem(PUSH_DISMISS_KEY)) return;
+
+    // Check if already subscribed on this device
+    const existing = await VapidPush.getExistingSubscription();
+    if (existing) {
+      // Ensure subscription is registered server-side (handles reinstalls)
+      API.savePushSubscription(existing, playerName).catch(() => {});
+      return;
+    }
+
+    // Show the subscribe bar
+    bar.style.display = 'flex';
+
+    document.getElementById('btn-push-subscribe')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-push-subscribe');
+      btn.disabled    = true;
+      btn.textContent = '⏳ Subscribing…';
+      try {
+        const sub = await VapidPush.subscribeToPush(state.config.vapidPublicKey);
+        await API.savePushSubscription(sub, playerName);
+        bar.style.display = 'none';
+        toast('✓ Push notifications enabled for this device.', 'success');
+      } catch (e) {
+        btn.disabled    = false;
+        btn.textContent = 'Subscribe';
+        if (e.name === 'NotAllowedError') {
+          toast('Notifications blocked — check your browser settings.', 'error');
+        } else {
+          toast('Subscribe failed: ' + e.message, 'error');
+        }
+      }
+    });
+
+    document.getElementById('btn-push-dismiss')?.addEventListener('click', () => {
+      bar.style.display = 'none';
+      sessionStorage.setItem(PUSH_DISMISS_KEY, '1');
+    });
   }
 
   function toast(msg, type = '') {

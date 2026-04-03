@@ -5,16 +5,6 @@
 // ============================================================
 
 const CHANGELOG = [
-{version: '1.4.1',
-    date: '2026-04-03',
-    changes: [
-'protect against attendance info loss',
-'improve league setting gui',
-'auto set spreadsheet sharing if app hosts league sheet.',
-'ability for league admin to send emails from their account'
-]
-
-},
 {
     version: '1.3.7',
     date: '2026-03-31',

@@ -116,6 +116,11 @@ const ROLE_COLORS = {
   }
   applyNavVisibility();
 
+  // Show push notification card for App Manager only
+  if (isManager) {
+    document.getElementById('push-notif-card')?.classList.remove('hidden');
+  }
+
   // Grey out restricted buttons for assistants so it's visually clear
   if (isAssistant) {
     ['btn-save-config', 'btn-send-message', 'btn-add-player', 'btn-save-players',
@@ -299,6 +304,7 @@ const ROLE_COLORS = {
         if (page === 'messaging') {
           initAvailUI();
           refreshSendMessageUI();
+          if (isManager) initPushUI();
         }
         if (page === 'scores') {
           const fetchId = Date.now();
@@ -658,6 +664,163 @@ const ROLE_COLORS = {
       }
       return true;
     });
+  }
+
+  // ── Push Notification UI (App Manager only) ───────────────
+
+  // Session storage key for the VAPID private key (survives nav between pages)
+  const PUSH_PRIV_KEY = 'pb_vapid_priv';
+
+  function initPushUI() {
+    const hasVapidKey = !!(state.config.vapidPublicKey);
+    document.getElementById('push-setup-section').style.display  = hasVapidKey ? 'none' : '';
+    document.getElementById('push-active-section').style.display = hasVapidKey ? ''     : 'none';
+
+    if (!hasVapidKey) {
+      // Wire generate button once
+      const btn = document.getElementById('btn-push-generate-keys');
+      if (btn && !btn._pushWired) {
+        btn._pushWired = true;
+        btn.addEventListener('click', handlePushGenerateKeys);
+      }
+      return;
+    }
+
+    refreshPushActiveUI();
+
+    // Wire unlock button once
+    const unlockBtn = document.getElementById('btn-push-unlock');
+    if (unlockBtn && !unlockBtn._pushWired) {
+      unlockBtn._pushWired = true;
+      unlockBtn.addEventListener('click', handlePushUnlock);
+    }
+    // Wire send button once
+    const sendBtn = document.getElementById('btn-push-send');
+    if (sendBtn && !sendBtn._pushWired) {
+      sendBtn._pushWired = true;
+      sendBtn.addEventListener('click', handlePushSend);
+    }
+  }
+
+  function refreshPushActiveUI() {
+    const privKey = sessionStorage.getItem(PUSH_PRIV_KEY);
+    document.getElementById('push-unlock-section').style.display = privKey ? 'none' : '';
+    document.getElementById('push-send-section').style.display   = privKey ? ''     : 'none';
+  }
+
+  async function handlePushGenerateKeys() {
+    const btn      = document.getElementById('btn-push-generate-keys');
+    const statusEl = document.getElementById('push-setup-status');
+    btn.disabled   = true;
+    btn.textContent = '⏳ Generating…';
+    statusEl.textContent = '';
+    try {
+      const { publicKey, privateKey } = await VapidPush.generateVapidKeys();
+
+      // Save public key via normal config save so it lands in the config sheet
+      const newConfig = { ...state.config, vapidPublicKey: publicKey };
+      await API.saveConfig(newConfig);
+      state.config.vapidPublicKey = publicKey;
+
+      // Save private key to Script Properties (requires App Manager password re-entry)
+      const password = prompt('Enter your App Manager password to save the private key securely:');
+      if (!password) { statusEl.textContent = 'Cancelled — keys not saved.'; statusEl.style.color = 'var(--gold)'; btn.disabled = false; btn.textContent = '🔑 Generate Keys & Enable Push'; return; }
+      await API.saveVapidPrivateKey(password, privateKey);
+
+      // Cache private key in session so we can send immediately
+      sessionStorage.setItem(PUSH_PRIV_KEY, privateKey);
+
+      statusEl.textContent = '✓ VAPID keys generated and saved. Push notifications are now enabled.';
+      statusEl.style.color = 'var(--green)';
+
+      // Refresh UI to show send form
+      document.getElementById('push-setup-section').style.display  = 'none';
+      document.getElementById('push-active-section').style.display = '';
+      refreshPushActiveUI();
+    } catch (e) {
+      statusEl.textContent = 'Setup failed: ' + e.message;
+      statusEl.style.color = 'var(--danger)';
+      btn.disabled    = false;
+      btn.textContent = '🔑 Generate Keys & Enable Push';
+    }
+  }
+
+  async function handlePushUnlock() {
+    const btn      = document.getElementById('btn-push-unlock');
+    const statusEl = document.getElementById('push-unlock-status');
+    const password = document.getElementById('push-mgr-password').value;
+    if (!password) { statusEl.textContent = 'Enter your App Manager password.'; statusEl.style.color = 'var(--gold)'; return; }
+    btn.disabled    = true;
+    btn.textContent = '⏳ Verifying…';
+    statusEl.textContent = '';
+    try {
+      const result = await API.getVapidPrivateKey(password);
+      if (!result.privateKey) throw new Error('No VAPID key found — please generate keys first.');
+      sessionStorage.setItem(PUSH_PRIV_KEY, result.privateKey);
+      document.getElementById('push-mgr-password').value = '';
+      refreshPushActiveUI();
+    } catch (e) {
+      statusEl.textContent = 'Failed: ' + e.message;
+      statusEl.style.color = 'var(--danger)';
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = 'Unlock';
+    }
+  }
+
+  async function handlePushSend() {
+    const btn      = document.getElementById('btn-push-send');
+    const statusEl = document.getElementById('push-send-status');
+    const title    = document.getElementById('push-title').value.trim();
+    const body     = document.getElementById('push-body').value.trim();
+    const url      = document.getElementById('push-url').value.trim() || './player.html';
+
+    if (!title) { statusEl.textContent = 'Please enter a title.'; statusEl.style.color = 'var(--gold)'; return; }
+    if (!body)  { statusEl.textContent = 'Please enter a message.'; statusEl.style.color = 'var(--gold)'; return; }
+
+    const privKey = sessionStorage.getItem(PUSH_PRIV_KEY);
+    if (!privKey) { refreshPushActiveUI(); return; }
+
+    const password = prompt('Enter your App Manager password to fetch subscribers:');
+    if (!password) return;
+
+    btn.disabled    = true;
+    btn.textContent = '⏳ Sending…';
+    statusEl.textContent = '';
+    statusEl.style.color = 'var(--muted)';
+
+    try {
+      const { subscriptions } = await API.getPushSubscriptions(password);
+      if (!subscriptions.length) {
+        statusEl.textContent = 'No subscribers yet — players need to subscribe first.';
+        statusEl.style.color = 'var(--gold)';
+        return;
+      }
+
+      statusEl.textContent = `Sending to ${subscriptions.length} subscriber(s)…`;
+
+      const vapidPub = state.config.vapidPublicKey;
+      const subject  = `mailto:${state.config.replyTo || 'noreply@example.com'}`;
+      const payload  = JSON.stringify({ title, body, url });
+
+      const { sent, failed, expired } = await VapidPush.sendToAll(
+        subscriptions, payload, privKey, vapidPub, subject
+      );
+
+      // Clean up expired subscriptions automatically
+      if (expired.length) {
+        await Promise.allSettled(expired.map(ep => API.deletePushSubscription(ep)));
+      }
+
+      statusEl.textContent = `✓ Sent to ${sent} subscriber(s).${failed ? ` ${failed} failed.` : ''}${expired.length ? ` ${expired.length} expired subscription(s) removed.` : ''}`;
+      statusEl.style.color = sent > 0 ? 'var(--green)' : 'var(--danger)';
+    } catch (e) {
+      statusEl.textContent = 'Send failed: ' + e.message;
+      statusEl.style.color = 'var(--danger)';
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = '🔔 Send to All Subscribers';
+    }
   }
 
   function updateAvailPreview() {

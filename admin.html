@@ -451,6 +451,76 @@
           </details>
         </div>
 
+        <!-- Push Notifications — App Manager only -->
+        <div class="card mt-2 hidden" id="push-notif-card">
+          <details>
+          <summary class="card-header collapsible-header" style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+            <div class="card-title">🔔 Push Notifications <span style="font-size:0.72rem; color:var(--gold); font-weight:400; margin-left:8px;">— App Manager only</span></div>
+            <span class="collapse-arrow" style="font-size:0.72rem; color:var(--green); opacity:0.6;">▼</span>
+          </summary>
+          <div class="collapsible-body">
+            <p style="font-size:0.82rem; color:var(--muted); margin-top:10px; margin-bottom:14px; line-height:1.6;">
+              Send instant push notifications to players who have subscribed on their device. Players see a native notification even when the app is closed.
+            </p>
+
+            <!-- Step 1: Generate VAPID keys (shown when not yet set up) -->
+            <div id="push-setup-section" style="display:none;">
+              <div style="background:rgba(94,194,106,0.06); border:1px solid rgba(94,194,106,0.2); border-radius:8px; padding:14px 16px; margin-bottom:14px;">
+                <div style="font-size:0.8rem; font-weight:700; color:var(--white); margin-bottom:6px;">One-time setup required</div>
+                <p style="font-size:0.8rem; color:var(--muted); margin:0 0 12px; line-height:1.6;">
+                  Generate a VAPID key pair to authenticate push messages for this league. This only needs to be done once — keys are stored securely and persist across sessions.
+                </p>
+                <button class="btn btn-primary" id="btn-push-generate-keys" style="padding:6px 16px; font-size:0.82rem;">🔑 Generate Keys &amp; Enable Push</button>
+              </div>
+              <div id="push-setup-status" style="font-size:0.8rem; margin-top:6px;"></div>
+            </div>
+
+            <!-- Active: keys exist -->
+            <div id="push-active-section" style="display:none;">
+              <div id="push-subscriber-count" style="font-size:0.82rem; color:var(--muted); margin-bottom:14px;"></div>
+
+              <!-- Unlock: private key not yet loaded into session -->
+              <div id="push-unlock-section" style="display:none; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:14px 16px; margin-bottom:14px;">
+                <p style="font-size:0.8rem; color:var(--muted); margin:0 0 10px; line-height:1.6;">
+                  Re-enter your App Manager password to enable push sending for this session.
+                </p>
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                  <input class="form-control" id="push-mgr-password" type="password"
+                    placeholder="App Manager password" style="max-width:240px; font-size:0.85rem;">
+                  <button class="btn btn-secondary" id="btn-push-unlock" style="padding:6px 14px; font-size:0.82rem;">Unlock</button>
+                </div>
+                <div id="push-unlock-status" style="font-size:0.8rem; margin-top:8px;"></div>
+              </div>
+
+              <!-- Send form: private key loaded -->
+              <div id="push-send-section" style="display:none;">
+                <div class="form-group">
+                  <label class="form-label">Title</label>
+                  <input class="form-control" id="push-title" placeholder="e.g. Pairings are ready!" style="max-width:380px;">
+                </div>
+                <div class="form-group" style="margin-top:8px;">
+                  <label class="form-label">Message</label>
+                  <textarea class="form-control" id="push-body" rows="2"
+                    placeholder="e.g. Session 4 pairings have been posted — tap to view."
+                    style="resize:vertical; font-size:0.85rem; line-height:1.5;"></textarea>
+                </div>
+                <div class="form-group" style="margin-top:8px;">
+                  <label class="form-label">Link <span style="color:var(--muted); font-weight:400;">(optional — page to open on tap)</span></label>
+                  <input class="form-control" id="push-url" placeholder="./player.html" style="max-width:380px;">
+                </div>
+                <div id="push-send-status" style="font-size:0.8rem; margin-top:10px;"></div>
+                <div style="display:flex; gap:10px; margin-top:12px; align-items:center; flex-wrap:wrap;">
+                  <button class="btn btn-primary" id="btn-push-send">🔔 Send to All Subscribers</button>
+                </div>
+                <div style="font-size:0.75rem; color:var(--muted); margin-top:10px; font-style:italic;">
+                  Expired subscriptions are cleaned up automatically after each send.
+                </div>
+              </div>
+            </div>
+          </div>
+          </details>
+        </div>
+
       </section>
 
             <!-- ═══ PLAYERS ═══ -->
@@ -1110,6 +1180,7 @@
     });
   </script>
 <script src="js/api.js?v=1.4.1"></script>
+<script src="js/push.js?v=1.4.1"></script>
 <script src="js/auth.js?v=1.4.1"></script>
 <script src="js/pairings.js?v=1.4.1"></script>
 <script src="js/reports.js?v=1.4.1"></script>

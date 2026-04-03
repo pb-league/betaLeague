@@ -80,6 +80,20 @@
           <h2 id="my-games-title">My Games</h2>
           <div id="my-rank-badge"></div>
         </div>
+
+        <!-- Push notification subscribe prompt (shown when supported + key configured) -->
+        <div id="push-subscribe-bar" style="display:none; margin-bottom:12px; padding:10px 14px;
+             background:rgba(94,194,106,0.07); border:1px solid rgba(94,194,106,0.2);
+             border-radius:8px; font-size:0.82rem; display:flex; align-items:center;
+             gap:10px; flex-wrap:wrap;">
+          <span style="color:var(--muted); flex:1; min-width:180px;">🔔 Get push notifications for pairings and league updates</span>
+          <button class="btn btn-secondary" id="btn-push-subscribe"
+            style="padding:4px 14px; font-size:0.8rem; white-space:nowrap;">Subscribe</button>
+          <button id="btn-push-dismiss" aria-label="Dismiss"
+            style="background:none; border:none; color:var(--muted); cursor:pointer;
+                   font-size:1rem; padding:0 4px; line-height:1;">✕</button>
+        </div>
+
         <div id="my-league-info"></div>
         <div id="my-next-game"></div>
         <div id="player-dash-rules"></div>
@@ -260,6 +274,7 @@
     });
   </script>
 <script src="js/api.js?v=1.4.1"></script>
+<script src="js/push.js?v=1.4.1"></script>
 <script src="js/auth.js?v=1.4.1"></script>
 <script src="js/reports.js?v=1.4.1"></script>
 <script src="js/player.js?v=1.4.1"></script>
