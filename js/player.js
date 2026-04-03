@@ -2123,9 +2123,10 @@ function gaPage(pageName) {
   // Shown when: browser supports push AND App Manager has configured VAPID keys
   // AND player hasn't already subscribed on this device.
 
-  const PUSH_DISMISS_KEY = `pb_push_dismissed_${session?.leagueId || ''}`;
+
 
   async function initPushSubscribeUI() {
+      const PUSH_DISMISS_KEY = `pb_push_dismissed_${session?.leagueId || ''}`;
     const bar = document.getElementById('push-subscribe-bar');
     if (!bar) return;
 
