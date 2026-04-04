@@ -716,12 +716,72 @@ const ROLE_COLORS = {
       sendBtn._pushWired = true;
       sendBtn.addEventListener('click', handlePushSend);
     }
+    // Wire subscriber list buttons once
+    const selAll  = document.getElementById('btn-push-select-all');
+    const selNone = document.getElementById('btn-push-select-none');
+    const refresh = document.getElementById('btn-push-refresh-subs');
+    if (selAll && !selAll._pushWired) {
+      selAll._pushWired = true;
+      selAll.addEventListener('click', () => {
+        document.querySelectorAll('.push-sub-cb').forEach(cb => cb.checked = true);
+      });
+    }
+    if (selNone && !selNone._pushWired) {
+      selNone._pushWired = true;
+      selNone.addEventListener('click', () => {
+        document.querySelectorAll('.push-sub-cb').forEach(cb => cb.checked = false);
+      });
+    }
+    if (refresh && !refresh._pushWired) {
+      refresh._pushWired = true;
+      refresh.addEventListener('click', loadPushSubscriberList);
+    }
   }
 
   function refreshPushActiveUI() {
     const privKey = sessionStorage.getItem(PUSH_PRIV_KEY);
     document.getElementById('push-unlock-section').style.display = privKey ? 'none' : '';
     document.getElementById('push-send-section').style.display   = privKey ? ''     : 'none';
+    if (privKey) loadPushSubscriberList();
+  }
+
+  async function loadPushSubscriberList() {
+    const listEl  = document.getElementById('push-recipients-list');
+    const countEl = document.getElementById('push-recipient-count');
+    if (!listEl) return;
+
+    listEl.innerHTML = '<span style="color:var(--muted); font-style:italic;">Loading subscribers…</span>';
+    if (countEl) countEl.textContent = '';
+
+    try {
+      const adminPin = state.config.adminPin;
+      if (!adminPin) {
+        listEl.innerHTML = '<span style="color:var(--warn); font-style:italic;">Admin PIN not configured — set it in Setup first.</span>';
+        return;
+      }
+
+      const { subscriptions } = await API.getTimerPushSubs(adminPin);
+
+      if (!subscriptions || !subscriptions.length) {
+        listEl.innerHTML = '<span style="color:var(--muted); font-style:italic;">No subscribers yet — players subscribe via their dashboard.</span>';
+        listEl._subscriptions = [];
+        return;
+      }
+
+      listEl._subscriptions = subscriptions;
+      listEl.innerHTML = subscriptions.map((sub, i) =>
+        `<label style="display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;">
+          <input type="checkbox" class="push-sub-cb" value="${i}" checked
+            style="accent-color:var(--green);width:15px;height:15px;flex-shrink:0;">
+          <span style="font-size:0.83rem;">${esc(sub.player || 'Unknown')}</span>
+        </label>`
+      ).join('');
+
+      if (countEl) countEl.textContent = `(${subscriptions.length} subscriber${subscriptions.length !== 1 ? 's' : ''})`;
+    } catch(e) {
+      listEl.innerHTML = `<span style="color:var(--danger); font-style:italic;">Failed to load: ${esc(e.message)}</span>`;
+      listEl._subscriptions = [];
+    }
   }
 
   async function handlePushGenerateKeys() {
@@ -797,34 +857,35 @@ const ROLE_COLORS = {
     const privKey = sessionStorage.getItem(PUSH_PRIV_KEY);
     if (!privKey) { refreshPushActiveUI(); return; }
 
-    const password = prompt('Enter your App Manager password to fetch subscribers:');
-    if (!password) return;
+    // Build recipient list from checked checkboxes in the loaded subscriber list
+    const listEl  = document.getElementById('push-recipients-list');
+    const allSubs = (listEl && listEl._subscriptions) || [];
+    const checked = new Set(
+      Array.from(document.querySelectorAll('.push-sub-cb:checked')).map(cb => parseInt(cb.value))
+    );
+    const subscriptions = allSubs.filter((_, i) => checked.has(i));
+
+    if (!subscriptions.length) {
+      statusEl.textContent = allSubs.length ? 'No recipients selected — use the checkboxes above.' : 'No subscribers yet — players subscribe via their dashboard.';
+      statusEl.style.color = 'var(--gold)';
+      return;
+    }
 
     btn.disabled    = true;
     btn.textContent = '⏳ Sending…';
-    statusEl.textContent = '';
+    statusEl.textContent = `Encrypting and sending to ${subscriptions.length} recipient(s)…`;
     statusEl.style.color = 'var(--muted)';
 
     try {
-      const { subscriptions } = await API.getPushSubscriptions(password);
-      if (!subscriptions.length) {
-        statusEl.textContent = 'No subscribers yet — players need to subscribe first.';
-        statusEl.style.color = 'var(--gold)';
-        return;
-      }
-
-      statusEl.textContent = `Encrypting and sending to ${subscriptions.length} subscriber(s)…`;
-
       const vapidPub = state.config.vapidPublicKey;
       const subject  = `mailto:${state.config.replyTo || 'noreply@example.com'}`;
       const payload  = JSON.stringify({ title, body, url });
 
-      // Encrypt all payloads in the browser, then deliver via GAS proxy.
-      // Direct fetch() to push endpoints is blocked by CORS on Apple devices.
+      // Encrypt in the browser, then relay through GAS (CORS blocks direct push on Apple)
       const notifications = await VapidPush.buildNotifications(
         subscriptions, payload, privKey, vapidPub, subject
       );
-      const { results } = await API.sendPushNotifications(password, notifications);
+      const { results } = await API.sendTimerPush(state.config.adminPin, notifications);
 
       let sent = 0, failed = 0;
       const expired = [];
@@ -836,19 +897,20 @@ const ROLE_COLORS = {
         }
       });
 
-      // Clean up expired subscriptions automatically
+      // Clean up expired subscriptions and refresh the list
       if (expired.length) {
         await Promise.allSettled(expired.map(ep => API.deletePushSubscription(ep)));
+        loadPushSubscriberList();
       }
 
-      statusEl.textContent = `✓ Sent to ${sent} subscriber(s).${failed ? ` ${failed} failed.` : ''}${expired.length ? ` ${expired.length} expired subscription(s) removed.` : ''}`;
+      statusEl.textContent = `✓ Sent to ${sent} recipient(s).${failed ? ` ${failed} failed.` : ''}${expired.length ? ` ${expired.length} expired removed.` : ''}`;
       statusEl.style.color = sent > 0 ? 'var(--green)' : 'var(--danger)';
     } catch (e) {
       statusEl.textContent = 'Send failed: ' + e.message;
       statusEl.style.color = 'var(--danger)';
     } finally {
       btn.disabled    = false;
-      btn.textContent = '🔔 Send to All Subscribers';
+      btn.textContent = '🔔 Send Notification';
     }
   }
 
