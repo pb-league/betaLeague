@@ -2125,27 +2125,40 @@ function gaPage(pageName) {
 
   async function initPushSubscribeUI() {
     const PUSH_DISMISS_KEY = `pb_push_dismissed_${session?.leagueId || ''}`;
-    const bar = document.getElementById('push-subscribe-bar');
+    const bar        = document.getElementById('push-subscribe-bar');
+    const promptDiv  = document.getElementById('push-bar-prompt');
+    const subDiv     = document.getElementById('push-bar-subscribed');
     if (!bar) return;
 
-    // Hide if push not supported or VAPID key not yet configured
+    // Hide entirely if push not supported or VAPID key not configured
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
     if (!state.config.vapidPublicKey) return;
 
-    // Don't nag if the player already dismissed the bar this session
-    if (sessionStorage.getItem(PUSH_DISMISS_KEY)) return;
+    // Helper: switch bar into the "subscribed" state
+    function showSubscribedState() {
+      if (promptDiv) promptDiv.style.display = 'none';
+      if (subDiv)    subDiv.style.display    = 'flex';
+      bar.style.display = '';
+    }
+
+    // Helper: switch bar into the "subscribe prompt" state
+    function showPromptState() {
+      if (subDiv)    subDiv.style.display    = 'none';
+      if (promptDiv) promptDiv.style.display = 'flex';
+      bar.style.display = '';
+    }
 
     // Check if already subscribed on this device
     const existing = await VapidPush.getExistingSubscription();
     if (existing) {
-      // Ensure subscription is registered server-side (handles reinstalls)
+      // Ensure subscription is registered server-side (handles reinstalls / new devices)
       API.savePushSubscription(existing, playerName).catch(() => {});
-      return;
+      showSubscribedState();
+    } else if (!sessionStorage.getItem(PUSH_DISMISS_KEY)) {
+      showPromptState();
     }
 
-    // Show the subscribe bar
-    bar.style.display = 'flex';
-
+    // Subscribe button
     document.getElementById('btn-push-subscribe')?.addEventListener('click', async () => {
       const btn = document.getElementById('btn-push-subscribe');
       btn.disabled    = true;
@@ -2153,19 +2166,38 @@ function gaPage(pageName) {
       try {
         const sub = await VapidPush.subscribeToPush(state.config.vapidPublicKey);
         await API.savePushSubscription(sub, playerName);
-        bar.style.display = 'none';
+        showSubscribedState();
         toast('✓ Push notifications enabled for this device.', 'success');
       } catch (e) {
         btn.disabled    = false;
         btn.textContent = 'Subscribe';
         if (e.name === 'NotAllowedError') {
-          toast('Notifications blocked — check your browser settings.', 'error');
+          toast('Notifications blocked — check your browser/OS settings.', 'error');
         } else {
           toast('Subscribe failed: ' + e.message, 'error');
         }
       }
     });
 
+    // Unsubscribe button
+    document.getElementById('btn-push-unsubscribe')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-push-unsubscribe');
+      btn.disabled    = true;
+      btn.textContent = '⏳…';
+      try {
+        const sub = await VapidPush.getExistingSubscription();
+        await VapidPush.unsubscribeFromPush();
+        if (sub?.endpoint) API.deletePushSubscription(sub.endpoint).catch(() => {});
+        bar.style.display = 'none';
+        toast('Unsubscribed from push notifications.', 'success');
+      } catch (e) {
+        btn.disabled    = false;
+        btn.textContent = 'Unsubscribe';
+        toast('Unsubscribe failed: ' + e.message, 'error');
+      }
+    });
+
+    // Dismiss button (prompt state only — hides bar for this session)
     document.getElementById('btn-push-dismiss')?.addEventListener('click', () => {
       bar.style.display = 'none';
       sessionStorage.setItem(PUSH_DISMISS_KEY, '1');
