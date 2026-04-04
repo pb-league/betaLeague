@@ -18,7 +18,7 @@
 // const GAS_URL = 'https://script.google.com/macros/s/AKfycbzudYO4IDqCJt92kR4gu6dVJyGN5LoKtxpD3RYR1pNHepxU_liEdpogjCnE8mWTOXqU/exec';
 
 // App version — bump when deploying changes
-const APP_VERSION    = '1.4.2';
+const APP_VERSION    = '1.4.3';
 const APP_BUILD_DATE = '2026-04-03';
 
 // Google Analytics 4 Measurement ID

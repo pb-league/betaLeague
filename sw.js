@@ -11,7 +11,7 @@
 //   GAS API     → Network-only (never cache)
 // ============================================================
 
-const FALLBACK_VERSION = 'pb-league-v1.3.2';
+const FALLBACK_VERSION = 'pb-league-v1.4.3';
 
 const HTML_FILES = [
   './index.html',
@@ -45,20 +45,27 @@ self.addEventListener('message', event => {
 });
 
 // Push notification received — show it
+// Always show a notification even if payload is missing/undecodable so the
+// user isn't silently left without feedback (e.g. decryption key mismatch).
 self.addEventListener('push', event => {
-  if (!event.data) return;
   let data = {};
-  try { data = event.data.json(); } catch { data = { body: event.data.text() }; }
+  if (event.data) {
+    try { data = event.data.json(); }
+    catch { try { data = { body: event.data.text() }; } catch { /* empty payload */ } }
+  }
   const title   = data.title || 'Pickleball League';
   const options = {
-    body:    data.body  || '',
+    body:     data.body  || 'You have a new league notification.',
     icon:    './img/icon-192.png',
     badge:   './img/icon-192.png',
     data:    { url: data.url || './player.html' },
     tag:     data.tag   || 'pb-league',
     renotify: !!data.tag,
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+      .catch(err => console.error('[SW] showNotification failed:', err))
+  );
 });
 
 // Notification clicked — focus or open the linked page
