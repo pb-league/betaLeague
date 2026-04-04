@@ -797,15 +797,28 @@ const ROLE_COLORS = {
         return;
       }
 
-      statusEl.textContent = `Sending to ${subscriptions.length} subscriber(s)…`;
+      statusEl.textContent = `Encrypting and sending to ${subscriptions.length} subscriber(s)…`;
 
       const vapidPub = state.config.vapidPublicKey;
       const subject  = `mailto:${state.config.replyTo || 'noreply@example.com'}`;
       const payload  = JSON.stringify({ title, body, url });
 
-      const { sent, failed, expired } = await VapidPush.sendToAll(
+      // Encrypt all payloads in the browser, then deliver via GAS proxy.
+      // Direct fetch() to push endpoints is blocked by CORS on Apple devices.
+      const notifications = await VapidPush.buildNotifications(
         subscriptions, payload, privKey, vapidPub, subject
       );
+      const { results } = await API.sendPushNotifications(password, notifications);
+
+      let sent = 0, failed = 0;
+      const expired = [];
+      results.forEach(r => {
+        if (r.ok) { sent++; }
+        else {
+          failed++;
+          if (r.status === 404 || r.status === 410) expired.push(r.endpoint);
+        }
+      });
 
       // Clean up expired subscriptions automatically
       if (expired.length) {
