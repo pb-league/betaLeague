@@ -297,6 +297,22 @@ const ROLE_COLORS = {
         const panel = document.getElementById('page-' + page);
         if (panel) panel.classList.add('active');
         gaPage('Admin: ' + page);
+        if (page === 'timers') {
+          if (typeof setTimerCourtConfig === 'function') {
+            const numCourts = parseInt(state.config.courts || 3);
+            const nameMap = {};
+            for (let c = 1; c <= numCourts; c++) nameMap[c] = state.config['courtName_' + c] || ('Court ' + c);
+            setTimerCourtConfig(numCourts, nameMap);
+          }
+          if (typeof setTimerSessionContext === 'function') {
+            setTimerSessionContext(
+              state.config.adminPin       || null,
+              state.config.vapidPublicKey || null,
+              state.config.replyTo        || ''
+            );
+          }
+          renderTimersPage();
+        }
         if (page === 'standings') renderStandings();
         if (page === 'tourn-results') renderAdminTournamentResults();
         if (page === 'player-report') renderPlayerReportSelect();

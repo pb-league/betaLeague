@@ -334,7 +334,9 @@ function gaPage(pageName) {
       const won = score && parseInt(myScore) > parseInt(oppScore);
       const date = formatDateTime(week, state.config) ? ' · ' + formatDateTime(week, state.config) : '';
 
-      el.innerHTML = `<div class="card mt-1" style="border-left:3px solid ${won ? 'var(--green)' : 'var(--danger)'}; margin-bottom:12px;">
+      if (typeof _updatePlayerTimerCourt === 'function') _updatePlayerTimerCourt(lastGame.court);
+    if (typeof _startPlayerTimerPolling === 'function') _startPlayerTimerPolling();
+    el.innerHTML = `<div class="card mt-1" style="border-left:3px solid ${won ? 'var(--green)' : 'var(--danger)'}; margin-bottom:12px;">
         <div class="card-header" style="padding-bottom:8px;">
           <div class="card-title" style="font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Session ${week}${date} · Round ${lastRound} — All Done</div>
           <span class="badge ${won ? 'badge-green' : 'badge-red'}">${won ? 'W' : 'L'} ${myScore}–${oppScore}</span>
@@ -355,6 +357,8 @@ function gaPage(pageName) {
       : [nextGame.p1, nextGame.p2].filter(Boolean);
     const date = formatDateTime(week, state.config) ? ' · ' + formatDateTime(week, state.config) : '';
 
+    if (typeof _updatePlayerTimerCourt === 'function') _updatePlayerTimerCourt(nextGame.court);
+    if (typeof _startPlayerTimerPolling === 'function') _startPlayerTimerPolling();
     el.innerHTML = `<div class="card mt-1" style="border-left:3px solid var(--gold); margin-bottom:12px;">
       <div class="card-header" style="padding-bottom:8px;">
         <div class="card-title" style="font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Session ${week}${date} · Up Next — Round ${nextRound}</div>

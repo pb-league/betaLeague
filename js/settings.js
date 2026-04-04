@@ -15,11 +15,11 @@
  const GAS_URL = 'https://script.google.com/macros/s/AKfycbyyOWnHgNGf7JOJqHteSLmu7h1fIc0ZJfmuKJ1-xIjWVuR4b07DXWgAu10LhIrnQTNTAQ/exec';
 
 // for release
-// const GAS_URL = 'https://script.google.com/macros/s/AKfycbzudYO4IDqCJt92kR4gu6dVJyGN5LoKtxpD3RYR1pNHepxU_liEdpogjCnE8mWTOXqU/exec';
+ // const GAS_URL = 'https://script.google.com/macros/s/AKfycbzudYO4IDqCJt92kR4gu6dVJyGN5LoKtxpD3RYR1pNHepxU_liEdpogjCnE8mWTOXqU/exec';
 
 // App version — bump when deploying changes
-const APP_VERSION    = '1.4.4';
-const APP_BUILD_DATE = '2026-04-03';
+const APP_VERSION    = '1.4.5';
+const APP_BUILD_DATE = '2026-04-04';
 
 // Google Analytics 4 Measurement ID
 // Set to your GA4 property ID (format: G-XXXXXXXXXX) to enable analytics.

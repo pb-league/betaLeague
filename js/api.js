@@ -105,5 +105,11 @@ const API = (() => {
     deletePushSubscription: (endpoint)                     => post({ action: 'deletePushSubscription', endpoint }),
     getPushSubscriptions:   (password)                     => post({ action: 'getPushSubscriptions',  password }),
     sendPushNotifications:  (password, notifications)      => post({ action: 'sendPushNotifications', password, notifications }),
+
+    // Game timers
+    getTimerState:      ()                       => get('getTimerState'),
+    setTimerState:      (timerState)             => post({ action: 'setTimerState', timerState }),
+    getTimerPushSubs:   (adminPin)               => get('getTimerPushSubs', { adminPin }),
+    sendTimerPush:      (adminPin, notifications) => post({ action: 'sendTimerPush', adminPin, notifications }),
   };
 })();

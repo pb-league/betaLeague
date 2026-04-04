@@ -72,6 +72,10 @@
         <div class="nav-item" data-page="head-to-head"><span class="icon">⚔️</span> Head-to-Head</div>
       </div>
       <div class="nav-section">
+        <div class="nav-section-label">Tools</div>
+        <div class="nav-item" data-page="timers"><span class="icon">⏱</span> Timers</div>
+      </div>
+      <div class="nav-section">
         <div class="nav-section-label">Help</div>
         <div class="nav-item" onclick="window.open('help.html','_blank')" style="cursor:pointer;"><span class="icon">❓</span> User Guide</div>
       </div>
@@ -492,12 +496,11 @@
 
             <!-- Active: keys exist -->
             <div id="push-active-section" style="display:none;">
-              <div id="push-subscriber-count" style="font-size:0.82rem; color:var(--muted); margin-bottom:14px;"></div>
 
-              <!-- Unlock: private key not yet loaded into session -->
+              <!-- Unlock: private key / password not yet loaded into session -->
               <div id="push-unlock-section" style="display:none; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:14px 16px; margin-bottom:14px;">
                 <p style="font-size:0.8rem; color:var(--muted); margin:0 0 10px; line-height:1.6;">
-                  Re-enter your App Manager password to enable push sending for this session.
+                  Re-enter your App Manager password to load subscribers and enable sending for this session.
                 </p>
                 <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                   <input class="form-control" id="push-mgr-password" type="password"
@@ -507,9 +510,30 @@
                 <div id="push-unlock-status" style="font-size:0.8rem; margin-top:8px;"></div>
               </div>
 
-              <!-- Send form: private key loaded -->
+              <!-- Send form: private key + password loaded -->
               <div id="push-send-section" style="display:none;">
+
+                <!-- Recipients checklist -->
                 <div class="form-group">
+                  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+                    <label class="form-label" style="margin:0;">Recipients
+                      <span id="push-recipient-count" style="color:var(--muted); font-weight:400; font-size:0.78rem; margin-left:6px;"></span>
+                    </label>
+                    <div style="display:flex; gap:6px;">
+                      <button class="btn btn-secondary" id="btn-push-select-all"  style="padding:3px 10px; font-size:0.75rem;">All</button>
+                      <button class="btn btn-secondary" id="btn-push-select-none" style="padding:3px 10px; font-size:0.75rem;">None</button>
+                      <button class="btn btn-secondary" id="btn-push-refresh-subs" title="Refresh subscriber list" style="padding:3px 10px; font-size:0.75rem;">🔄</button>
+                    </div>
+                  </div>
+                  <div id="push-recipients-list" style="background:rgba(255,255,255,0.03);
+                       border:1px solid rgba(255,255,255,0.08); border-radius:8px;
+                       padding:10px 14px; max-height:180px; overflow-y:auto; font-size:0.84rem;">
+                    <span style="color:var(--muted); font-style:italic;">Loading subscribers…</span>
+                  </div>
+                </div>
+
+                <!-- Message fields -->
+                <div class="form-group" style="margin-top:14px;">
                   <label class="form-label">Title</label>
                   <input class="form-control" id="push-title" placeholder="e.g. Pairings are ready!" style="max-width:380px;">
                 </div>
@@ -525,7 +549,7 @@
                 </div>
                 <div id="push-send-status" style="font-size:0.8rem; margin-top:10px;"></div>
                 <div style="display:flex; gap:10px; margin-top:12px; align-items:center; flex-wrap:wrap;">
-                  <button class="btn btn-primary" id="btn-push-send">🔔 Send to All Subscribers</button>
+                  <button class="btn btn-primary" id="btn-push-send" disabled>🔔 Send</button>
                 </div>
                 <div style="font-size:0.75rem; color:var(--muted); margin-top:10px; font-style:italic;">
                   Expired subscriptions are cleaned up automatically after each send.
@@ -1025,7 +1049,84 @@
         <div id="h2h-content"></div>
       </section>
 
+      <!-- ═══ TIMERS ═══ -->
+      <section id="page-timers" class="tab-panel">
+        <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+          <button id="btn-add-timer" class="btn btn-primary" onclick="addTimer()" style="padding:7px 16px; font-size:0.82rem;">+ Add Timer</button>
+        </div>
+        <div id="timers-container"></div>
+      </section>
+
     </main>
+  </div>
+</div>
+
+<!-- Timer Config Modal -->
+<div id="timer-config-modal" style="display:none; position:fixed; inset:0; z-index:300;
+  background:rgba(0,0,0,0.72); backdrop-filter:blur(4px);
+  align-items:center; justify-content:center;">
+  <div style="background:var(--navy-mid); border:1px solid rgba(255,255,255,0.12); border-radius:14px;
+    padding:26px 28px 22px; max-width:380px; width:92%; position:relative;">
+    <button onclick="document.getElementById('timer-config-modal').style.display='none'"
+      style="position:absolute; top:12px; right:14px; background:none; border:none;
+             color:rgba(255,255,255,0.4); font-size:1.3rem; cursor:pointer; line-height:1;">✕</button>
+    <input type="hidden" id="tmr-cfg-index" value="0">
+    <div style="font-family:var(--font-display); font-weight:700; font-size:1.1rem; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:18px;">Timer Settings</div>
+
+    <!-- Title -->
+    <div class="form-group" style="margin-bottom:14px;">
+      <label class="form-label">Timer Label</label>
+      <input class="form-control" id="tmr-cfg-title" type="text" placeholder="e.g. Game Timer" maxlength="40">
+    </div>
+
+    <!-- Starting time -->
+    <div class="form-group" style="margin-bottom:14px;">
+      <label class="form-label">Starting Time</label>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <input class="form-control" id="tmr-cfg-min" type="number" min="0" max="99" style="width:70px; text-align:center;" placeholder="15">
+        <span style="color:var(--muted); font-size:1.1rem; font-weight:700;">:</span>
+        <input class="form-control" id="tmr-cfg-sec" type="number" min="0" max="59" style="width:70px; text-align:center;" placeholder="00">
+        <span style="font-size:0.78rem; color:var(--muted); margin-left:4px;">min : sec</span>
+      </div>
+    </div>
+
+    <!-- Warning -->
+    <div class="form-group" style="margin-bottom:6px;">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.85rem; font-weight:500; color:var(--white);">
+        <input type="checkbox" id="tmr-cfg-warn-on" onchange="_syncWarnFields()" style="width:16px; height:16px; accent-color:var(--green);">
+        Enable warning when time remaining reaches…
+      </label>
+    </div>
+    <div id="tmr-warn-group" style="margin-bottom:14px; padding:12px 14px; background:rgba(255,255,255,0.04); border-radius:8px;">
+      <div style="display:flex; align-items:center; gap:6px; margin-bottom:10px;">
+        <input class="form-control" id="tmr-cfg-warn-min" type="number" min="0" max="99" style="width:70px; text-align:center;" placeholder="2">
+        <span style="color:var(--muted); font-size:1.1rem; font-weight:700;">:</span>
+        <input class="form-control" id="tmr-cfg-warn-sec" type="number" min="0" max="59" style="width:70px; text-align:center;" placeholder="00">
+        <span style="font-size:0.78rem; color:var(--muted); margin-left:4px;">min : sec left</span>
+      </div>
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.83rem; color:var(--white);">
+        <input type="checkbox" id="tmr-cfg-warn-sound" style="width:15px; height:15px; accent-color:var(--green);">
+        Play warning sound (in addition to red flash)
+      </label>
+    </div>
+
+    <!-- Court assignment -->
+    <div id="tmr-court-section" style="display:none; margin-bottom:14px; padding:12px 14px; background:rgba(255,255,255,0.04); border-radius:8px;"></div>
+
+    <!-- Count negative -->
+    <div class="form-group" style="margin-bottom:22px;">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.85rem; font-weight:500; color:var(--white);">
+        <input type="checkbox" id="tmr-cfg-neg" style="width:16px; height:16px; accent-color:var(--green);">
+        Continue counting after 0:00 (show negative time)
+      </label>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn btn-secondary" onclick="document.getElementById('timer-config-modal').style.display='none'"
+        style="padding:7px 16px; font-size:0.8rem;">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTimerConfig()" style="padding:7px 20px; font-size:0.8rem;">Save</button>
+    </div>
   </div>
 </div>
 
@@ -1172,7 +1273,7 @@
   }, true);
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="js/settings.js?v=1.4.4"></script>
+<script src="js/settings.js?v=1.4.5"></script>
   <!-- Google Analytics — loads only if GA_MEASUREMENT_ID is set in settings.js -->
   <script>
     window.__gaReady = false;
@@ -1194,14 +1295,15 @@
       window.__gaReady = true;
     });
   </script>
-<script src="js/api.js?v=1.4.4"></script>
-<script src="js/push.js?v=1.4.4"></script>
-<script src="js/auth.js?v=1.4.4"></script>
-<script src="js/pairings.js?v=1.4.4"></script>
-<script src="js/reports.js?v=1.4.4"></script>
-<script src="js/tournament.js?v=1.4.4"></script>
-<script src="js/changelog.js?v=1.4.4"></script>
-<script src="js/admin.js?v=1.4.4"></script>
+<script src="js/api.js?v=1.4.5"></script>
+<script src="js/push.js?v=1.4.5"></script>
+<script src="js/auth.js?v=1.4.5"></script>
+<script src="js/pairings.js?v=1.4.5"></script>
+<script src="js/reports.js?v=1.4.5"></script>
+<script src="js/tournament.js?v=1.4.5"></script>
+<script src="js/changelog.js?v=1.4.5"></script>
+<script src="js/timers.js?v=1.4.5"></script>
+<script src="js/admin.js?v=1.4.5"></script>
 <script>
 (function() {
   const toggle   = document.getElementById('nav-toggle');
