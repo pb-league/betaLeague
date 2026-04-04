@@ -28,6 +28,7 @@ const STATIC_ASSETS = [
   './js/pairings.js',
   './js/reports.js',
   './js/tournament.js',
+  './js/push.js',
   './js/admin.js',
   './js/player.js',
   './js/changelog.js',
@@ -41,6 +42,37 @@ self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+});
+
+// Push notification received — show it
+self.addEventListener('push', event => {
+  if (!event.data) return;
+  let data = {};
+  try { data = event.data.json(); } catch { data = { body: event.data.text() }; }
+  const title   = data.title || 'Pickleball League';
+  const options = {
+    body:    data.body  || '',
+    icon:    './img/icon-192.png',
+    badge:   './img/icon-192.png',
+    data:    { url: data.url || './player.html' },
+    tag:     data.tag   || 'pb-league',
+    renotify: !!data.tag,
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Notification clicked — focus or open the linked page
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = event.notification.data?.url || './player.html';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const client of list) {
+        if (client.url.includes(url) && 'focus' in client) return client.focus();
+      }
+      return clients.openWindow ? clients.openWindow(url) : undefined;
+    })
+  );
 });
 
 // Read APP_VERSION from settings.js — single source of truth

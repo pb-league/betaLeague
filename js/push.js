@@ -236,8 +236,28 @@ const VapidPush = (() => {
     return false;
   }
 
+  // ── Build pre-encrypted notifications for server-side delivery ──────────
+  // Encrypts each payload in the browser, returns objects the GAS proxy can
+  // POST directly — avoiding the CORS block on Apple's push service.
+
+  async function buildNotifications(subscriptions, payload, privJwkStr, vapidPubB64, subject) {
+    const str = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    return Promise.all(subscriptions.map(async sub => {
+      const url      = new URL(sub.endpoint);
+      const audience = `${url.protocol}//${url.host}`;
+      const jwt      = await createVapidJwt(privJwkStr, audience, subject);
+      const vapidHeader = `vapid t=${jwt},k=${vapidPubB64}`;
+      const encrypted   = await encryptPayload(str, sub.keys.p256dh, sub.keys.auth);
+      // Standard base64 (not base64url) — GAS Utilities.base64Decode expects this
+      let bin = '';
+      for (const b of encrypted) bin += String.fromCharCode(b);
+      return { endpoint: sub.endpoint, payloadB64: btoa(bin), vapidHeader };
+    }));
+  }
+
   return {
     generateVapidKeys,
+    buildNotifications,
     sendToAll,
     sendOne,
     subscribeToPush,

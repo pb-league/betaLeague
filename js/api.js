@@ -104,5 +104,6 @@ const API = (() => {
     savePushSubscription:   (subscription, playerName)     => post({ action: 'savePushSubscription', subscription, playerName }),
     deletePushSubscription: (endpoint)                     => post({ action: 'deletePushSubscription', endpoint }),
     getPushSubscriptions:   (password)                     => post({ action: 'getPushSubscriptions',  password }),
+    sendPushNotifications:  (password, notifications)      => post({ action: 'sendPushNotifications', password, notifications }),
   };
 })();
