@@ -110,7 +110,7 @@ function _initState(index, config) {
   const st = _timerState[index];
   if (st) {
     clearInterval(st.intervalId);
-    clearTimeout(st.startFlashTimeout);
+    clearInterval(st.startFlashTimeout);
   }
   _timerState[index] = {
     intervalId: null,
@@ -119,9 +119,12 @@ function _initState(index, config) {
     muted: false,
     expanded: false,
     currentSeconds: config.startMinutes * 60 + config.startSeconds,
-    phase: 'idle',    // idle | start-flash | running | paused | warning | done | negative
+    phase: 'idle',    // idle | start-countdown | running | paused | warning | done | negative
     warnFired: false,
+    warnPushFired: false,
     buzzFired: false,
+    endPushFired: false,
+    countdownRemaining: 0,
   };
 }
 
@@ -186,7 +189,7 @@ function _buildTimerSnapshot() {
       index:         i,
       title:         config.title || ('Timer ' + (i + 1)),
       courts:        config.courts || [],
-      phase:         st.phase,
+      phase:         st.phase === 'start-countdown' ? 'start-flash' : st.phase,
       valueAtSnap:   st.currentSeconds,
       snapAt:        now,
       warnEnabled:   config.warnEnabled || false,
@@ -249,7 +252,8 @@ function _timerBoxHtml(index, config) {
   const inWarn = st.currentSeconds > 0 && st.currentSeconds <= warnSecs;
   const isDone  = phase === 'done';
   const isNeg   = phase === 'negative';
-  const isFlash = phase === 'start-flash';
+  const isCountdown = phase === 'start-countdown';
+  const isFlash     = phase === 'start-flash'; // legacy fallback
 
   let digitColor = 'var(--white)';
   if (inWarn || phase === 'warning') digitColor = 'var(--danger)';
@@ -261,7 +265,9 @@ function _timerBoxHtml(index, config) {
   const shadowClr = (digitColor !== 'var(--white)') ? digitColor : 'transparent';
 
   let displayInner;
-  if (isFlash) {
+  if (isCountdown) {
+    displayInner = `<span class="tmr-start-pulse" style="font-family:var(--font-display); font-size:${digitSize}; font-weight:800; color:var(--green); letter-spacing:0.06em;">Starting in ${st.countdownRemaining}\u2026</span>`;
+  } else if (isFlash) {
     displayInner = `<span class="tmr-start-pulse" style="font-family:var(--font-display); font-size:${digitSize}; font-weight:800; color:var(--green); letter-spacing:0.1em;">START</span>`;
   } else {
     displayInner = `<span class="${flashCls}" style="font-family:'Courier New',monospace; font-size:${digitSize}; font-weight:700; color:${digitColor}; letter-spacing:0.06em; text-shadow:0 0 24px ${shadowClr}40;">${timeStr}</span>`;
@@ -329,9 +335,10 @@ function _updateTimerLive(index) {
 
   const warnSecs = config.warnEnabled ? (config.warnSeconds || 0) : -1;
   const inWarn = st.currentSeconds > 0 && st.currentSeconds <= warnSecs;
-  const isDone = phase === 'done';
-  const isNeg  = phase === 'negative';
-  const isFlash = phase === 'start-flash';
+  const isDone      = phase === 'done';
+  const isNeg       = phase === 'negative';
+  const isCountdown = phase === 'start-countdown';
+  const isFlash     = phase === 'start-flash'; // legacy fallback
 
   let digitColor = 'var(--white)';
   if (inWarn || phase === 'warning') digitColor = 'var(--danger)';
@@ -351,7 +358,9 @@ function _updateTimerLive(index) {
   if (display) {
     display.style.padding   = isExpanded ? '6px 0' : '2px 0';
     display.style.minHeight = '';
-    if (isFlash) {
+    if (isCountdown) {
+      display.innerHTML = `<span class="tmr-start-pulse" style="font-family:var(--font-display); font-size:${digitSize}; font-weight:800; color:var(--green); letter-spacing:0.06em;">Starting in ${st.countdownRemaining}\u2026</span>`;
+    } else if (isFlash) {
       display.innerHTML = `<span class="tmr-start-pulse" style="font-family:var(--font-display); font-size:${digitSize}; font-weight:800; color:var(--green); letter-spacing:0.1em;">START</span>`;
     } else {
       display.innerHTML = `<span class="${flashCls}" style="font-family:'Courier New',monospace; font-size:${digitSize}; font-weight:700; color:${digitColor}; letter-spacing:0.06em; text-shadow:0 0 24px ${shadowClr}40;">${timeStr}</span>`;
@@ -390,31 +399,51 @@ function _timerTick(index) {
   st.currentSeconds--;
 
   const warnSecs = config.warnEnabled ? (config.warnSeconds || 0) : -1;
+  const pushDelay = (typeof TIMER_PUSH_DELAY_SECS === 'number' && TIMER_PUSH_DELAY_SECS > 0)
+    ? TIMER_PUSH_DELAY_SECS : 0;
 
-  // Enter warning zone
+  // Send warn push early so it arrives right when the visual warning kicks in
+  if (config.warnEnabled && !st.warnPushFired && st.currentSeconds <= warnSecs + pushDelay && st.currentSeconds > 0) {
+    st.warnPushFired = true;
+    _sendTimerPush(
+      '⚠️ ' + (config.title || 'Game Timer'),
+      _fmt(warnSecs) + ' remaining',
+      config
+    );
+  }
+
+  // Enter warning zone (visual + sound — no push here)
   if (config.warnEnabled && !st.warnFired && st.currentSeconds <= warnSecs && st.currentSeconds > 0) {
     st.warnFired = true;
     st.phase = 'warning';
     if (!st.muted && config.warnSound !== false) _playWarnSound();
     _pushTimerState();
+  }
+
+  // Send end push early so it arrives right when the visual buzzer fires
+  if (pushDelay > 0 && !st.endPushFired && st.currentSeconds === pushDelay) {
+    st.endPushFired = true;
     _sendTimerPush(
-      '⚠️ ' + (config.title || 'Game Timer'),
-      _fmt(st.currentSeconds) + ' remaining',
+      '⏱ Time\'s Up — ' + (config.title || 'Game Timer'),
+      'Game timer has ended',
       config
     );
   }
 
-  // Hit zero
+  // Hit zero (visual buzzer + phase change)
   if (st.currentSeconds === 0) {
     st.phase = 'done';
     if (!st.buzzFired) {
       st.buzzFired = true;
       if (!st.muted) _playBuzzerSound();
-      _sendTimerPush(
-        '⏱ Time\'s Up — ' + (config.title || 'Game Timer'),
-        'Game timer has ended',
-        config
-      );
+      // If no push delay configured, send the end push now (original behaviour)
+      if (pushDelay === 0) {
+        _sendTimerPush(
+          '⏱ Time\'s Up — ' + (config.title || 'Game Timer'),
+          'Game timer has ended',
+          config
+        );
+      }
     }
     if (!config.countNegative) {
       clearInterval(st.intervalId);
@@ -456,27 +485,42 @@ function timerToggle(index) {
   st.running = true;
 
   if (st.phase === 'idle') {
-    // Show START flash for 3 seconds, then begin ticking
-    st.phase = 'start-flash';
+    const pushDelay = (typeof TIMER_PUSH_DELAY_SECS === 'number' && TIMER_PUSH_DELAY_SECS > 0)
+      ? TIMER_PUSH_DELAY_SECS : 0;
+    const countdownSecs = pushDelay > 0 ? pushDelay : 3;
+
+    // Send START push immediately — it will arrive ~pushDelay seconds later,
+    // right as the timer begins ticking on the admin screen.
+    _sendTimerPush(
+      '▶\uFE0F ' + (config.title || 'Game Timer'),
+      _fmt(st.currentSeconds) + ' countdown started',
+      config
+    );
+
+    // Show "Starting in N…" countdown, then begin ticking
+    st.phase = 'start-countdown';
+    st.countdownRemaining = countdownSecs;
     if (!st.muted) _playStartSound();
     _updateTimerLive(index);
     _pushTimerState();
 
-    st.startFlashTimeout = setTimeout(() => {
-      if (!st.running) return;
-      const cfgs = _loadConfigs();
-      const cfg  = cfgs[index];
-      const wSecs = cfg && cfg.warnEnabled ? (cfg.warnSeconds || 0) : -1;
-      st.phase = (st.currentSeconds <= wSecs && st.currentSeconds > 0) ? 'warning' : 'running';
-      st.intervalId = setInterval(() => _timerTick(index), 1000);
-      _updateTimerLive(index);
-      _pushTimerState();
-      _sendTimerPush(
-        '▶\uFE0F ' + (cfg.title || 'Game Timer'),
-        _fmt(st.currentSeconds) + ' countdown started',
-        cfg
-      );
-    }, 3000);
+    st.startFlashTimeout = setInterval(() => {
+      st.countdownRemaining--;
+      if (st.countdownRemaining <= 0) {
+        clearInterval(st.startFlashTimeout);
+        st.startFlashTimeout = null;
+        if (!st.running) return;
+        const cfgs = _loadConfigs();
+        const cfg  = cfgs[index];
+        const wSecs = cfg && cfg.warnEnabled ? (cfg.warnSeconds || 0) : -1;
+        st.phase = (st.currentSeconds <= wSecs && st.currentSeconds > 0) ? 'warning' : 'running';
+        st.intervalId = setInterval(() => _timerTick(index), 1000);
+        _updateTimerLive(index);
+        _pushTimerState();
+      } else {
+        _updateTimerLive(index);
+      }
+    }, 1000);
 
   } else {
     // Resume from pause
@@ -495,14 +539,17 @@ function timerReset(index) {
   if (!st || !config) return;
 
   clearInterval(st.intervalId);
-  clearTimeout(st.startFlashTimeout);
+  clearInterval(st.startFlashTimeout);
   st.intervalId = null;
   st.startFlashTimeout = null;
   st.running = false;
   st.currentSeconds = config.startMinutes * 60 + config.startSeconds;
   st.phase = 'idle';
   st.warnFired = false;
+  st.warnPushFired = false;
   st.buzzFired = false;
+  st.endPushFired = false;
+  st.countdownRemaining = 0;
   _updateTimerLive(index);
   _pushTimerState();
 }

@@ -139,6 +139,7 @@ const ROLE_COLORS = {
   let state = {
     config: {}, players: [], attendance: [],
     pairings: [], scores: [], standings: [],
+    queue: [],           // queue-based pairing: [{player, waitWeight, stayGames}]
     currentPairWeek: 1, currentScoreWeek: 1,
     currentStandWeek: 1, currentTournWeek: 1, pendingPairings: null,
     tournament: null,  // { week, mode, round, seeds }
@@ -248,6 +249,8 @@ const ROLE_COLORS = {
     renderScoresheet();
     renderStandings();
     applyLimitRestrictions();
+    updatePairingModeUI();
+    if (state.config.pairingMode === 'queue-based') loadQueueForWeek(state.currentPairWeek);
     // Reconcile week selectors now that pairings are loaded
     const reconciled = Math.max(state.currentPairWeek || 1, state.currentScoreWeek || 1);
     state.currentPairWeek  = reconciled;
@@ -338,7 +341,7 @@ const ROLE_COLORS = {
             renderScoresheet();
           });
         }
-        if (page === 'pairings') { renderPairingsPreview(); renderEditPairingForm(); }
+        if (page === 'pairings') { renderPairingsPreview(); renderEditPairingForm(); updatePairingModeUI(); }
         if (page === 'attendance') {
           // Show refreshing indicator and block grid interaction until fetch completes
           const grid = document.getElementById('attendance-grid');
@@ -1203,6 +1206,7 @@ const ROLE_COLORS = {
     document.getElementById('cfg-tries').value   = c.optimizerTries || 100;
     document.getElementById('cfg-game-mode').value      = c.gameMode      || 'doubles';
     document.getElementById('cfg-ranking-method').value = c.rankingMethod || 'avgptdiff';
+    document.getElementById('cfg-pairing-mode').value   = c.pairingMode   || 'round-based';
     document.getElementById('cfg-min-participation').value = c.minParticipation !== undefined ? c.minParticipation : '';
     // Cap inputs per registry limits
     applyLimitRestrictions();
@@ -1219,6 +1223,8 @@ const ROLE_COLORS = {
     document.getElementById('cfg-w-session-bye').value       = c.wSessionBye       ?? D.sessionByeWeight;
     document.getElementById('cfg-w-rank-balance').value           = c.wRankBalance           ?? D.rankBalanceWeight;
     document.getElementById('cfg-w-rank-std-dev').value            = c.wRankStdDev            ?? D.rankStdDevWeight;
+    const queueWaitEl = document.getElementById('cfg-w-queue-wait');
+    if (queueWaitEl) queueWaitEl.value = c.wQueueWait ?? 10;
     const localImproveEl = document.getElementById('cfg-local-improve');
     if (localImproveEl) localImproveEl.checked = c.localImprove === undefined ? true : (c.localImprove === true || c.localImprove === 'true');
     const swapPassesEl = document.getElementById('cfg-swap-passes');
@@ -1917,6 +1923,7 @@ function doPost(e) {
 
     const rounds = [...new Set(allWeekPairings.map(p => p.round))].sort((a,b) => a-b);
     let html = '';
+    const isQueueMode = state.config.pairingMode === 'queue-based';
 
     rounds.forEach(r => {
       const roundGames = weekPairings.filter(p => p.round == r);
@@ -1929,24 +1936,34 @@ function doPost(e) {
       const remaining  = total - scored;
       const allDone    = remaining === 0 && total > 0;
 
-      // Summary badge: green when all done, gold when in progress, muted when not started
-      const badgeColor = allDone ? 'var(--green)' : scored > 0 ? 'var(--gold)' : 'var(--muted)';
-      const badgeText  = allDone ? `${scored}/${total} ✓`
-                       : scored > 0 ? `${scored}/${total} · ${remaining} left`
-                       : `${total} game${total !== 1 ? 's' : ''}`;
+      if (isQueueMode) {
+        // Queue mode: flat list with simple batch label, no collapsible details
+        const doneStyle = allDone ? 'color:var(--green);' : '';
+        html += `<div style="font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; padding:4px 2px 3px; margin-top:4px; display:flex; justify-content:space-between;">
+          <span>Batch ${r}</span>
+          <span style="${doneStyle}">${allDone ? `${scored}/${total} ✓` : scored > 0 ? `${scored}/${total}` : `${total} game${total !== 1 ? 's' : ''}`}</span>
+        </div>
+        <div>`;
+      } else {
+        // Round-based mode: collapsible details with progress badge
+        const badgeColor = allDone ? 'var(--green)' : scored > 0 ? 'var(--gold)' : 'var(--muted)';
+        const badgeText  = allDone ? `${scored}/${total} ✓`
+                         : scored > 0 ? `${scored}/${total} · ${remaining} left`
+                         : `${total} game${total !== 1 ? 's' : ''}`;
 
-      html += `<details open style="margin-bottom:3px;">
-        <summary style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;
-                        padding:3px 8px; border-radius:6px; background:var(--card-bg);
-                        list-style:none; user-select:none;"
-                 class="round-summary">
-          <span style="display:flex; align-items:center; gap:6px;">
-            <span class="collapse-arrow" style="font-size:0.72rem; color:var(--green); opacity:0.6;">${!allDone ? '▲' : '▼'}</span>
-            <span style="font-size:0.76rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Round ${r}</span>
-          </span>
-          <span class="round-badge" style="font-size:0.73rem; color:${badgeColor}; font-weight:600;">${badgeText}</span>
-        </summary>
-        <div style="padding-top:3px;">`;
+        html += `<details open style="margin-bottom:3px;">
+          <summary style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;
+                          padding:3px 8px; border-radius:6px; background:var(--card-bg);
+                          list-style:none; user-select:none;"
+                   class="round-summary">
+            <span style="display:flex; align-items:center; gap:6px;">
+              <span class="collapse-arrow" style="font-size:0.72rem; color:var(--green); opacity:0.6;">${!allDone ? '▲' : '▼'}</span>
+              <span style="font-size:0.76rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Round ${r}</span>
+            </span>
+            <span class="round-badge" style="font-size:0.73rem; color:${badgeColor}; font-weight:600;">${badgeText}</span>
+          </summary>
+          <div style="padding-top:3px;">`;
+      }
 
       roundGames.forEach(game => {
         const existingScore = state.scores.find(
@@ -1999,17 +2016,19 @@ function doPost(e) {
         </div>`;
       }
 
-      html += `</div></details>`;
+      html += isQueueMode ? `</div>` : `</div></details>`;
     });
 
-    // Snapshot which rounds are currently collapsed before overwriting the DOM
+    // Snapshot which rounds are currently collapsed before overwriting the DOM (round-based only)
     const collapsedRounds = new Set();
-    document.querySelectorAll('#scoresheet details').forEach(d => {
-      if (!d.open) {
-        const m = (d.querySelector('.round-summary')?.textContent || '').match(/Round\s*(\d+)/);
-        if (m) collapsedRounds.add(parseInt(m[1]));
-      }
-    });
+    if (!isQueueMode) {
+      document.querySelectorAll('#scoresheet details').forEach(d => {
+        if (!d.open) {
+          const m = (d.querySelector('.round-summary')?.textContent || '').match(/Round\s*(\d+)/);
+          if (m) collapsedRounds.add(parseInt(m[1]));
+        }
+      });
+    }
 
     document.getElementById('scoresheet').innerHTML = html;
 
@@ -2021,8 +2040,8 @@ function doPost(e) {
       input.tabIndex = i + 1;
     });
 
-    // Restore collapsed state
-    if (collapsedRounds.size) {
+    // Restore collapsed state (round-based mode only)
+    if (!isQueueMode && collapsedRounds.size) {
       document.querySelectorAll('#scoresheet details').forEach(d => {
         const m = (d.querySelector('.round-summary')?.textContent || '').match(/Round\s*(\d+)/);
         if (m && collapsedRounds.has(parseInt(m[1]))) d.open = false;
@@ -2103,6 +2122,8 @@ function doPost(e) {
             setTimeout(() => indicator.remove(), 1800);
             // Update finish scenarios as scores are entered
             renderFinishScenarios();
+            // Queue mode: update player queue based on game outcome
+            if (state.config.pairingMode === 'queue-based') updateQueueAfterScore(newScore, pairing);
             // Re-render just this card to apply win/loss styling, without touching
             // the rest of the scoresheet (preserves focus and other in-progress inputs)
             const s1now = parseInt(card.querySelector('[data-score="1"]').value) || 0;
@@ -2140,6 +2161,518 @@ function doPost(e) {
         });
       });
     });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ── Queue-based pairing mode ────────────────────────────────
+  // ═══════════════════════════════════════════════════════════
+
+  function updatePairingModeUI() {
+    const isQueue = state.config.pairingMode === 'queue-based';
+    document.getElementById('round-pairing-card')?.classList.toggle('hidden', isQueue);
+    document.getElementById('queue-pairing-card')?.classList.toggle('hidden', !isQueue);
+    document.getElementById('cfg-queue-wait-group')?.classList.toggle('hidden', !isQueue);
+  }
+
+  async function loadQueueForWeek(week) {
+    try {
+      const data = await API.getQueue(week);
+      state.queue = (data.queue || [])
+        .filter(e => parseInt(e.week) === week)
+        .map(e => ({
+          player: e.player,
+          waitWeight: parseFloat(e.waitWeight) || 0,
+          stayGames: parseInt(e.stayGames) || 0
+        }));
+    } catch (e) {
+      state.queue = [];
+    }
+    renderQueuePanel();
+  }
+
+  // Returns array of court ID strings ["1","2",...] for all configured courts
+  function getQueueCourtIds() {
+    return Array.from({ length: parseInt(state.config.courts || 3) }, (_, i) => String(i + 1));
+  }
+
+  // Returns Set of court IDs where the most recent batch FOR THAT COURT has an unscored game.
+  // Each court is checked independently — a court is occupied if its own latest batch is unscored,
+  // regardless of whether other courts have already moved on to a newer batch.
+  function getOccupiedCourts(week) {
+    const weekPairings = state.pairings.filter(p => parseInt(p.week) === week && p.type === 'game');
+    if (!weekPairings.length) return new Set();
+
+    // Find the highest batch number each court appears in
+    const courtMaxBatch = {};
+    weekPairings.forEach(p => {
+      const batch = parseInt(p.round);
+      const court = String(p.court);
+      if (!(court in courtMaxBatch) || batch > courtMaxBatch[court]) {
+        courtMaxBatch[court] = batch;
+      }
+    });
+
+    // A court is occupied if its most recent batch game is unscored
+    const occupied = new Set();
+    Object.entries(courtMaxBatch).forEach(([court, maxBatch]) => {
+      const scored = state.scores.find(s =>
+        parseInt(s.week) === week && parseInt(s.round) === maxBatch &&
+        String(s.court) === court &&
+        s.score1 !== '' && s.score1 !== null && s.score2 !== '' && s.score2 !== null
+      );
+      if (!scored) occupied.add(court);
+    });
+    return occupied;
+  }
+
+  function getNextQueueBatchNum(week) {
+    const weekPairings = state.pairings.filter(p => parseInt(p.week) === week);
+    return weekPairings.length ? Math.max(...weekPairings.map(p => parseInt(p.round))) + 1 : 1;
+  }
+
+  // Returns arrays of stayer players who were partners in their most recent batch
+  function findStayerTeams(week) {
+    const stayerNames = new Set(state.queue.filter(e => e.stayGames > 0).map(e => e.player));
+    if (!stayerNames.size) return [];
+    const weekPairings = state.pairings.filter(p => parseInt(p.week) === week && p.type === 'game');
+    if (!weekPairings.length) return [];
+    const batches = [...new Set(weekPairings.map(p => parseInt(p.round)))].sort((a, b) => b - a);
+    const teams = [];
+    for (const batch of batches) {
+      const batchGames = weekPairings.filter(p => parseInt(p.round) === batch);
+      for (const p of batchGames) {
+        const t1stayers = [p.p1, p.p2].filter(n => n && stayerNames.has(n));
+        const t2stayers = [p.p3, p.p4].filter(n => n && stayerNames.has(n));
+        if (t1stayers.length >= 2) teams.push(t1stayers);
+        if (t2stayers.length >= 2) teams.push(t2stayers);
+      }
+      if (teams.length) break; // stop at most recent batch with stayer pairs
+    }
+    return teams;
+  }
+
+  // Post-process optimizer output: rearrange so each stayer-teammate pair ends up on
+  // opposite teams of the SAME court. Handles both "same court, same team" and the common
+  // case where the optimizer places them on different courts entirely.
+  function applyOppositeSplit(pairings, stayerTeams, gameMode) {
+    if (!stayerTeams.length) return pairings;
+    const singles = gameMode === 'singles' || gameMode === 'fixed-pairs';
+    if (singles) return pairings;
+
+    // Work on a mutable copy so multi-team corrections compose correctly
+    const result = pairings.map(p => ({ ...p }));
+
+    const findPos = (name) => {
+      for (const game of result) {
+        if (game.type !== 'game') continue;
+        if (game.p1 === name) return { game, teamNum: 1, slot: 'p1' };
+        if (game.p2 === name) return { game, teamNum: 1, slot: 'p2' };
+        if (game.p3 === name) return { game, teamNum: 2, slot: 'p3' };
+        if (game.p4 === name) return { game, teamNum: 2, slot: 'p4' };
+      }
+      return null;
+    };
+
+    for (const team of stayerTeams) {
+      if (team.length < 2) continue;
+      const [nameA, nameB] = team;
+
+      const posA = findPos(nameA);
+      const posB = findPos(nameB);
+      if (!posA || !posB) continue;
+
+      if (posA.game === posB.game) {
+        // Same court — ensure they are on opposite teams
+        if (posA.teamNum === posB.teamNum) {
+          // Same team: swap B into the first slot of the opposite team
+          const oppSlot = posA.teamNum === 1 ? 'p3' : 'p1';
+          const displaced = posA.game[oppSlot];
+          posA.game[oppSlot] = nameB;
+          posA.game[posB.slot] = displaced;
+        }
+        // else already opponents on same court — nothing to do
+      } else {
+        // Different courts: bring B to A's court onto the opposite team.
+        // Swap B with the first slot on A's opposite team; place the displaced
+        // player into B's old slot on B's court.
+        const oppSlot = posA.teamNum === 1 ? 'p3' : 'p1';
+        const displaced = posA.game[oppSlot];
+        posA.game[oppSlot] = nameB;
+        posB.game[posB.slot] = displaced;
+      }
+    }
+
+    return result;
+  }
+
+  function renderQueuePanel() {
+    const week = state.currentPairWeek;
+    const gameMode = state.config.gameMode || 'doubles';
+    const ppc = (gameMode === 'singles' || gameMode === 'fixed-pairs') ? 2 : 4;
+    const allCourtIds = getQueueCourtIds();
+    const occupied = getOccupiedCourts(week);
+    const freeCourts = allCourtIds.filter(c => !occupied.has(c));
+    const stayers = state.queue.filter(e => e.stayGames > 0);
+    const regularQueue = state.queue.filter(e => e.stayGames === 0)
+      .sort((a, b) => b.waitWeight - a.waitWeight);
+
+    // Sync winner-stay config display
+    const stayInput = document.getElementById('cfg-queue-winner-stay');
+    if (stayInput) stayInput.value = state.config.queueWinnerStay ?? 0;
+    const splitRow = document.getElementById('queue-split-row');
+    if (splitRow) splitRow.classList.toggle('hidden', (state.config.queueWinnerStay ?? 0) == 0);
+    const splitSel = document.getElementById('cfg-queue-winner-split');
+    if (splitSel) splitSel.value = state.config.queueWinnerSplit || 'none';
+
+    // Status line
+    const inQueue = state.queue.length;
+    const statusEl = document.getElementById('queue-status');
+    if (statusEl) {
+      const freeStr = `${freeCourts.length} court${freeCourts.length !== 1 ? 's' : ''} free`;
+      const qStr = `${inQueue} in queue`;
+      const stayStr = stayers.length ? `<span style="color:var(--gold);">${stayers.length} staying</span>` : '';
+      statusEl.innerHTML = [freeStr, qStr, stayStr].filter(Boolean)
+        .join(' <span style="color:var(--muted);">·</span> ');
+    }
+
+    // Button states
+    const genBtn  = document.getElementById('btn-queue-generate');
+    const lockBtn = document.getElementById('btn-queue-lock');
+    const fullCourts = Math.min(freeCourts.length, Math.floor(inQueue / ppc));
+    if (genBtn) {
+      genBtn.disabled = fullCourts === 0;
+      genBtn.textContent = fullCourts > 0
+        ? `🎲 Generate — ${fullCourts} court${fullCourts !== 1 ? 's' : ''}`
+        : '🎲 Generate';
+    }
+    if (lockBtn) lockBtn.disabled = !state.pendingPairings;
+
+    // Pending preview (shown after Generate, before Lock)
+    const previewEl = document.getElementById('queue-pending-preview');
+    if (previewEl) {
+      if (state.pendingPairings) {
+        const batchNum = state.pendingPairings[0]?.round ?? '?';
+        let html = `<div style="font-size:0.75rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.07em; margin:8px 0 6px;">Pending — Batch ${batchNum}</div>`;
+        state.pendingPairings.filter(p => p.type === 'game').forEach(game => {
+          html += `<div style="background:var(--card-bg); border-radius:7px; padding:5px 10px; margin-bottom:3px;">
+            <div style="display:grid; grid-template-columns:auto 1fr auto 1fr; align-items:center; gap:4px;">
+              <div style="font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); padding-right:4px; white-space:nowrap;">${courtName(game.court)}</div>
+              <div style="min-width:0; text-align:right;">
+                <div style="font-size:0.85rem;">${esc(game.p1)}</div>
+                ${game.p2 ? `<div style="font-size:0.85rem;">${esc(game.p2)}</div>` : ''}
+              </div>
+              <div style="text-align:center; color:var(--muted); font-size:0.72rem; padding:0 4px;">VS</div>
+              <div style="min-width:0;">
+                <div style="font-size:0.85rem;">${esc(game.p3)}</div>
+                ${game.p4 ? `<div style="font-size:0.85rem;">${esc(game.p4)}</div>` : ''}
+              </div>
+            </div>
+          </div>`;
+        });
+        previewEl.innerHTML = html;
+        previewEl.classList.remove('hidden');
+      } else {
+        previewEl.innerHTML = '';
+        previewEl.classList.add('hidden');
+      }
+    }
+
+    // Queue table
+    const tableEl = document.getElementById('queue-table-content');
+    if (tableEl) {
+      if (!state.queue.length) {
+        tableEl.innerHTML = '<p class="text-muted" style="font-size:0.85rem; padding:8px 0;">Queue is empty. Use Initialize Queue to add all present players.</p>';
+      } else {
+        let html = `<table style="width:100%; font-size:0.85rem; border-collapse:collapse;">
+          <thead><tr style="color:var(--muted); font-size:0.72rem; text-transform:uppercase;">
+            <th style="text-align:left; padding:4px 6px;">Player</th>
+            <th style="text-align:center; padding:4px 6px;" title="Wait weight — higher means waited longer">Wt</th>
+            <th style="text-align:center; padding:4px 6px;" title="Stay games remaining (winners)">Stay</th>
+          </tr></thead><tbody>`;
+        [...stayers, ...regularQueue].forEach(e => {
+          const isStayer = e.stayGames > 0;
+          html += `<tr style="${isStayer ? 'color:var(--gold);' : ''}">
+            <td style="padding:3px 6px; font-weight:${isStayer ? '600' : '400'};">${esc(e.player)}</td>
+            <td style="text-align:center; padding:3px 6px;">${isStayer ? '—' : e.waitWeight}</td>
+            <td style="text-align:center; padding:3px 6px;">${isStayer ? e.stayGames : '—'}</td>
+          </tr>`;
+        });
+        html += '</tbody></table>';
+        tableEl.innerHTML = html;
+      }
+    }
+  }
+
+  async function runQueueGenerate() {
+    const week = state.currentPairWeek;
+    const gameMode = state.config.gameMode || 'doubles';
+    const singles = gameMode === 'singles' || gameMode === 'fixed-pairs';
+    const ppc = singles ? 2 : 4;
+    const allCourtIds = getQueueCourtIds();
+    const occupied = getOccupiedCourts(week);
+    const freeCourts = allCourtIds.filter(c => !occupied.has(c));
+    if (!freeCourts.length) { toast('No free courts available.', 'warn'); return; }
+
+    // Unified priority: stayGames × wQueueWait bonus + waitWeight
+    // wQueueWait=0 → pure wait-time order (no stayer advantage)
+    // wQueueWait=10 (default) → each stay game is worth 10 wait-weight points
+    const wQueueWait = state.config.wQueueWait ?? 10;
+    const ordered = [...state.queue].sort((a, b) => {
+      const pa = a.waitWeight + wQueueWait * a.stayGames;
+      const pb = b.waitWeight + wQueueWait * b.stayGames;
+      return pb - pa;
+    });
+    const fullCourts = Math.min(freeCourts.length, Math.floor(ordered.length / ppc));
+    if (!fullCourts) { toast('Not enough players in queue to fill a court.', 'warn'); return; }
+
+    const playersToAssign = ordered.slice(0, fullCourts * ppc).map(e => e.player);
+    const actualCourts = freeCourts.slice(0, fullCourts);
+
+    const pastPairings = state.pairings.filter(p => parseInt(p.week) < week);
+    const sessionHistory = state.pairings.filter(p => parseInt(p.week) === week);
+
+    // For "separate" and "opposite" splits: inject fake partner-history for stayer-teammate
+    // pairs so the optimizer strongly avoids re-partnering them. For "opposite", we further
+    // post-process to bring them onto the same court on opposite teams.
+    const stayerTeams = findStayerTeams(week);
+    let augmentedHistory = sessionHistory;
+    if ((state.config.queueWinnerSplit || 'none') !== 'none' && stayerTeams.length) {
+      const fakePairings = stayerTeams.map((team, i) => ({
+        week, round: -1 - i, court: '0', type: 'game',
+        p1: team[0], p2: team[1] || team[0], p3: '_phantom_a_', p4: '_phantom_b_'
+      }));
+      augmentedHistory = [...sessionHistory, ...fakePairings];
+    }
+
+    const tries = parseInt(state.config.optimizerTries || 100);
+    const weights = {
+      sessionPartnerWeight:  state.config.wSessionPartner  ?? Pairings.DEFAULTS.sessionPartnerWeight,
+      sessionOpponentWeight: state.config.wSessionOpponent ?? Pairings.DEFAULTS.sessionOpponentWeight,
+      historyPartnerWeight:  state.config.wHistoryPartner  ?? Pairings.DEFAULTS.historyPartnerWeight,
+      historyOpponentWeight: state.config.wHistoryOpponent ?? Pairings.DEFAULTS.historyOpponentWeight,
+      byeVarianceWeight:     state.config.wByeVariance     ?? Pairings.DEFAULTS.byeVarianceWeight,
+      sessionByeWeight:      state.config.wSessionBye      ?? Pairings.DEFAULTS.sessionByeWeight,
+      rankBalanceWeight:     state.config.wRankBalance      ?? Pairings.DEFAULTS.rankBalanceWeight,
+      rankStdDevWeight:      state.config.wRankStdDev       ?? Pairings.DEFAULTS.rankStdDevWeight,
+    };
+    const playerGroups = {};
+    state.players.forEach(pl => { playerGroups[pl.name] = pl.group || 'M'; });
+    const useLocalImprove = state.config.localImprove === undefined ? true : (state.config.localImprove === true || state.config.localImprove === 'true');
+    const swapPasses = (v => isNaN(v) ? 5 : v)(parseInt(state.config.swapPasses));
+    const useInitialRank = state.config.useInitialRank === true || state.config.useInitialRank === 'true';
+
+    const workerParams = {
+      presentPlayers: playersToAssign,
+      courts: actualCourts.length,
+      rounds: 1,
+      pastPairings,
+      tries,
+      weights,
+      standings: state.standings,
+      gameMode,
+      playerGroups,
+      startRound: 1,
+      sessionHistory: augmentedHistory,
+      players: state.players,
+      useLocalImprove,
+      swapPasses,
+      useInitialRank,
+      verbose: false,
+    };
+
+    const genBtn = document.getElementById('btn-queue-generate');
+    if (genBtn) { genBtn.disabled = true; genBtn.textContent = '⏳ Generating…'; }
+
+    try {
+      let result;
+      if (typeof Worker !== 'undefined') {
+        const workerUrl = new URL('js/pairing-worker.js', window.location.href).href;
+        result = await new Promise((resolve, reject) => {
+          try {
+            const worker = new Worker(workerUrl);
+            worker.onmessage = (e) => {
+              if (e.data.progress) return;
+              worker.terminate();
+              if (e.data.ok) resolve(e.data.result);
+              else reject(new Error(e.data.error));
+            };
+            worker.onerror = () => {
+              worker.terminate();
+              // Worker unavailable (e.g. file:// CORS) — fall back to main thread
+              resolve(Pairings.optimize(workerParams));
+            };
+            worker.postMessage(workerParams);
+          } catch (e) {
+            // Worker constructor threw (file:// security) — run synchronously
+            resolve(Pairings.optimize(workerParams));
+          }
+        });
+      } else {
+        result = Pairings.optimize(workerParams);
+      }
+
+      if (!result || !result.pairings) {
+        toast('Could not generate queue pairings.', 'error'); return;
+      }
+
+      const batchNum = getNextQueueBatchNum(week);
+      // Remap optimizer court indices (1-based) to actual court IDs
+      let pairings = result.pairings.map(p => ({
+        ...p,
+        week,
+        round: batchNum,
+        court: actualCourts[parseInt(p.court) - 1] ?? p.court,
+        type: 'game'
+      }));
+
+      // Apply opposite split: ensure stayer-teammates end up on opposite teams
+      if ((state.config.queueWinnerSplit || 'none') === 'opposite') {
+        pairings = applyOppositeSplit(pairings, stayerTeams, gameMode);
+      }
+
+      state.pendingPairings = pairings;
+      renderQueuePanel();
+    } catch (e) {
+      toast('Queue generation failed: ' + e.message, 'error');
+    } finally {
+      // Restore button state via renderQueuePanel (sets correct court count);
+      // only force-reset if panel render would be skipped (e.g. early error return)
+      if (genBtn && genBtn.textContent === '⏳ Generating…') renderQueuePanel();
+    }
+  }
+
+  async function queueLockAndSave() {
+    if (!state.pendingPairings) return;
+    const week = state.currentPairWeek;
+    const assignedPlayers = new Set(
+      state.pendingPairings.flatMap(p => [p.p1, p.p2, p.p3, p.p4].filter(Boolean))
+    );
+    const assignedCount = assignedPlayers.size;
+
+    showLoading(true);
+    try {
+      // Merge new batch with existing pairings for this week
+      const allWeekPairings = [
+        ...state.pairings.filter(p => parseInt(p.week) === week),
+        ...state.pendingPairings
+      ];
+      await API.savePairings(week, allWeekPairings);
+      state.pairings = state.pairings.filter(p => parseInt(p.week) !== week);
+      state.pairings.push(...allWeekPairings);
+      state.pendingPairings = null;
+
+      // Remove assigned players; bump wait weight for those remaining
+      state.queue = state.queue
+        .filter(e => !assignedPlayers.has(e.player))
+        .map(e => ({ ...e, waitWeight: e.waitWeight + assignedCount }));
+
+      await API.saveQueue(week, state.queue.map(e => ({ ...e, week })));
+
+      // Clear the unsaved-pairings warning (shown when pendingPairings was set)
+      const unsavedWarn = document.getElementById('pairings-unsaved-warning');
+      if (unsavedWarn) unsavedWarn.style.display = 'none';
+
+      toast(`Batch saved for Session ${week}.`);
+      renderQueuePanel();
+      renderScoresheet();
+    } catch (e) {
+      toast('Save failed: ' + e.message, 'error');
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  // Called after a score is auto-saved in queue mode.
+  // Adds players back to the queue based on win/loss outcome.
+  async function updateQueueAfterScore(newScore, pairing) {
+    const week = newScore.week;
+    const winnerStay = parseInt(state.config.queueWinnerStay ?? 0);
+    const t1players = [pairing.p1, pairing.p2].filter(Boolean);
+    const t2players = [pairing.p3, pairing.p4].filter(Boolean);
+    const t1wins = newScore.score1 > newScore.score2;
+    const t2wins = newScore.score2 > newScore.score1;
+    const winners = t1wins ? t1players : t2wins ? t2players : [];
+    const losers  = t1wins ? t2players : t2wins ? t1players : [...t1players, ...t2players];
+
+    const inQueueMap = new Map(state.queue.map(e => [e.player, e]));
+
+    winners.forEach(name => {
+      const existing = inQueueMap.get(name);
+      if (!existing) {
+        state.queue.push({ player: name, waitWeight: 0, stayGames: winnerStay });
+      } else if (winnerStay > 0) {
+        existing.stayGames = winnerStay; // re-scored: reset stay counter
+      }
+    });
+
+    losers.forEach(name => {
+      const existing = inQueueMap.get(name);
+      if (!existing) {
+        state.queue.push({ player: name, waitWeight: 0, stayGames: 0 });
+      } else {
+        existing.stayGames = 0; // re-scored: loss clears stay
+      }
+    });
+
+    try {
+      await API.saveQueue(week, state.queue.map(e => ({ ...e, week })));
+    } catch (e) { /* non-fatal — queue state updated in memory */ }
+
+    renderQueuePanel();
+  }
+
+  async function initializeQueue(week) {
+    const presentPlayers = state.players
+      .filter(p => p.active === true && p.role !== 'spectator')
+      .filter(p => {
+        const rec = state.attendance.find(a => a.player === p.name && String(a.week) === String(week));
+        return rec && rec.status === 'present';
+      })
+      .map(p => p.name);
+
+    if (!presentPlayers.length) {
+      toast('No present players found. Mark players as present first.', 'warn'); return;
+    }
+
+    if (!state.queue.length) {
+      // Empty queue — full initialization, no confirm needed
+      state.queue = presentPlayers.map(name => ({ player: name, waitWeight: 0, stayGames: 0 }));
+    } else {
+      // Smart refresh: add newly-present players, remove absent ones, preserve existing entries
+      const inQueue    = new Set(state.queue.map(e => e.player));
+      const presentSet = new Set(presentPlayers);
+
+      const toAdd    = presentPlayers.filter(n => !inQueue.has(n));
+      const toRemove = state.queue.filter(e => !presentSet.has(e.player));
+
+      if (!toAdd.length && !toRemove.length) {
+        toast('Queue is already up to date — no changes needed.', 'info'); return;
+      }
+
+      const summary = [
+        toAdd.length    ? `Adding ${toAdd.length} player(s): ${toAdd.join(', ')}`          : '',
+        toRemove.length ? `Removing ${toRemove.length} player(s): ${toRemove.map(e => e.player).join(', ')}` : '',
+      ].filter(Boolean).join('\n');
+
+      if (!confirm(`Refresh queue?\n\n${summary}`)) return;
+
+      // Apply changes: keep existing order, remove absent, append new arrivals at end
+      state.queue = [
+        ...state.queue.filter(e => presentSet.has(e.player)),
+        ...toAdd.map(name => ({ player: name, waitWeight: 0, stayGames: 0 })),
+      ];
+    }
+
+    showLoading(true);
+    try {
+      await API.saveQueue(week, state.queue.map(e => ({ ...e, week })));
+      toast(`Queue updated — ${state.queue.length} player(s) in queue.`);
+      renderQueuePanel();
+    } catch (e) {
+      toast('Failed to save queue: ' + e.message, 'error');
+    } finally {
+      showLoading(false);
+    }
   }
 
   // ── Final Round Finish Scenarios ───────────────────────────
@@ -2234,7 +2767,11 @@ function doPost(e) {
     document.getElementById('standings-season-table').innerHTML = renderStandingsTable(season);
 
     const weekStand = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, state.currentStandWeek, state.config.rankingMethod, state.attendance);
-    document.getElementById('standings-weekly-table').innerHTML = renderStandingsTable(weekStand);
+    const overallThisWeek = Reports.computeStandings(state.scores, state.players, state.pairings, state.currentStandWeek, state.config.rankingMethod, state.attendance);
+    const overallPrevWeek = state.currentStandWeek > 1
+      ? Reports.computeStandings(state.scores, state.players, state.pairings, state.currentStandWeek - 1, state.config.rankingMethod, state.attendance)
+      : null;
+    document.getElementById('standings-weekly-table').innerHTML = renderStandingsTable(weekStand, false, overallThisWeek, overallPrevWeek);
     document.getElementById('stand-week-label').textContent = `Session ${state.currentStandWeek}`;
     const standWkSel = document.getElementById('stand-week-select');
     if (standWkSel && standWkSel.value != state.currentStandWeek) standWkSel.value = state.currentStandWeek;
@@ -2441,13 +2978,23 @@ function doPost(e) {
     drawRankTrendChart('rank-trend-chart', 'rank-trend-legend', state, session.name);
   }
 
-  function renderStandingsTable(standings, compact = false) {
+  function renderStandingsTable(standings, compact = false, overallStandings = null, prevOverallStandings = null) {
     if (!standings || !standings.length) return '<p class="text-muted">No standings data yet.</p>';
     const rm = state.config.rankingMethod || 'avgptdiff';
     const usePtsPct = rm === 'ptspct';
     const minPct = (state.config.minParticipation !== null && state.config.minParticipation !== undefined)
       ? parseFloat(state.config.minParticipation) / 100 : 0.50;
     const hasParticipation = standings.some(s => s.participationPct !== null && s.participationPct !== undefined);
+
+    // Build rank lookups from overall standings for rank column and movement indicator
+    const overallRankMap = {};
+    if (overallStandings) {
+      overallStandings.forEach(s => { if (s.rank && s.rank !== '-') overallRankMap[s.name] = s.rank; });
+    }
+    const prevOverallRankMap = {};
+    if (prevOverallStandings) {
+      prevOverallStandings.forEach(s => { if (s.rank && s.rank !== '-') prevOverallRankMap[s.name] = s.rank; });
+    }
 
     const rows = standings.filter(s => s.games > 0).map((s, i) => {
       const top = i < 3 ? 'top' : '';
@@ -2472,6 +3019,29 @@ function doPost(e) {
         }
       }
 
+      let overallHtml = '';
+      let movHtml = '';
+      if (overallStandings) {
+        const curOverall = overallRankMap[s.name] || null;
+        overallHtml = `<td style="color:var(--muted);">${curOverall !== null ? curOverall : '—'}</td>`;
+
+        const prevOverall = prevOverallRankMap[s.name] || null;
+        if (curOverall === null) {
+          movHtml = `<td style="color:var(--muted);">—</td>`;
+        } else if (!prevOverall) {
+          movHtml = `<td style="color:var(--muted); font-size:0.8rem;">new</td>`;
+        } else {
+          const delta = prevOverall - curOverall; // positive = moved up (lower rank number = better)
+          if (delta > 0) {
+            movHtml = `<td style="color:var(--green); font-weight:600;">▲${delta}</td>`;
+          } else if (delta < 0) {
+            movHtml = `<td style="color:var(--danger); font-weight:600;">▼${Math.abs(delta)}</td>`;
+          } else {
+            movHtml = `<td style="color:var(--muted);">—</td>`;
+          }
+        }
+      }
+
       return `<tr>
         <td class="rank-cell ${top}">${s.rank}</td>
         <td class="player-name">${esc(s.name)}</td>
@@ -2479,7 +3049,8 @@ function doPost(e) {
         <td>${Reports.pct(s.winPct)}</td>
         ${secCol}
         ${hasParticipation ? partHtml : ''}
-        ${!compact ? `<td class="text-muted">${s.games}</td><td class="text-muted">${s.byes}</td>` : ''}
+        ${overallStandings ? overallHtml : ''}
+        ${overallStandings ? movHtml : ''}
       </tr>`;
     });
 
@@ -2487,12 +3058,19 @@ function doPost(e) {
     const pctHeader = hasParticipation
       ? `<th title="(Games played + byes) / total league rounds. Min ${Math.round(minPct*100)}% for prize eligibility." style="cursor:help;">Partic.</th>`
       : '';
+    const overallHeader = overallStandings
+      ? `<th title="Overall season rank through this session" style="cursor:help;">Overall</th>`
+      : '';
+    const movHeader = overallStandings
+      ? `<th title="Change in overall season rank vs. previous session" style="cursor:help;">±</th>`
+      : '';
     return `<table class="compact-table">
       <thead><tr>
         <th>#</th><th>Player</th><th>W/L</th><th>Win%</th>
         ${secHeader}
         ${pctHeader}
-        ${!compact ? '<th>Games</th><th>Byes</th>' : ''}
+        ${overallHeader}
+        ${movHeader}
       </tr></thead>
       <tbody>${rows.join('')}</tbody>
     </table>`;
@@ -3314,6 +3892,7 @@ function doPost(e) {
         wRankBalance:     parseFloat(document.getElementById('cfg-w-rank-balance')?.value) ?? D.rankBalanceWeight,
         wRankStdDev:      parseFloat(document.getElementById('cfg-w-rank-std-dev')?.value) ?? D.rankStdDevWeight,
         wMixedViolation:  parseFloat(document.getElementById('cfg-w-mixed-violation')?.value) || D.mixedViolationWeight,
+        wQueueWait:       parseFloat(document.getElementById('cfg-w-queue-wait')?.value) ?? 10,
       };
       try {
         await API.saveConfig(newConfig);
@@ -3323,7 +3902,7 @@ function doPost(e) {
     ['cfg-tries','cfg-local-improve','cfg-swap-passes','cfg-use-initial-rank',
      'cfg-w-session-partner','cfg-w-session-opponent','cfg-w-history-partner',
      'cfg-w-history-opponent','cfg-w-bye-variance','cfg-w-session-bye',
-     'cfg-w-rank-balance','cfg-w-rank-std-dev','cfg-w-mixed-violation'].forEach(id => {
+     'cfg-w-rank-balance','cfg-w-rank-std-dev','cfg-w-mixed-violation','cfg-w-queue-wait'].forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
       const evt = el.type === 'checkbox' ? 'change' : 'blur';
@@ -3376,6 +3955,10 @@ function doPost(e) {
         gamesPerSession:parseInt(document.getElementById('cfg-games').value),
         optimizerTries: parseInt(document.getElementById('cfg-tries').value),
         gameMode:       document.getElementById('cfg-game-mode').value,
+        pairingMode:      document.getElementById('cfg-pairing-mode').value,
+        queueWinnerStay:  parseInt(document.getElementById('cfg-queue-winner-stay')?.value) || 0,
+        queueWinnerSplit: document.getElementById('cfg-queue-winner-split')?.value || 'none',
+        wQueueWait:       parseFloat(document.getElementById('cfg-w-queue-wait')?.value) ?? 10,
         rankingMethod:  document.getElementById('cfg-ranking-method').value,
         minParticipation: document.getElementById('cfg-min-participation').value !== '' ? parseFloat(document.getElementById('cfg-min-participation').value) : null,
         wSessionPartner:  parseFloat(document.getElementById('cfg-w-session-partner').value),
@@ -3712,6 +4295,8 @@ function doPost(e) {
       if (scoreSelEl && scoreSelEl.value != state.currentPairWeek) scoreSelEl.value = state.currentPairWeek;
       renderPairingsPreview();
       renderScoresheet();
+      updatePairingModeUI();
+      if (state.config.pairingMode === 'queue-based') loadQueueForWeek(state.currentPairWeek);
       const epWeek = document.getElementById('ep-week');
       if (epWeek) epWeek.value = state.currentPairWeek;
     });
@@ -3828,12 +4413,30 @@ function doPost(e) {
 
     setupWeekSelect('stand-week-select', 'currentStandWeek', () => {
       const weekStand = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, state.currentStandWeek, state.config.rankingMethod, state.attendance);
-      document.getElementById('standings-weekly-table').innerHTML = renderStandingsTable(weekStand);
+      const overallThisWeek = Reports.computeStandings(state.scores, state.players, state.pairings, state.currentStandWeek, state.config.rankingMethod, state.attendance);
+      const overallPrevWeek = state.currentStandWeek > 1
+        ? Reports.computeStandings(state.scores, state.players, state.pairings, state.currentStandWeek - 1, state.config.rankingMethod, state.attendance)
+        : null;
+      document.getElementById('standings-weekly-table').innerHTML = renderStandingsTable(weekStand, false, overallThisWeek, overallPrevWeek);
       const swDate = formatDateTime(state.currentStandWeek, state.config);
       document.getElementById('stand-week-label').textContent = `Session ${state.currentStandWeek}${swDate ? ' — ' + swDate : ''}`;
     });
 
     // Generate pairings — keep-best across multiple attempts
+    // Queue mode button listeners
+    document.getElementById('btn-queue-generate')?.addEventListener('click', runQueueGenerate);
+    document.getElementById('btn-queue-lock')?.addEventListener('click', queueLockAndSave);
+    document.getElementById('btn-queue-init')?.addEventListener('click', () => initializeQueue(state.currentPairWeek));
+    document.getElementById('cfg-queue-winner-stay')?.addEventListener('change', e => {
+      const val = parseInt(e.target.value) || 0;
+      state.config.queueWinnerStay = val;
+      const splitRow = document.getElementById('queue-split-row');
+      if (splitRow) splitRow.classList.toggle('hidden', val === 0);
+    });
+    document.getElementById('cfg-queue-winner-split')?.addEventListener('change', e => {
+      state.config.queueWinnerSplit = e.target.value;
+    });
+
     document.getElementById('btn-generate').addEventListener('click', () => runGenerate(false));
     document.getElementById('btn-generate-fresh')?.addEventListener('click', () => runGenerate(true));
 

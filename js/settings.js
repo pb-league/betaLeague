@@ -21,6 +21,14 @@
 const APP_VERSION    = '1.4.5';
 const APP_BUILD_DATE = '2026-04-04';
 
+// Push notification pre-send delay (seconds).
+// Push notifications take several seconds to reach players after the GAS relay.
+// Setting this > 0 causes the timer to send warn/end pushes this many seconds
+// before the visual event, so the notification arrives in sync with the display.
+// The START push is sent immediately when the button is pressed; the timer shows
+// a "Starting in N…" countdown before the clock begins ticking.
+const TIMER_PUSH_DELAY_SECS = 6;
+
 // Google Analytics 4 Measurement ID
 // Set to your GA4 property ID (format: G-XXXXXXXXXX) to enable analytics.
 // Leave as empty string '' to disable — no tracking code will load.
@@ -76,6 +84,10 @@ function sanitizeConfig(raw) {
   if (c.replyTo      !== undefined) c.replyTo      = str(c.replyTo,      '');
   if (c.gameMode     !== undefined) c.gameMode     = str(c.gameMode,     'doubles');
   if (c.rankingMethod !== undefined) c.rankingMethod = str(c.rankingMethod, 'avgptdiff');
+  c.pairingMode      = str(c.pairingMode      ?? 'round-based', 'round-based');
+  c.queueWinnerStay  = int(c.queueWinnerStay,  0);
+  c.queueWinnerSplit = str(c.queueWinnerSplit  ?? 'none',        'none');
+  c.wQueueWait       = flt(c.wQueueWait,        10);
   if (c.adminPin     !== undefined) c.adminPin     = str(c.adminPin,     '');
   if (c.emailScriptUrl    !== undefined) c.emailScriptUrl    = str(c.emailScriptUrl,    '');
   if (c.emailScriptSecret !== undefined) c.emailScriptSecret = str(c.emailScriptSecret, '');

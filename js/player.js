@@ -1205,7 +1205,11 @@ function gaPage(pageName) {
     const wstandDate = formatDateTime(week, state.config) ? ' — ' + formatDateTime(week, state.config) : '';
     document.getElementById('wstand-label').textContent = `Session ${week}${wstandDate}`;
     const weekStand = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod);
-    document.getElementById('weekly-standings-table').innerHTML = renderStandingsTable(weekStand, playerName);
+    const overallThisWeek = Reports.computeStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod, state.attendance);
+    const overallPrevWeek = week > 1
+      ? Reports.computeStandings(state.scores, state.players, state.pairings, week - 1, state.config.rankingMethod, state.attendance)
+      : null;
+    document.getElementById('weekly-standings-table').innerHTML = renderStandingsTable(weekStand, playerName, overallThisWeek, overallPrevWeek);
 
     // Default to season tab active
     document.querySelectorAll('#player-standings-tabs .tab-btn').forEach(b => b.classList.remove('active'));
@@ -1239,7 +1243,11 @@ function gaPage(pageName) {
     const wstandDate = formatDateTime(week, state.config) ? ' — ' + formatDateTime(week, state.config) : '';
     document.getElementById('wstand-label').textContent = `Session ${week}${wstandDate}`;
     const s = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod);
-    document.getElementById('weekly-standings-table').innerHTML = renderStandingsTable(s, playerName);
+    const overallThisWeek = Reports.computeStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod, state.attendance);
+    const overallPrevWeek = week > 1
+      ? Reports.computeStandings(state.scores, state.players, state.pairings, week - 1, state.config.rankingMethod, state.attendance)
+      : null;
+    document.getElementById('weekly-standings-table').innerHTML = renderStandingsTable(s, playerName, overallThisWeek, overallPrevWeek);
   }
 
   // ── Full Attendance ────────────────────────────────────────
@@ -1648,13 +1656,23 @@ function gaPage(pageName) {
   }
 
   // ── Shared Helpers ─────────────────────────────────────────
-  function renderStandingsTable(standings, highlightPlayer = null) {
+  function renderStandingsTable(standings, highlightPlayer = null, overallStandings = null, prevOverallStandings = null) {
     if (!standings || !standings.length) return '<p class="text-muted">No standings data yet.</p>';
     const rm = state.config.rankingMethod || 'avgptdiff';
     const usePtsPct = rm === 'ptspct';
     const minPct = state.config.minParticipation !== null && state.config.minParticipation !== undefined
       ? parseFloat(state.config.minParticipation) / 100 : 0.50;
     const hasParticipation = standings.some(s => s.participationPct !== null);
+
+    // Build rank lookups for overall rank column and movement indicator
+    const overallRankMap = {};
+    if (overallStandings) {
+      overallStandings.forEach(s => { if (s.rank && s.rank !== '-') overallRankMap[s.name] = s.rank; });
+    }
+    const prevOverallRankMap = {};
+    if (prevOverallStandings) {
+      prevOverallStandings.forEach(s => { if (s.rank && s.rank !== '-') prevOverallRankMap[s.name] = s.rank; });
+    }
 
     const rows = standings.filter(s => s.games > 0).map((s, i) => {
       const isMe = s.name === highlightPlayer;
@@ -1680,6 +1698,29 @@ function gaPage(pageName) {
         }
       }
 
+      let overallHtml = '';
+      let movHtml = '';
+      if (overallStandings) {
+        const curOverall = overallRankMap[s.name] || null;
+        overallHtml = `<td style="color:var(--muted);">${curOverall !== null ? curOverall : '—'}</td>`;
+
+        const prevOverall = prevOverallRankMap[s.name] || null;
+        if (curOverall === null) {
+          movHtml = `<td style="color:var(--muted);">—</td>`;
+        } else if (!prevOverall) {
+          movHtml = `<td style="color:var(--muted); font-size:0.8rem;">new</td>`;
+        } else {
+          const delta = prevOverall - curOverall; // positive = moved up (lower rank number = better)
+          if (delta > 0) {
+            movHtml = `<td style="color:var(--green); font-weight:600;">▲${delta}</td>`;
+          } else if (delta < 0) {
+            movHtml = `<td style="color:var(--danger); font-weight:600;">▼${Math.abs(delta)}</td>`;
+          } else {
+            movHtml = `<td style="color:var(--muted);">—</td>`;
+          }
+        }
+      }
+
       return `<tr ${isMe ? 'style="background:rgba(94,194,106,0.08);"' : ''}>
         <td class="rank-cell ${top}">${s.rank}</td>
         <td class="player-name" ${isMe ? 'style="color:var(--green);"' : ''}>${esc(s.name)}${isMe ? ' ◀' : ''}</td>
@@ -1687,15 +1728,22 @@ function gaPage(pageName) {
         <td>${Reports.pct(s.winPct)}</td>
         ${secCol}
         ${hasParticipation ? partHtml : ''}
-        <td class="text-muted">${s.games}</td>
+        ${overallStandings ? overallHtml : ''}
+        ${overallStandings ? movHtml : ''}
       </tr>`;
     });
     const secHeader = usePtsPct ? '<th>Pts%</th>' : '<th title="Average point differential per game — your average score minus your opponent&#39;s average score. Positive means you score more than your opponents on average; used as a tiebreaker when win percentage is equal." style="cursor:help;">Avg+/-</th>';
     const pctHeader = hasParticipation
       ? `<th title="(Games + byes) / total league rounds. Min: ${Math.round(minPct*100)}% for prize eligibility" style="cursor:help;">Partic.</th>`
       : '';
+    const overallHeader = overallStandings
+      ? `<th title="Overall season rank through this session" style="cursor:help;">Overall</th>`
+      : '';
+    const movHeader = overallStandings
+      ? `<th title="Change in overall season rank vs. previous session" style="cursor:help;">±</th>`
+      : '';
     return `<table class="compact-table">
-      <thead><tr><th>#</th><th>Player</th><th>W/L</th><th>Win%</th>${secHeader}${pctHeader}<th>Games</th></tr></thead>
+      <thead><tr><th>#</th><th>Player</th><th>W/L</th><th>Win%</th>${secHeader}${pctHeader}${overallHeader}${movHeader}</tr></thead>
       <tbody>${rows.join('')}</tbody>
     </table>`;
   }

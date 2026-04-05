@@ -106,6 +106,10 @@ const API = (() => {
     getPushSubscriptions:   (password)                     => post({ action: 'getPushSubscriptions',  password }),
     sendPushNotifications:  (password, notifications)      => post({ action: 'sendPushNotifications', password, notifications }),
 
+    // Queue-based pairing
+    getQueue:           (week)         => get('getQueue', week !== undefined ? { week } : {}),
+    saveQueue:          (week, entries) => post({ action: 'saveQueue', week, entries }),
+
     // Game timers
     getTimerState:      ()                       => get('getTimerState'),
     setTimerState:      (timerState)             => post({ action: 'setTimerState', timerState }),
