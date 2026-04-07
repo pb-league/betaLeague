@@ -19,7 +19,53 @@
 
 // App version — bump when deploying changes
 const APP_VERSION    = '1.4.5';
-const APP_BUILD_DATE = '2026-04-04';
+const APP_BUILD_DATE = '2026-04-06';
+
+const TIERS = [
+{
+    version: 'Basic',
+    description: 'only essential features. Admin handles attendance, scoring, messaging. No player use of app.',
+    disableList: [
+      'messaging',
+      'pushNotifications',
+      'hostedDb',
+      'timers',
+      'tournamentPairings',
+      'queuePairings',
+      'headToHead',
+      'playerReport',
+      'playerRegistration',
+      'playerAttendance',
+      'playerLogin',
+      'playerScoring',
+      'pairingEditor',
+      'finalRoundAnalysis'
+    ],
+    
+  },
+  {
+    version: 'Mid',
+    description: ' more report options, players can view scores and reports.',
+    disableList: [
+      'messaging',
+      'pushNotifications',
+      'timers',
+      'queuePairings',
+      'tournamentPairings',
+      'headToHead',
+     'playerReport',
+     'playerRegistration',
+     'playerAttendance',
+     'playerScoring',
+     'finalRoundAnalysis'
+    ],
+  },
+  {
+    version: 'Max',
+    description: 'everything enabled.  In-app messaging,  email based attendance updates, More reports, Tournament mode, queued player pairing option, in-app Messaging, players help score, notifications to players, players can register, final round outcome analysis.',
+    disableList: []
+  }
+]
 
 // Push notification pre-send delay (seconds).
 // Push notifications take several seconds to reach players after the GAS relay.

@@ -310,15 +310,15 @@ const Pairings = (() => {
 
   // ── Full scoring (for comparison and breakdown display) ─────
 
-  function scorePairings(weekPairings, historyScores, byeCounts, weights) {
+  function scorePairings(weekPairings, historyScores, byeCounts, weights, initSessionPartners = {}, initSessionOpponents = {}) {
     const w = Object.assign({}, DEFAULTS, weights);
     const raw = {
       sessionPartner: 0, sessionOpponent: 0,
       historyPartner: 0, historyOpponent: 0,
       sessionBye: 0, byeVariance: 0, rankBalance: 0, rankStdDev: 0,
     };
-    const sessionPartners  = {};
-    const sessionOpponents = {};
+    const sessionPartners  = Object.assign({}, initSessionPartners);
+    const sessionOpponents = Object.assign({}, initSessionOpponents);
     const sessionByes      = {};
 
     const gamesByRound = {};
@@ -534,7 +534,7 @@ const Pairings = (() => {
   // Repeats until no improvement is found or maxPasses is reached.
   // Rescores the full week after each accepted swap (cheap — pure arithmetic).
 
-  function localImprove(pairings, history, byeCounts, weights, maxPasses = 5) {
+  function localImprove(pairings, history, byeCounts, weights, maxPasses = 5, initSessionPartners = {}, initSessionOpponents = {}) {
     const singles = weights.singles;
 
     // Work on a mutable copy — games only, byes unchanged
@@ -548,7 +548,7 @@ const Pairings = (() => {
           [g.p1, g.p2, g.p3, g.p4].filter(Boolean).forEach(n => { if (bc[n] !== undefined) bc[n]++; });
         }
       });
-      return scorePairings(p, history, bc, weights).total;
+      return scorePairings(p, history, bc, weights, initSessionPartners, initSessionOpponents).total;
     }
 
     // Helper: get all game entries grouped by round
@@ -880,7 +880,7 @@ const Pairings = (() => {
         priorSessionPartners, priorSessionOpponents, 0);
       const bc = { ...byeCounts };
       c.forEach(g => { if (g.type === 'bye') [g.p1,g.p2,g.p3,g.p4].filter(Boolean).forEach(p => { if (bc[p] !== undefined) bc[p]++; }); });
-      baselineScore += scorePairings(c, history, bc, normalizedWeights).total;
+      baselineScore += scorePairings(c, history, bc, normalizedWeights, priorSessionPartners, priorSessionOpponents).total;
     }
     baselineScore /= BASELINE_RUNS;
     // Noise = 25% of per-game average score — enough to diversify greedy choices
@@ -901,7 +901,7 @@ const Pairings = (() => {
       // Skipped when useLocalImprove is false or swapPasses is 0
       if (useLocalImprove && swapPasses > 0) {
         if (onProgress) onProgress({ phase: 'swap', iteration: i + 1, tries });
-        candidate = localImprove(candidate, history, byeCounts, normalizedWeights, swapPasses);
+        candidate = localImprove(candidate, history, byeCounts, normalizedWeights, swapPasses, priorSessionPartners, priorSessionOpponents);
       }
 
       const candidateByeCounts = { ...byeCounts };
@@ -915,7 +915,8 @@ const Pairings = (() => {
 
       // Score with normalized weights for consistent comparison across iterations
       const { total, breakdown } = scorePairings(
-        candidate, history, candidateByeCounts, normalizedWeights
+        candidate, history, candidateByeCounts, normalizedWeights,
+        priorSessionPartners, priorSessionOpponents
       );
 
       if (verbose) allScores.push(total);
@@ -930,14 +931,16 @@ const Pairings = (() => {
         bestPairings  = candidate;
         // Score with normalized weights so breakdown shows post-normalization contribution
         const { breakdown: normBreakdown } = scorePairings(
-          candidate, history, candidateByeCounts, normalizedWeights
+          candidate, history, candidateByeCounts, normalizedWeights,
+          priorSessionPartners, priorSessionOpponents
         );
         bestBreakdown = normBreakdown;
       } else if (total < secondScore) {
         secondScore    = total;
         secondPairings = candidate;
         const { breakdown: normBreakdown2 } = scorePairings(
-          candidate, history, candidateByeCounts, normalizedWeights
+          candidate, history, candidateByeCounts, normalizedWeights,
+          priorSessionPartners, priorSessionOpponents
         );
         secondBreakdown = normBreakdown2;
       }

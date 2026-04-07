@@ -97,6 +97,7 @@ const API = (() => {
     testEmailRelay:     (relayConfig, testEmail) => post({ action: 'testEmailRelay', relayConfig, testEmail }),
     changePin:        (name, currentPin, newPin) => post({ action: 'changePin', name, currentPin, newPin }),
     emailPin:         (name)             => post({ action: 'emailPin', name }),
+    emailAdminPin:    (leagueId)         => post({ action: 'emailAdminPin', leagueId }),
 
     // Push notifications
     saveVapidPrivateKey:    (password, privateKey)         => post({ action: 'saveVapidPrivateKey', password, privateKey }),

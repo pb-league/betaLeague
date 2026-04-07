@@ -502,8 +502,8 @@ select.form-control option { background: var(--navy-mid); }
 
 .att-row {
   display: grid;
-  grid-template-columns: 120px repeat(auto-fill, minmax(70px, 1fr));
-  gap: 4px;
+  grid-template-columns: 90px repeat(auto-fill, minmax(44px, 1fr));
+  gap: 3px;
   align-items: center;
 }
 

@@ -595,22 +595,29 @@ function gaPage(pageName) {
     }
     let html = '<div style="display:flex; flex-wrap:wrap; gap:10px;">';
 
+    const locked = !!state.config.lockPlayerAttendance;
     for (let w = 1; w <= weeks; w++) {
       const rec = state.attendance.find(a => a.player === playerName && String(a.week) === String(w));
       const status = rec ? rec.status : 'tbd';
       const date = formatDateTime(w, state.config);
 
-      html += `<div style="text-align:center; min-width:90px;">
-        <div class="label" style="margin-bottom:6px;">Session ${w}${date ? `<br>${date}` : ''}</div>
-        <div class="att-cell editable ${status}" data-week="${w}" style="padding:10px 0; border-radius:8px; cursor:pointer;">
-          <div style="font-size:1.2rem; margin-bottom:2px;">${statusIcon(status)}</div>
+      html += `<div style="text-align:center; min-width:60px;">
+        <div class="label" style="margin-bottom:4px;">Session ${w}${date ? `<br>${date}` : ''}</div>
+        <div class="att-cell ${locked ? '' : 'editable '}${status}" data-week="${w}" style="padding:6px 0; border-radius:6px;${locked ? ' opacity:0.7;' : ' cursor:pointer;'}">
+          <div style="font-size:1rem; margin-bottom:1px;">${statusIcon(status)}</div>
           ${statusLabel(status)}
         </div>
       </div>`;
     }
 
+    if (locked) {
+      html += '<div style="margin-top:10px; font-size:0.78rem; color:var(--muted); text-align:center;">Attendance is managed by the league admin.</div>';
+    }
+
     html += '</div>';
     document.getElementById('my-attendance-grid').innerHTML = html;
+
+    if (locked) return; // no click handlers when locked
 
     document.querySelectorAll('#my-attendance-grid .att-cell.editable').forEach(cell => {
       cell.addEventListener('click', async () => {
@@ -622,7 +629,7 @@ function gaPage(pageName) {
         const week = cell.dataset.week;
 
         cell.className = `att-cell editable ${next}`;
-        cell.innerHTML = `<div style="font-size:1.2rem; margin-bottom:2px;">${statusIcon(next)}</div>${statusLabel(next)}`;
+        cell.innerHTML = `<div style="font-size:1rem; margin-bottom:1px;">${statusIcon(next)}</div>${statusLabel(next)}`;
 
         const rec = state.attendance.find(a => a.player === playerName && String(a.week) === String(week));
         if (rec) { rec.status = next; } else { state.attendance.push({ player: playerName, week, status: next }); }
@@ -870,6 +877,7 @@ function gaPage(pageName) {
 
     const allWeekPairings = state.pairings.filter(p => parseInt(p.week) === week);
     const rounds = [...new Set(allWeekPairings.map(p => p.round))].sort((a,b) => a-b);
+    const isQueueMode = state.config.pairingMode === 'queue-based';
     let html = '';
 
     rounds.forEach(r => {
@@ -878,21 +886,32 @@ function gaPage(pageName) {
         const sc = state.scores.find(s => parseInt(s.week)===week && parseInt(s.round)===parseInt(g.round) && String(s.court)===String(g.court));
         return sc && sc.score1 !== null && sc.score2 !== null;
       }).length;
-      const allDone = scored === roundGames.length && roundGames.length > 0;
-      const badgeColor = allDone ? 'var(--green)' : scored > 0 ? 'var(--gold)' : 'var(--muted)';
-      const badgeText = allDone ? `${scored}/${roundGames.length} ✓` : scored > 0 ? `${scored}/${roundGames.length}` : `${roundGames.length} game${roundGames.length!==1?'s':''}`;
+      const total   = roundGames.length;
+      const allDone = scored === total && total > 0;
 
-      html += `<details open style="margin-bottom:5px;">
-        <summary style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;
-          padding:4px 8px; border-radius:7px; background:var(--card-bg); list-style:none; user-select:none;"
-          class="round-summary">
-          <span style="display:flex; align-items:center; gap:6px;">
-            <span class="collapse-arrow" style="font-size:0.68rem; color:var(--green); opacity:0.6;">${!allDone ? '▲' : '▼'}</span>
-            <span style="font-size:0.76rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Round ${r}</span>
-          </span>
-          <span class="round-badge" style="font-size:0.7rem; color:${badgeColor}; font-weight:600;">${badgeText}</span>
-        </summary>
-        <div style="padding-top:3px;">`;
+      if (isQueueMode) {
+        const doneStyle = allDone ? 'color:var(--green);' : '';
+        html += `<div style="font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; padding:4px 2px 3px; margin-top:4px; display:flex; justify-content:space-between;">
+          <span>Batch ${r}</span>
+          <span style="${doneStyle}">${allDone ? `${scored}/${total} ✓` : scored > 0 ? `${scored}/${total}` : `${total} game${total !== 1 ? 's' : ''}`}</span>
+        </div>
+        <div>`;
+      } else {
+        const badgeColor = allDone ? 'var(--green)' : scored > 0 ? 'var(--gold)' : 'var(--muted)';
+        const badgeText = allDone ? `${scored}/${total} ✓` : scored > 0 ? `${scored}/${total}` : `${total} game${total!==1?'s':''}`;
+
+        html += `<details open style="margin-bottom:5px;">
+          <summary style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;
+            padding:4px 8px; border-radius:7px; background:var(--card-bg); list-style:none; user-select:none;"
+            class="round-summary">
+            <span style="display:flex; align-items:center; gap:6px;">
+              <span class="collapse-arrow" style="font-size:0.68rem; color:var(--green); opacity:0.6;">${!allDone ? '▲' : '▼'}</span>
+              <span style="font-size:0.76rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Round ${r}</span>
+            </span>
+            <span class="round-badge" style="font-size:0.7rem; color:${badgeColor}; font-weight:600;">${badgeText}</span>
+          </summary>
+          <div style="padding-top:3px;">`;
+      }
 
       // Byes after games — one compact line, highlight if it's me
       const byePlayers1 = [...new Set(
@@ -945,7 +964,7 @@ function gaPage(pageName) {
         </div>`;
       });
 
-      html += `</div></details>`;
+      html += isQueueMode ? `</div>` : `</div></details>`;
     });
 
     document.getElementById('player-scoresheet').innerHTML = html;
@@ -968,6 +987,7 @@ function gaPage(pageName) {
     }
 
     const rounds = [...new Set(allWeekPairings.map(p => p.round))].sort((a,b) => a-b);
+    const isQueueMode = state.config.pairingMode === 'queue-based';
     let html = '';
 
     rounds.forEach(r => {
@@ -981,23 +1001,32 @@ function gaPage(pageName) {
       const remaining = total - scored;
       const allDone   = remaining === 0 && total > 0;
 
-      const badgeColor = allDone ? 'var(--green)' : scored > 0 ? 'var(--gold)' : 'var(--muted)';
-      const badgeText  = allDone ? `${scored}/${total} ✓`
-                       : scored > 0 ? `${scored}/${total} · ${remaining} left`
-                       : `${total} game${total !== 1 ? 's' : ''}`;
+      if (isQueueMode) {
+        const doneStyle = allDone ? 'color:var(--green);' : '';
+        html += `<div style="font-size:0.72rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; padding:4px 2px 3px; margin-top:4px; display:flex; justify-content:space-between;">
+          <span>Batch ${r}</span>
+          <span style="${doneStyle}">${allDone ? `${scored}/${total} ✓` : scored > 0 ? `${scored}/${total} · ${remaining} left` : `${total} game${total !== 1 ? 's' : ''}`}</span>
+        </div>
+        <div>`;
+      } else {
+        const badgeColor = allDone ? 'var(--green)' : scored > 0 ? 'var(--gold)' : 'var(--muted)';
+        const badgeText  = allDone ? `${scored}/${total} ✓`
+                         : scored > 0 ? `${scored}/${total} · ${remaining} left`
+                         : `${total} game${total !== 1 ? 's' : ''}`;
 
-      html += `<details open style="margin-bottom:6px;">
-        <summary style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;
-                        padding:5px 8px; border-radius:7px; background:var(--card-bg);
-                        list-style:none; user-select:none;"
-                 class="round-summary">
-          <span style="display:flex; align-items:center; gap:6px;">
-            <span class="collapse-arrow" style="font-size:0.72rem; color:var(--green); opacity:0.6;">${!allDone ? '▲' : '▼'}</span>
-            <span style="font-size:0.78rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Round ${r}</span>
-          </span>
-          <span class="round-badge" style="font-size:0.73rem; color:${badgeColor}; font-weight:600;">${badgeText}</span>
-        </summary>
-        <div style="padding-top:4px;">`;
+        html += `<details open style="margin-bottom:6px;">
+          <summary style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;
+                          padding:5px 8px; border-radius:7px; background:var(--card-bg);
+                          list-style:none; user-select:none;"
+                   class="round-summary">
+            <span style="display:flex; align-items:center; gap:6px;">
+              <span class="collapse-arrow" style="font-size:0.72rem; color:var(--green); opacity:0.6;">${!allDone ? '▲' : '▼'}</span>
+              <span style="font-size:0.78rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Round ${r}</span>
+            </span>
+            <span class="round-badge" style="font-size:0.73rem; color:${badgeColor}; font-weight:600;">${badgeText}</span>
+          </summary>
+          <div style="padding-top:4px;">`;
+      }
 
       roundGames.forEach(game => {
         const existingScore = state.scores.find(
@@ -1049,17 +1078,19 @@ function gaPage(pageName) {
         </div>`;
       }
 
-      html += `</div></details>`;
+      html += isQueueMode ? `</div>` : `</div></details>`;
     });
 
-    // Snapshot which rounds are currently collapsed before overwriting the DOM
+    // Snapshot which rounds are currently collapsed before overwriting the DOM (round-based only)
     const collapsedRounds = new Set();
-    document.querySelectorAll('#player-scoresheet-entry details').forEach(d => {
-      if (!d.open) {
-        const m = (d.querySelector('.round-summary')?.textContent || '').match(/Round\s*(\d+)/);
-        if (m) collapsedRounds.add(parseInt(m[1]));
-      }
-    });
+    if (!isQueueMode) {
+      document.querySelectorAll('#player-scoresheet-entry details').forEach(d => {
+        if (!d.open) {
+          const m = (d.querySelector('.round-summary')?.textContent || '').match(/Round\s*(\d+)/);
+          if (m) collapsedRounds.add(parseInt(m[1]));
+        }
+      });
+    }
 
     document.getElementById('player-scoresheet-entry').innerHTML = html;
 

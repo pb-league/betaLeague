@@ -265,12 +265,22 @@ function _timerBoxHtml(index, config) {
   const shadowClr = (digitColor !== 'var(--white)') ? digitColor : 'transparent';
 
   let displayInner;
+  // Warning-time annotation: show when configured and not yet in warning/done
+  const showWarnHint = config.warnEnabled && warnSecs > 0
+    && !inWarn && !isDone && !isNeg && !isCountdown && !isFlash
+    && phase !== 'warning';
+  const warnHint = showWarnHint
+    ? `<div style="font-size:0.7rem; color:rgba(224,85,85,0.6); margin-top:2px; letter-spacing:0.04em;">
+        ⚠ warning at ${_fmt(warnSecs)}
+       </div>`
+    : '';
+
   if (isCountdown) {
     displayInner = `<span class="tmr-start-pulse" style="font-family:var(--font-display); font-size:${digitSize}; font-weight:800; color:var(--green); letter-spacing:0.06em;">Starting in ${st.countdownRemaining}\u2026</span>`;
   } else if (isFlash) {
     displayInner = `<span class="tmr-start-pulse" style="font-family:var(--font-display); font-size:${digitSize}; font-weight:800; color:var(--green); letter-spacing:0.1em;">START</span>`;
   } else {
-    displayInner = `<span class="${flashCls}" style="font-family:'Courier New',monospace; font-size:${digitSize}; font-weight:700; color:${digitColor}; letter-spacing:0.06em; text-shadow:0 0 24px ${shadowClr}40;">${timeStr}</span>`;
+    displayInner = `<span class="${flashCls}" style="font-family:'Courier New',monospace; font-size:${digitSize}; font-weight:700; color:${digitColor}; letter-spacing:0.06em; text-shadow:0 0 24px ${shadowClr}40;">${timeStr}</span>${warnHint}`;
   }
 
   return `
@@ -353,6 +363,16 @@ function _updateTimerLive(index) {
   const summaryTime = document.getElementById(`tmr-summary-time-${index}`);
   if (summaryTime) summaryTime.textContent = timeStr;
 
+  // Warning-time annotation
+  const showWarnHint = config.warnEnabled && warnSecs > 0
+    && !inWarn && !isDone && !isNeg && !isCountdown && !isFlash
+    && phase !== 'warning';
+  const warnHint = showWarnHint
+    ? `<div style="font-size:0.7rem; color:rgba(224,85,85,0.6); margin-top:2px; letter-spacing:0.04em;">
+        ⚠ warning at ${_fmt(warnSecs)}
+       </div>`
+    : '';
+
   // Main display
   const display = document.getElementById(`tmr-display-${index}`);
   if (display) {
@@ -363,7 +383,7 @@ function _updateTimerLive(index) {
     } else if (isFlash) {
       display.innerHTML = `<span class="tmr-start-pulse" style="font-family:var(--font-display); font-size:${digitSize}; font-weight:800; color:var(--green); letter-spacing:0.1em;">START</span>`;
     } else {
-      display.innerHTML = `<span class="${flashCls}" style="font-family:'Courier New',monospace; font-size:${digitSize}; font-weight:700; color:${digitColor}; letter-spacing:0.06em; text-shadow:0 0 24px ${shadowClr}40;">${timeStr}</span>`;
+      display.innerHTML = `<span class="${flashCls}" style="font-family:'Courier New',monospace; font-size:${digitSize}; font-weight:700; color:${digitColor}; letter-spacing:0.06em; text-shadow:0 0 24px ${shadowClr}40;">${timeStr}</span>${warnHint}`;
     }
   }
 
@@ -500,7 +520,6 @@ function timerToggle(index) {
     // Show "Starting in N…" countdown, then begin ticking
     st.phase = 'start-countdown';
     st.countdownRemaining = countdownSecs;
-    if (!st.muted) _playStartSound();
     _updateTimerLive(index);
     _pushTimerState();
 
@@ -514,6 +533,7 @@ function timerToggle(index) {
         const cfg  = cfgs[index];
         const wSecs = cfg && cfg.warnEnabled ? (cfg.warnSeconds || 0) : -1;
         st.phase = (st.currentSeconds <= wSecs && st.currentSeconds > 0) ? 'warning' : 'running';
+        if (!st.muted) _playStartSound(); // beep when timer actually starts
         st.intervalId = setInterval(() => _timerTick(index), 1000);
         _updateTimerLive(index);
         _pushTimerState();

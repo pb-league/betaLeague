@@ -72,10 +72,16 @@ const Reports = (() => {
     // Byes count as full participation — a player with a bye was present, just sat out.
     // We do NOT add bye-only rounds to the denominator because a round with no scored
     // games hasn't "happened" from a league perspective.
+    const queueRounds = new Set(
+      pairings
+        .filter(p => p.type === 'queue-game')
+        .map(p => `${p.week}|${p.round}`)
+    );
     const scoredRounds = new Set();
     scores.forEach(s => {
       if (upToWeek !== null && parseInt(s.week) > upToWeek) return;
       if (s.score1 === '' || s.score1 === null || s.score2 === '' || s.score2 === null) return;
+      if (queueRounds.has(`${s.week}|${s.round}`)) return;
       scoredRounds.add(`${s.week}|${s.round}`);
     });
     const totalLeagueRounds = scoredRounds.size;
