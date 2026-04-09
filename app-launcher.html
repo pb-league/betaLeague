@@ -8,288 +8,285 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0e0f11; --bg2: #161719; --bg3: #1e1f23;
-    --border: rgba(255,255,255,0.07); --border-hover: rgba(255,255,255,0.15);
-    --text: #f0f0f0; --text2: #8a8f9a; --text3: #565b66;
-    --accent: #6c63ff; --accent2: #a78bfa; --accent-glow: rgba(108,99,255,0.18);
-    --green: #22d3a0; --amber: #f59e0b; --red: #f87171;
-    --radius: 14px; --radius-sm: 8px; --header-h: 64px; --tab-h: 52px;
+    --bg:#0e0f11; --bg2:#161719; --bg3:#1e1f23;
+    --border:rgba(255,255,255,0.07); --border-hover:rgba(255,255,255,0.15);
+    --text:#f0f0f0; --text2:#8a8f9a; --text3:#565b66;
+    --accent:#6c63ff; --accent2:#a78bfa; --accent-glow:rgba(108,99,255,0.18);
+    --green:#22d3a0; --amber:#f59e0b; --red:#f87171;
+    --radius:14px; --radius-sm:8px; --header-h:64px; --tab-h:52px;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 
   /* ── HEADER ── */
-  header {
-    height: var(--header-h); background: var(--bg2); border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; padding: 0 24px; gap: 16px;
-    position: sticky; top: 0; z-index: 100;
+  header{
+    height:var(--header-h);background:var(--bg2);border-bottom:1px solid var(--border);
+    display:flex;align-items:center;padding:0 24px;gap:16px;
+    position:sticky;top:0;z-index:100;
   }
-  .logo-mark {
-    width: 34px; height: 34px; border-radius: 9px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  .logo-mark{
+    width:34px;height:34px;border-radius:9px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
   }
-  .logo-mark svg { width: 18px; height: 18px; fill: white; }
-  .header-title { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; flex: 1; }
-  .search-wrap { position: relative; width: 220px; }
-  .search-wrap svg {
-    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
-    width: 15px; height: 15px; stroke: var(--text3); fill: none; stroke-width: 2; stroke-linecap: round;
+  .logo-mark svg{width:18px;height:18px;fill:white}
+  .header-title{font-size:17px;font-weight:600;letter-spacing:-0.3px;flex:1}
+  .search-wrap{position:relative;width:220px}
+  .search-wrap svg{
+    position:absolute;left:10px;top:50%;transform:translateY(-50%);
+    width:15px;height:15px;stroke:var(--text3);fill:none;stroke-width:2;stroke-linecap:round;
   }
-  #search {
-    width: 100%; height: 34px; background: var(--bg3); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); color: var(--text); font-family: inherit; font-size: 13px;
-    padding: 0 12px 0 32px; outline: none; transition: border-color 0.2s;
+  #search{
+    width:100%;height:34px;background:var(--bg3);border:1px solid var(--border);
+    border-radius:var(--radius-sm);color:var(--text);font-family:inherit;font-size:13px;
+    padding:0 12px 0 32px;outline:none;transition:border-color 0.2s;
   }
-  #search::placeholder { color: var(--text3); }
-  #search:focus { border-color: var(--accent); }
-
-  .refresh-pill {
-    display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text3);
-    background: var(--bg3); border: 1px solid var(--border); border-radius: 20px;
-    padding: 0 10px; height: 28px; white-space: nowrap; flex-shrink: 0; cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
+  #search::placeholder{color:var(--text3)}
+  #search:focus{border-color:var(--accent)}
+  .refresh-pill{
+    display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);
+    background:var(--bg3);border:1px solid var(--border);border-radius:20px;
+    padding:0 10px;height:28px;white-space:nowrap;flex-shrink:0;cursor:pointer;
+    transition:color 0.15s,border-color 0.15s;
   }
-  .refresh-pill:hover { color: var(--text2); border-color: var(--border-hover); }
-  .refresh-pill svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; flex-shrink: 0; }
-  .refresh-pill.spinning svg { animation: spin 1s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .config-btn {
-    height: 34px; padding: 0 14px; background: var(--bg3); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); color: var(--text2); font-family: inherit; font-size: 13px;
-    cursor: pointer; white-space: nowrap; transition: border-color 0.2s, color 0.2s;
-    display: flex; align-items: center; gap: 6px;
+  .refresh-pill:hover{color:var(--text2);border-color:var(--border-hover)}
+  .refresh-pill svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;flex-shrink:0}
+  .refresh-pill.spinning svg{animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .config-btn{
+    height:34px;padding:0 14px;background:var(--bg3);border:1px solid var(--border);
+    border-radius:var(--radius-sm);color:var(--text2);font-family:inherit;font-size:13px;
+    cursor:pointer;white-space:nowrap;transition:border-color 0.2s,color 0.2s;
+    display:flex;align-items:center;gap:6px;
   }
-  .config-btn:hover { border-color: var(--border-hover); color: var(--text); }
-  .config-btn svg { width: 13px; height: 13px; fill: currentColor; }
+  .config-btn:hover{border-color:var(--border-hover);color:var(--text)}
+  .config-btn svg{width:13px;height:13px;fill:currentColor}
 
   /* ── TABS ── */
-  .tabs-bar {
-    height: var(--tab-h); background: var(--bg2); border-bottom: 1px solid var(--border);
-    display: flex; align-items: flex-end; padding: 0 24px; gap: 2px;
-    overflow-x: auto; scrollbar-width: none;
+  .tabs-bar{
+    height:var(--tab-h);background:var(--bg2);border-bottom:1px solid var(--border);
+    display:flex;align-items:flex-end;padding:0 24px;gap:2px;overflow-x:auto;scrollbar-width:none;
   }
-  .tabs-bar::-webkit-scrollbar { display: none; }
-  .tab {
-    flex-shrink: 0; height: 40px; padding: 0 18px;
-    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-    background: transparent; border: 1px solid transparent; border-bottom: none;
-    color: var(--text2); font-family: inherit; font-size: 13.5px; font-weight: 500;
-    cursor: pointer; transition: color 0.15s, background 0.15s; white-space: nowrap;
+  .tabs-bar::-webkit-scrollbar{display:none}
+  .tab{
+    flex-shrink:0;height:40px;padding:0 18px;
+    border-radius:var(--radius-sm) var(--radius-sm) 0 0;
+    background:transparent;border:1px solid transparent;border-bottom:none;
+    color:var(--text2);font-family:inherit;font-size:13.5px;font-weight:500;
+    cursor:pointer;transition:color 0.15s,background 0.15s;white-space:nowrap;
   }
-  .tab:hover { color: var(--text); background: var(--bg3); }
-  .tab.active {
-    color: var(--text); background: var(--bg); border-color: var(--border);
-    border-bottom: 1px solid var(--bg); margin-bottom: -1px;
-  }
+  .tab:hover{color:var(--text);background:var(--bg3)}
+  .tab.active{color:var(--text);background:var(--bg);border-color:var(--border);border-bottom:1px solid var(--bg);margin-bottom:-1px}
 
   /* ── MAIN ── */
-  main { padding: 28px 24px 48px; max-width: 1400px; margin: 0 auto; }
-  .section-label {
-    font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
-    color: var(--text3); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  main{padding:28px 24px 48px;max-width:1400px;margin:0 auto}
+  .section-label{
+    font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;
+    color:var(--text3);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);
   }
 
-  /* ── CARD GRID ── */
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+  /* ── GRID ── */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
 
-  .card {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 18px; display: flex; flex-direction: column; gap: 12px;
-    cursor: pointer; text-decoration: none; color: inherit;
-    transition: border-color 0.2s, transform 0.15s; position: relative; overflow: hidden;
-  }
-  .card::before {
-    content: ''; position: absolute; inset: 0; border-radius: var(--radius);
-    background: radial-gradient(ellipse at top left, var(--accent-glow), transparent 60%);
-    opacity: 0; transition: opacity 0.25s;
-  }
-  .card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
-  .card:hover::before { opacity: 1; }
+  /* ── CARD WRAPPER (drag handle lives here) ── */
+  .card-wrap{position:relative;display:flex;flex-direction:column}
+  .card-wrap.dragging{opacity:0.4;transform:scale(0.97)}
+  .card-wrap.drag-over>.card{border-color:var(--accent)!important;box-shadow:0 0 0 2px rgba(108,99,255,0.35)}
 
-  .card-top { display: flex; align-items: flex-start; gap: 12px; }
-  .app-logo {
-    width: 46px; height: 46px; border-radius: 11px; object-fit: cover;
-    background: var(--bg3); flex-shrink: 0; border: 1px solid var(--border);
+  /* ── DRAG HANDLE ── */
+  .drag-handle{
+    position:absolute;top:8px;right:8px;z-index:10;
+    width:20px;height:20px;border-radius:5px;
+    background:transparent;border:none;cursor:grab;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--text3);opacity:0;transition:opacity 0.15s,background 0.15s;
+    padding:0;
   }
-  .app-logo-fallback {
-    width: 46px; height: 46px; border-radius: 11px; background: var(--bg3);
-    border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
-    font-size: 18px; font-weight: 600; color: var(--accent2); flex-shrink: 0; text-transform: uppercase;
-  }
-  .app-meta { flex: 1; min-width: 0; }
-  .app-name {
-    font-size: 14.5px; font-weight: 600; letter-spacing: -0.2px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text);
-  }
-  .app-version { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
-  .app-desc {
-    font-size: 12.5px; line-height: 1.55; color: var(--text2);
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-  }
-  .card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
-  .cat-badge {
-    font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 20px;
-    background: var(--bg3); border: 1px solid var(--border); color: var(--text3);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;
-  }
-  .arrow-icon {
-    width: 22px; height: 22px; border-radius: 6px; background: var(--bg3);
-    border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
-    color: var(--text3); transition: background 0.15s, color 0.15s; flex-shrink: 0;
-  }
-  .card:hover .arrow-icon { background: var(--accent); border-color: var(--accent); color: white; }
-  .arrow-icon svg { width: 11px; height: 11px; fill: currentColor; }
+  .drag-handle svg{width:14px;height:14px;fill:currentColor;pointer-events:none}
+  .card-wrap:hover .drag-handle{opacity:1}
+  .drag-handle:hover{background:var(--bg3);color:var(--text2)}
+  .drag-handle:active{cursor:grabbing}
 
-  /* lock icon */
-  .lock-badge {
-    width: 22px; height: 22px; border-radius: 6px;
-    background: rgba(108,99,255,0.12); border: 1px solid rgba(108,99,255,0.28);
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  /* ── COLLAPSE TOGGLE ── */
+  .collapse-toggle{
+    position:absolute;top:8px;right:32px;z-index:10;
+    width:20px;height:20px;border-radius:5px;
+    background:transparent;border:none;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--text3);opacity:0;transition:opacity 0.15s,background 0.15s,transform 0.2s;
+    padding:0;
   }
-  .lock-badge svg { width: 11px; height: 11px; fill: none; stroke: var(--accent2); stroke-width: 2; stroke-linecap: round; }
-  .card:hover .lock-badge { background: var(--accent); border-color: var(--accent); }
-  .card:hover .lock-badge svg { stroke: white; }
-  /* unlocked-this-session shows a subtle green tint */
-  .card.unlocked-session { border-color: rgba(34,211,160,0.2); }
-  .card.unlocked-session::before { background: radial-gradient(ellipse at top left, rgba(34,211,160,0.07), transparent 60%); opacity: 1; }
+  .collapse-toggle svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;pointer-events:none;transition:transform 0.2s}
+  .card-wrap:hover .collapse-toggle{opacity:1}
+  .collapse-toggle:hover{background:var(--bg3);color:var(--text2)}
+  .card-wrap.collapsed .collapse-toggle svg{transform:rotate(-90deg)}
 
-  /* ── MAINTENANCE ── */
-  .card.maintenance { cursor: default; opacity: 0.72; }
-  .card.maintenance:hover { transform: none; border-color: rgba(245,158,11,0.3); }
-  .card.maintenance::before { background: radial-gradient(ellipse at top left, rgba(245,158,11,0.1), transparent 60%); opacity: 1; }
-  .maintenance-banner {
-    display: flex; align-items: flex-start; gap: 7px; font-size: 11.5px; font-weight: 500;
-    color: #d97706; background: rgba(245,158,11,0.09); border: 1px solid rgba(245,158,11,0.22);
-    border-radius: var(--radius-sm); padding: 7px 10px; margin-top: auto; line-height: 1.4;
+  /* ── CARD ── */
+  .card{
+    background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px;display:flex;flex-direction:column;gap:12px;
+    text-decoration:none;color:inherit;
+    transition:border-color 0.2s,transform 0.15s;position:relative;overflow:hidden;
+    cursor:pointer;
   }
-  .maintenance-banner svg {
-    width: 13px; height: 13px; flex-shrink: 0; margin-top: 1px;
-    fill: none; stroke: #d97706; stroke-width: 2; stroke-linecap: round;
+  .card::before{
+    content:'';position:absolute;inset:0;border-radius:var(--radius);
+    background:radial-gradient(ellipse at top left,var(--accent-glow),transparent 60%);
+    opacity:0;transition:opacity 0.25s;
   }
-  .card.maintenance .app-logo,
-  .card.maintenance .app-logo-fallback { opacity: 0.45; filter: grayscale(0.7); }
-  .card.maintenance .app-name { color: var(--text2); }
+  .card:hover{border-color:var(--border-hover);transform:translateY(-2px)}
+  .card:hover::before{opacity:1}
+
+  /* collapsed state — only show the title bar */
+  .card-wrap.collapsed .card{
+    padding:10px 14px;gap:0;transform:none!important;cursor:default;
+  }
+  .card-wrap.collapsed .card:hover{border-color:var(--border-hover)}
+  .card-wrap.collapsed .card-body{display:none}
+  .card-wrap.collapsed .card::before{opacity:0!important}
+
+  /* collapsed title strip */
+  .card-strip{
+    display:none;align-items:center;gap:10px;min-width:0;
+  }
+  .card-wrap.collapsed .card-strip{display:flex}
+  .card-wrap.collapsed .card-full{display:none}
+  .card-full{display:flex;flex-direction:column;gap:12px}
+
+  .strip-logo{
+    width:26px;height:26px;border-radius:6px;object-fit:cover;
+    background:var(--bg3);flex-shrink:0;border:1px solid var(--border);
+  }
+  .strip-logo-fb{
+    width:26px;height:26px;border-radius:6px;background:var(--bg3);
+    border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+    font-size:10px;font-weight:600;color:var(--accent2);flex-shrink:0;text-transform:uppercase;
+  }
+  .strip-name{
+    font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    color:var(--text);flex:1;min-width:0;
+  }
+  .strip-version{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;flex-shrink:0}
+
+  /* full card internals */
+  .card-top{display:flex;align-items:flex-start;gap:12px}
+  .app-logo{width:46px;height:46px;border-radius:11px;object-fit:cover;background:var(--bg3);flex-shrink:0;border:1px solid var(--border)}
+  .app-logo-fallback{
+    width:46px;height:46px;border-radius:11px;background:var(--bg3);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;
+    color:var(--accent2);flex-shrink:0;text-transform:uppercase;
+  }
+  .app-meta{flex:1;min-width:0}
+  .app-name{font-size:14.5px;font-weight:600;letter-spacing:-0.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
+  .app-version{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px}
+  .app-desc{font-size:12.5px;line-height:1.55;color:var(--text2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:auto}
+  .cat-badge{
+    font-size:11px;font-weight:500;padding:3px 9px;border-radius:20px;
+    background:var(--bg3);border:1px solid var(--border);color:var(--text3);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;
+  }
+  .arrow-icon{
+    width:22px;height:22px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--text3);transition:background 0.15s,color 0.15s;flex-shrink:0;
+  }
+  .card:hover .arrow-icon{background:var(--accent);border-color:var(--accent);color:white}
+  .arrow-icon svg{width:11px;height:11px;fill:currentColor}
+  .lock-badge{
+    width:22px;height:22px;border-radius:6px;
+    background:rgba(108,99,255,0.12);border:1px solid rgba(108,99,255,0.28);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .lock-badge svg{width:11px;height:11px;fill:none;stroke:var(--accent2);stroke-width:2;stroke-linecap:round}
+  .card:hover .lock-badge{background:var(--accent);border-color:var(--accent)}
+  .card:hover .lock-badge svg{stroke:white}
+  .card.unlocked-session{border-color:rgba(34,211,160,0.2)}
+  .card.unlocked-session::before{background:radial-gradient(ellipse at top left,rgba(34,211,160,0.07),transparent 60%);opacity:1}
+
+  /* maintenance */
+  .card.maintenance{cursor:default;opacity:0.72}
+  .card.maintenance:hover{transform:none;border-color:rgba(245,158,11,0.3)}
+  .card.maintenance::before{background:radial-gradient(ellipse at top left,rgba(245,158,11,0.1),transparent 60%);opacity:1}
+  .maintenance-banner{
+    display:flex;align-items:flex-start;gap:7px;font-size:11.5px;font-weight:500;
+    color:#d97706;background:rgba(245,158,11,0.09);border:1px solid rgba(245,158,11,0.22);
+    border-radius:var(--radius-sm);padding:7px 10px;margin-top:auto;line-height:1.4;
+  }
+  .maintenance-banner svg{width:13px;height:13px;flex-shrink:0;margin-top:1px;fill:none;stroke:#d97706;stroke-width:2;stroke-linecap:round}
+  .card.maintenance .app-logo,.card.maintenance .app-logo-fallback{opacity:0.45;filter:grayscale(0.7)}
+  .card.maintenance .app-name{color:var(--text2)}
 
   /* ── STATE SCREENS ── */
-  .state {
-    display: flex; flex-direction: column; align-items: center;
-    padding: 80px 24px; gap: 12px; text-align: center;
-  }
-  .state-icon {
-    width: 56px; height: 56px; border-radius: 14px; background: var(--bg3);
-    display: flex; align-items: center; justify-content: center; margin-bottom: 4px;
-  }
-  .state h3 { font-size: 16px; font-weight: 600; }
-  .state p { font-size: 13px; color: var(--text2); max-width: 340px; line-height: 1.6; }
+  .state{display:flex;flex-direction:column;align-items:center;padding:80px 24px;gap:12px;text-align:center}
+  .state-icon{width:56px;height:56px;border-radius:14px;background:var(--bg3);display:flex;align-items:center;justify-content:center;margin-bottom:4px}
+  .state h3{font-size:16px;font-weight:600}
+  .state p{font-size:13px;color:var(--text2);max-width:340px;line-height:1.6}
 
-  /* ── SHARED MODAL BASE ── */
-  .modal-bg {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
-    z-index: 200; align-items: center; justify-content: center; padding: 20px;
+  /* ── MODAL BASE ── */
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:200;align-items:center;justify-content:center;padding:20px}
+  .modal-bg.open{display:flex}
+  .modal{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+  .modal h2{font-size:18px;font-weight:600;letter-spacing:-0.3px;margin-bottom:6px}
+  .modal p.sub{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em}
+  .field input,.field select{
+    width:100%;height:40px;background:var(--bg3);border:1px solid var(--border);
+    border-radius:var(--radius-sm);color:var(--text);font-family:inherit;font-size:13px;padding:0 12px;outline:none;transition:border-color 0.2s;
   }
-  .modal-bg.open { display: flex; }
-  .modal {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 18px;
-    padding: 28px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;
-  }
-  .modal h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; margin-bottom: 6px; }
-  .modal p.sub { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 20px; }
-  .field { margin-bottom: 16px; }
-  .field label {
-    display: block; font-size: 12px; font-weight: 500; color: var(--text2);
-    margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.06em;
-  }
-  .field input, .field select {
-    width: 100%; height: 40px; background: var(--bg3); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); color: var(--text); font-family: inherit;
-    font-size: 13px; padding: 0 12px; outline: none; transition: border-color 0.2s;
-  }
-  .field input:focus { border-color: var(--accent); }
-  .field input.shake { animation: shake 0.35s ease; }
-  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
-  .field-error { font-size: 11.5px; color: var(--red); margin-top: 5px; display: none; }
-  .hint { font-size: 11.5px; color: var(--text3); margin-top: 5px; line-height: 1.5; }
-  .modal-actions { display: flex; gap: 10px; margin-top: 24px; }
-  .btn-primary {
-    flex: 1; height: 40px; background: var(--accent); border: none; border-radius: var(--radius-sm);
-    color: white; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s;
-  }
-  .btn-primary:hover { opacity: 0.88; }
-  .btn-cancel {
-    height: 40px; padding: 0 18px; background: var(--bg3); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); color: var(--text2); font-family: inherit; font-size: 14px; cursor: pointer;
-  }
-  .btn-cancel:hover { color: var(--text); }
+  .field input:focus{border-color:var(--accent)}
+  .field input.shake{animation:shake 0.35s ease}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  .field-error{font-size:11.5px;color:var(--red);margin-top:5px;display:none}
+  .hint{font-size:11.5px;color:var(--text3);margin-top:5px;line-height:1.5}
+  .modal-actions{display:flex;gap:10px;margin-top:24px}
+  .btn-primary{flex:1;height:40px;background:var(--accent);border:none;border-radius:var(--radius-sm);color:white;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:opacity 0.15s}
+  .btn-primary:hover{opacity:0.88}
+  .btn-cancel{height:40px;padding:0 18px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text2);font-family:inherit;font-size:14px;cursor:pointer}
+  .btn-cancel:hover{color:var(--text)}
+  .status-bar{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);margin-bottom:20px;padding:10px 14px;background:var(--bg3);border-radius:var(--radius-sm);border:1px solid var(--border)}
+  .status-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0}
+  .status-dot.ok{background:var(--green)}
+  .status-dot.err{background:var(--red)}
+  .status-dot.loading{background:var(--amber);animation:pulse 1s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 
-  /* config status bar */
-  .status-bar {
-    display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2);
-    margin-bottom: 20px; padding: 10px 14px; background: var(--bg3);
-    border-radius: var(--radius-sm); border: 1px solid var(--border);
-  }
-  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
-  .status-dot.ok { background: var(--green); }
-  .status-dot.err { background: var(--red); }
-  .status-dot.loading { background: var(--amber); animation: pulse 1s ease-in-out infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  /* password modal */
+  .pw-app-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+  .pw-logo{width:44px;height:44px;border-radius:10px;object-fit:cover;background:var(--bg3);border:1px solid var(--border);flex-shrink:0}
+  .pw-logo-fb{width:44px;height:44px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--accent2);flex-shrink:0;text-transform:uppercase}
+  .pw-app-name{font-size:15px;font-weight:600}
+  .pw-app-sub{font-size:12px;color:var(--text2);margin-top:2px}
+  .pw-input-wrap{position:relative}
+  .pw-input-wrap input{padding-right:40px}
+  .pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);display:flex;align-items:center;padding:0}
+  .pw-toggle svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+  .pw-toggle:hover{color:var(--text2)}
+  .remember-row{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text2);margin-top:10px;cursor:pointer;user-select:none}
+  .remember-row input[type=checkbox]{width:14px;height:14px;cursor:pointer;accent-color:var(--accent)}
 
-  /* ── PASSWORD MODAL ── */
-  .pw-app-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-  .pw-logo {
-    width: 44px; height: 44px; border-radius: 10px; object-fit: cover;
-    background: var(--bg3); border: 1px solid var(--border); flex-shrink: 0;
-  }
-  .pw-logo-fb {
-    width: 44px; height: 44px; border-radius: 10px; background: var(--bg3);
-    border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
-    font-size: 16px; font-weight: 600; color: var(--accent2); flex-shrink: 0; text-transform: uppercase;
-  }
-  .pw-app-name { font-size: 15px; font-weight: 600; }
-  .pw-app-sub  { font-size: 12px; color: var(--text2); margin-top: 2px; }
-  .pw-input-wrap { position: relative; }
-  .pw-input-wrap input { padding-right: 40px; }
-  .pw-toggle {
-    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-    background: none; border: none; cursor: pointer; color: var(--text3);
-    display: flex; align-items: center; padding: 0;
-  }
-  .pw-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
-  .pw-toggle:hover { color: var(--text2); }
-  .remember-row {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 12.5px; color: var(--text2); margin-top: 10px; cursor: pointer; user-select: none;
-  }
-  .remember-row input[type=checkbox] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); }
+  /* skeleton */
+  .skeleton-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+  .skeleton-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;height:140px;position:relative;overflow:hidden}
+  .skeleton-card::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.03) 50%,transparent 100%);animation:shimmer 1.6s ease-in-out infinite}
+  @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
 
-  /* ── SKELETON ── */
-  .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
-  .skeleton-card {
-    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 18px; height: 140px; position: relative; overflow: hidden;
+  /* responsive */
+  @media(max-width:600px){
+    header{padding:0 14px;gap:10px}
+    .header-title{display:none}
+    .search-wrap{flex:1;width:auto}
+    .refresh-pill{display:none}
+    main{padding:16px 12px 40px}
+    .tabs-bar{padding:0 12px}
+    .grid,.skeleton-grid{grid-template-columns:1fr}
+    .modal{padding:20px}
+    .drag-handle,.collapse-toggle{opacity:1}
   }
-  .skeleton-card::after {
-    content: ''; position: absolute; inset: 0;
-    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%);
-    animation: shimmer 1.6s ease-in-out infinite;
-  }
-  @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
-
-  /* ── RESPONSIVE ── */
-  @media (max-width: 600px) {
-    header { padding: 0 14px; gap: 10px; }
-    .header-title { display: none; }
-    .search-wrap { flex: 1; width: auto; }
-    .refresh-pill { display: none; }
-    main { padding: 16px 12px 40px; }
-    .tabs-bar { padding: 0 12px; }
-    .grid, .skeleton-grid { grid-template-columns: 1fr; }
-    .modal { padding: 20px; }
-  }
-  @media (min-width: 601px) and (max-width: 900px) {
-    .grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
-    .search-wrap { width: 180px; }
+  @media(min-width:601px) and (max-width:900px){
+    .grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+    .search-wrap{width:180px}
   }
 </style>
 </head>
@@ -297,9 +294,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo-mark">
-    <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
-  </div>
+  <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg></div>
   <span class="header-title" id="launcher-title">App Launcher</span>
   <div class="search-wrap">
     <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -315,44 +310,30 @@
   </button>
 </header>
 
-<!-- TABS -->
 <nav class="tabs-bar" id="tabs-bar" role="tablist">
   <button class="tab active" data-tab="all" role="tab">All Apps</button>
 </nav>
 
-<!-- MAIN -->
 <main><div id="pages"></div></main>
 
-<!-- ── CONFIG MODAL ── -->
+<!-- CONFIG MODAL -->
 <div class="modal-bg" id="config-modal-bg">
   <div class="modal">
     <h2>Connect Google Sheet</h2>
-    <p class="sub">Paste your published Google Sheet ID. The sheet must be shared as "Anyone with the link can view".</p>
+    <p class="sub">Paste your published Google Sheet ID. Share as "Anyone with the link can view".</p>
     <div id="settings-file-notice" style="display:none;align-items:center;gap:10px;font-size:12.5px;color:var(--green);background:rgba(34,211,160,0.08);border:1px solid rgba(34,211,160,0.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;">
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-      Configured via <strong style="color:var(--green)">settings.json</strong> — changes saved here apply to this browser only.
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Configured via <strong style="color:var(--green)">settings.json</strong> — changes here apply to this browser only.
     </div>
-    <div class="status-bar">
-      <span class="status-dot" id="status-dot"></span>
-      <span id="status-msg">Not connected</span>
-    </div>
+    <div class="status-bar"><span class="status-dot" id="status-dot"></span><span id="status-msg">Not connected</span></div>
     <div class="field">
       <label>Google Sheet ID</label>
       <input type="text" id="sheet-id-input" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms">
       <div class="hint">docs.google.com/spreadsheets/d/<strong style="color:var(--accent2)">SHEET_ID</strong>/edit</div>
     </div>
-    <div class="field">
-      <label>Apps sheet name</label>
-      <input type="text" id="apps-sheet-input" value="Apps">
-    </div>
-    <div class="field">
-      <label>Categories sheet name</label>
-      <input type="text" id="cats-sheet-input" value="Categories">
-    </div>
-    <div class="field">
-      <label>Launcher title (optional)</label>
-      <input type="text" id="title-input" placeholder="My App Launcher">
-    </div>
+    <div class="field"><label>Apps sheet name</label><input type="text" id="apps-sheet-input" value="Apps"></div>
+    <div class="field"><label>Categories sheet name</label><input type="text" id="cats-sheet-input" value="Categories"></div>
+    <div class="field"><label>Launcher title (optional)</label><input type="text" id="title-input" placeholder="My App Launcher"></div>
     <div class="field">
       <label>Auto-refresh interval</label>
       <select id="refresh-select">
@@ -363,16 +344,14 @@
         <option value="1800">Every 30 minutes</option>
         <option value="3600">Every hour</option>
       </select>
-      <div class="hint">Silently reloads app data from the sheet in the background.</div>
     </div>
     <p class="hint" style="margin-top:16px;padding:12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);line-height:1.9">
-      <strong style="color:var(--text2)">Apps sheet columns:</strong><br>
-      Title &nbsp;·&nbsp; URL &nbsp;·&nbsp; Description &nbsp;·&nbsp; Category &nbsp;·&nbsp; Logo URL &nbsp;·&nbsp; Version &nbsp;·&nbsp; Enabled &nbsp;·&nbsp; Maintenance &nbsp;·&nbsp; Password &nbsp;·&nbsp; New Tab<br><br>
-      <strong style="color:var(--accent2)">Enabled</strong> — blank or <code>true</code> = visible; <code>false</code>/<code>no</code>/<code>0</code> hides the app entirely.<br>
-      <strong style="color:var(--accent2)">Maintenance</strong> — <code>true</code>/<code>yes</code> shows default message; any other text becomes the custom message shown on the card.<br>
-      <strong style="color:var(--accent2)">Password</strong> — plain text passphrase; users must enter it to launch. Leave blank for open access.<br>
-      <strong style="color:var(--accent2)">New Tab</strong> — blank/<code>true</code> opens in a new tab; <code>false</code>/<code>no</code> opens in the same tab.<br><br>
-      <strong style="color:var(--text2)">Categories sheet column:</strong> Category Name
+      <strong style="color:var(--text2)">Apps columns:</strong> Title · URL · Description · Category · Logo URL · Version · Enabled · Maintenance · Password · New Tab<br><br>
+      <strong style="color:var(--accent2)">Enabled</strong> — blank/true = show; false/no/0 = hide.<br>
+      <strong style="color:var(--accent2)">Maintenance</strong> — true/yes or a custom message string.<br>
+      <strong style="color:var(--accent2)">Password</strong> — plain text; users must enter it to launch.<br>
+      <strong style="color:var(--accent2)">New Tab</strong> — blank/true = new tab; false/no = same tab.<br><br>
+      <strong style="color:var(--text2)">Categories column:</strong> Category Name
     </p>
     <div class="modal-actions">
       <button class="btn-cancel" id="close-config">Cancel</button>
@@ -381,7 +360,7 @@
   </div>
 </div>
 
-<!-- ── PASSWORD MODAL ── -->
+<!-- PASSWORD MODAL -->
 <div class="modal-bg" id="pw-modal-bg">
   <div class="modal" style="max-width:360px">
     <div class="pw-app-header" id="pw-app-header"></div>
@@ -390,19 +369,13 @@
     <div class="field">
       <div class="pw-input-wrap">
         <input type="password" id="pw-input" placeholder="Enter password…" autocomplete="off">
-        <button class="pw-toggle" id="pw-toggle" type="button" title="Show / hide">
-          <svg id="pw-eye" viewBox="0 0 24 24">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-            <circle cx="12" cy="12" r="3"/>
-          </svg>
+        <button class="pw-toggle" id="pw-toggle" type="button">
+          <svg id="pw-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </div>
       <div class="field-error" id="pw-error">Incorrect password. Please try again.</div>
     </div>
-    <label class="remember-row">
-      <input type="checkbox" id="pw-remember" checked>
-      Remember for this session (no re-prompt until page reload)
-    </label>
+    <label class="remember-row"><input type="checkbox" id="pw-remember" checked>Remember for this session</label>
     <div class="modal-actions">
       <button class="btn-cancel" id="pw-cancel">Cancel</button>
       <button class="btn-primary" id="pw-submit">Launch App</button>
@@ -411,58 +384,55 @@
 </div>
 
 <script>
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // STATE
-// ═══════════════════════════════════════════════
-const LS_KEY = 'launcher_cfg_v2';
+// ═══════════════════════════════════════════════════════
+const LS_KEY      = 'launcher_cfg_v2';
+const LS_COLLAPSE = 'launcher_collapse_v1';   // {title: true} = collapsed
+const LS_ORDER    = 'launcher_order_v1';      // {gridKey: [title, title, ...]}
 
-let cfg = {
-  sheetId: '', appsSheet: 'Apps', catsSheet: 'Categories',
-  title: 'App Launcher', refreshInterval: 300,
-};
-
+let cfg = { sheetId:'', appsSheet:'Apps', catsSheet:'Categories', title:'App Launcher', refreshInterval:300 };
 let allApps      = [];
 let categories   = [];
 let activeTab    = 'all';
 let searchQuery  = '';
 let refreshTimer = null;
 let lastLoaded   = null;
-// Per-session unlock map: appTitle → true (wiped on page reload, never persisted)
 const sessionUnlocks = {};
+let settingsLocked   = false;
 
-// ═══════════════════════════════════════════════
+// persisted collapse & order state
+let collapseState = {};   // appTitle → true/false
+let orderState    = {};   // gridKey  → [title, ...]
+
+function loadUIState() {
+  try { collapseState = JSON.parse(localStorage.getItem(LS_COLLAPSE) || '{}'); } catch(e) { collapseState = {}; }
+  try { orderState    = JSON.parse(localStorage.getItem(LS_ORDER)    || '{}'); } catch(e) { orderState    = {}; }
+}
+function saveCollapseState() { localStorage.setItem(LS_COLLAPSE, JSON.stringify(collapseState)); }
+function saveOrderState()    { localStorage.setItem(LS_ORDER,    JSON.stringify(orderState));    }
+
+// ═══════════════════════════════════════════════════════
 // BOOT
-// Priority: settings.json > localStorage > prompt
-// ═══════════════════════════════════════════════
-let settingsLocked = false;  // true when config is loaded from settings.json
-
+// ═══════════════════════════════════════════════════════
 async function boot() {
-  // 1. Try localStorage first as a baseline
   try { Object.assign(cfg, JSON.parse(localStorage.getItem(LS_KEY) || '{}')); } catch(e) {}
+  loadUIState();
 
-  // 2. Try to load settings.json from the same directory as the HTML file.
-  //    If found, its values win over localStorage and the Configure button is hidden.
   try {
-    const res = await fetch('./settings.json', { cache: 'no-store' });
+    const res = await fetch('./settings.json', { cache:'no-store' });
     if (res.ok) {
-      const settings = await res.json();
-      // Only copy recognised keys so stray properties are ignored
-      const allowed = ['sheetId','appsSheet','catsSheet','title','refreshInterval'];
-      allowed.forEach(k => { if (settings[k] !== undefined) cfg[k] = settings[k]; });
-      settingsLocked = !!cfg.sheetId;  // lock UI only when we got a usable sheetId
+      const s = await res.json();
+      ['sheetId','appsSheet','catsSheet','title','refreshInterval'].forEach(k => { if (s[k] !== undefined) cfg[k] = s[k]; });
+      settingsLocked = !!cfg.sheetId;
     }
-  } catch(e) {
-    // settings.json absent or malformed — silently continue with localStorage values
-  }
+  } catch(e) {}
 
   applyTitle();
-  // Hide the Configure button when settings.json is in charge
   if (settingsLocked) document.getElementById('open-config').style.display = 'none';
-
   document.getElementById('refresh-pill').addEventListener('click', () => loadData(true));
   if (cfg.sheetId) loadData(); else { showEmpty(); openConfigModal(); }
 }
-
 boot();
 
 function applyTitle() {
@@ -470,46 +440,75 @@ function applyTitle() {
   document.getElementById('launcher-title').textContent = cfg.title || 'App Launcher';
 }
 
-// ═══════════════════════════════════════════════
-// FETCH — cache-busted at the Google Sheets level
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// CACHE-BUSTED LAUNCH
+// The only reliable way to force a hard-reload of the
+// target app is to open a tiny bounce page (as a Blob
+// URL) that sets Cache-Control/Pragma no-cache headers
+// via <meta> before immediately redirecting.  A simple
+// ?_v= param on the link does NOT work because it only
+// busts the launcher's request — the browser still
+// serves the target app's assets from its cache based
+// on the app server's own headers.
+// ═══════════════════════════════════════════════════════
+function launchApp(url, newTab) {
+  // Build a tiny HTML page that clears cache and redirects
+  const bounce = `<!DOCTYPE html><html><head>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta http-equiv="refresh" content="0;url=${url.replace(/"/g,'&quot;"')}">
+</head><body></body></html>`;
+
+  const blob   = new Blob([bounce], { type:'text/html' });
+  const blobUrl = URL.createObjectURL(blob);
+
+  if (newTab) {
+    const win = window.open(blobUrl, '_blank', 'noopener,noreferrer');
+    // Revoke after enough time for the bounce to complete
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+    if (!win) {
+      // Popup blocked fallback — open directly
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  } else {
+    window.location.href = blobUrl;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// FETCH (cache-busted at sheet level)
+// ═══════════════════════════════════════════════════════
 function sheetUrl(name) {
-  // _cb param forces Google's gviz endpoint to bypass any CDN/proxy cache
   return `https://docs.google.com/spreadsheets/d/${cfg.sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(name)}&_cb=${Date.now()}`;
 }
 
 async function fetchSheet(name) {
-  // cache:'no-store' tells the browser never to serve a cached response
-  const res  = await fetch(sheetUrl(name), { cache: 'no-store' });
+  const res  = await fetch(sheetUrl(name), { cache:'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const text = await res.text();
   const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);?\s*$/)[1]);
   const rawRows = json.table.rows || [];
 
-  // Google Sheets gviz sometimes returns empty col labels when the sheet has no
-  // frozen header row — the actual column names land in the first data row instead.
-  // Detect this and promote that row into the header automatically.
   let cols = json.table.cols.map(c => c.label.trim());
   if (cols.every(c => c === '') && rawRows.length > 0) {
     cols = rawRows[0].c.map(cell => (cell && cell.v !== null ? String(cell.v).trim() : ''));
     return rawRows.slice(1).map(r =>
-      Object.fromEntries(cols.map((c, i) => [c, r.c[i] ? (r.c[i].v !== null ? String(r.c[i].v).trim() : '') : '']))
+      Object.fromEntries(cols.map((c,i) => [c, r.c[i] ? (r.c[i].v !== null ? String(r.c[i].v).trim() : '') : '']))
     );
   }
-
   return rawRows.map(r =>
-    Object.fromEntries(cols.map((c, i) => [c, r.c[i] ? (r.c[i].v !== null ? String(r.c[i].v).trim() : '') : '']))
+    Object.fromEntries(cols.map((c,i) => [c, r.c[i] ? (r.c[i].v !== null ? String(r.c[i].v).trim() : '') : '']))
   );
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // LOAD DATA
-// ═══════════════════════════════════════════════
-async function loadData(manual = false) {
+// ═══════════════════════════════════════════════════════
+async function loadData(manual=false) {
   if (!lastLoaded) showLoading();
   if (manual) setSpinner(true);
-  setStatus('loading', 'Loading…');
-
+  setStatus('loading','Loading…');
   try {
     const [appRows, catRows] = await Promise.all([
       fetchSheet(cfg.appsSheet),
@@ -526,14 +525,14 @@ async function loadData(manual = false) {
                         .filter(c => allApps.some(a => a.category === c));
 
     lastLoaded = new Date();
-    setStatus('ok', `Loaded ${allApps.length} app${allApps.length !== 1 ? 's' : ''}`);
+    setStatus('ok', `Loaded ${allApps.length} app${allApps.length!==1?'s':''}`);
     updateRefreshLabel();
     buildTabs();
     render();
     scheduleRefresh();
   } catch(e) {
     console.error(e);
-    setStatus('err', 'Failed — check Sheet ID and sharing settings');
+    setStatus('err','Failed — check Sheet ID and sharing settings');
     if (!lastLoaded) showError(e.message);
   } finally {
     setSpinner(false);
@@ -547,87 +546,63 @@ function parseApp(r) {
     return k ? r[k] : '';
   };
   const isFalsy = v => v !== '' && /^(false|no|0|off|disabl)/i.test(v);
+  const enabled = !isFalsy(find('enable','active','show','visible'));
 
-  // ── enabled ──────────────────────────────────
-  const enabled = !isFalsy(find('enable', 'active', 'show', 'visible'));
-
-  // ── maintenance: blank/false → off; "true/yes/1" → default msg; anything else → custom msg ──
-  const mRaw = find('maint', 'down', 'outage', 'offline');
-  let maintenance = false, maintMsg = 'Down for maintenance';
+  const mRaw = find('maint','down','outage','offline');
+  let maintenance=false, maintMsg='Down for maintenance';
   if (mRaw && !/^(false|no|0|off)$/i.test(mRaw)) {
     maintenance = true;
     if (!/^(true|yes|1|on|maint)$/i.test(mRaw)) maintMsg = mRaw;
   }
 
-  // ── password ──────────────────────────────────
-  const password = find('pass', 'pwd', 'secret', 'key');
+  const password = find('pass','pwd','secret','key');
+  const newTab   = !isFalsy(find('new tab','newtab','tab','target','window','open'));
+  const url      = find('url','link','href');
+  let   title    = find('title','name','app');
+  if (!title && url) { try { title = new URL(url).hostname.replace(/^www\./,''); } catch { title = url; } }
 
-  // ── new-tab (default = true) ──────────────────
-  const newTab = !isFalsy(find('new tab', 'newtab', 'tab', 'target', 'window', 'open'));
-
-  const url = find('url', 'link', 'href');
-  // Fall back to hostname if title cell is blank (some rows omit it)
-  let title = find('title', 'name', 'app');
-  if (!title && url) {
-    try { title = new URL(url).hostname.replace(/^www\./, ''); } catch { title = url; }
-  }
-
-  return {
-    title, url,
-    desc:     find('desc', 'description', 'summary', 'about'),
-    category: find('cat', 'category', 'group', 'tag'),
-    logo:     find('logo', 'icon', 'image', 'img'),
-    version:  find('ver', 'version', 'v'),
-    enabled, maintenance, maintMsg, password, newTab,
-  };
+  return { title, url, desc:find('desc','description','summary','about'), category:find('cat','category','group','tag'), logo:find('logo','icon','image','img'), version:find('ver','version','v'), enabled, maintenance, maintMsg, password, newTab };
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // AUTO-REFRESH
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 function scheduleRefresh() {
   clearTimeout(refreshTimer);
-  if (cfg.refreshInterval > 0) refreshTimer = setTimeout(() => loadData(), cfg.refreshInterval * 1000);
+  if (cfg.refreshInterval > 0) refreshTimer = setTimeout(() => loadData(), cfg.refreshInterval*1000);
 }
-
 function updateRefreshLabel() {
   if (!lastLoaded) return;
-  const s = Math.floor((Date.now() - lastLoaded) / 1000);
-  document.getElementById('refresh-label').textContent =
-    s < 5 ? 'just now' : s < 60 ? `${s}s ago` : `${Math.floor(s/60)}m ago`;
+  const s = Math.floor((Date.now()-lastLoaded)/1000);
+  document.getElementById('refresh-label').textContent = s<5?'just now':s<60?`${s}s ago`:`${Math.floor(s/60)}m ago`;
 }
 setInterval(updateRefreshLabel, 15000);
+function setSpinner(on) { document.getElementById('refresh-pill').classList.toggle('spinning',on); }
 
-function setSpinner(on) {
-  document.getElementById('refresh-pill').classList.toggle('spinning', on);
-}
-
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // TABS
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 function buildTabs() {
   const bar = document.getElementById('tabs-bar');
   bar.innerHTML = '';
-  ['all', ...categories].forEach(t => {
+  ['all',...categories].forEach(t => {
     const b = document.createElement('button');
-    b.className = 'tab' + (t === activeTab ? ' active' : '');
-    b.dataset.tab = t;
-    b.textContent = t === 'all' ? 'All Apps' : t;
-    b.setAttribute('role', 'tab');
+    b.className = 'tab'+(t===activeTab?' active':'');
+    b.dataset.tab = t; b.textContent = t==='all'?'All Apps':t;
+    b.setAttribute('role','tab');
     b.addEventListener('click', () => switchTab(t));
     bar.appendChild(b);
   });
 }
-
 function switchTab(t) {
   activeTab = t;
-  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab===t));
   render();
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // RENDER
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 function render() {
   const root = document.getElementById('pages');
   root.innerHTML = '';
@@ -635,124 +610,279 @@ function render() {
   let apps = allApps;
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
-    apps = apps.filter(a => a.title.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q) || a.category.toLowerCase().includes(q));
+    apps = apps.filter(a => a.title.toLowerCase().includes(q)||a.desc.toLowerCase().includes(q)||a.category.toLowerCase().includes(q));
   }
-  if (activeTab !== 'all') apps = apps.filter(a => a.category === activeTab);
+  if (activeTab !== 'all') apps = apps.filter(a => a.category===activeTab);
 
   if (!apps.length) {
-    root.innerHTML = `<div class="state">
-      <div class="state-icon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="var(--text3)" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>
-      <h3>No apps found</h3>
-      <p>${searchQuery ? `No results for "${h(searchQuery)}".` : 'No apps in this category yet.'}</p>
-    </div>`;
+    root.innerHTML = `<div class="state"><div class="state-icon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="var(--text3)" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div><h3>No apps found</h3><p>${searchQuery?`No results for "${h(searchQuery)}".`:'No apps in this category yet.'}</p></div>`;
     return;
   }
 
-  if (activeTab === 'all' && !searchQuery) {
-    const groups = Object.fromEntries([...categories, '_other'].map(k => [k, []]));
-    apps.forEach(a => (categories.includes(a.category) ? groups[a.category] : groups['_other']).push(a));
-    Object.entries(groups).forEach(([key, list]) => {
+  if (activeTab==='all' && !searchQuery) {
+    const groups = Object.fromEntries([...categories,'_other'].map(k=>[k,[]]));
+    apps.forEach(a => (categories.includes(a.category)?groups[a.category]:groups['_other']).push(a));
+    Object.entries(groups).forEach(([key,list]) => {
       if (!list.length) return;
       const sec = document.createElement('div');
       sec.style.marginBottom = '32px';
-      sec.innerHTML = `<div class="section-label">${h(key === '_other' ? 'Other' : key)}</div>`;
-      const grid = document.createElement('div');
-      grid.className = 'grid';
-      list.forEach(a => grid.appendChild(makeCard(a)));
+      sec.innerHTML = `<div class="section-label">${h(key==='_other'?'Other':key)}</div>`;
+      const grid = buildGrid(list, key);
       sec.appendChild(grid);
       root.appendChild(sec);
     });
   } else {
-    const grid = document.createElement('div');
-    grid.className = 'grid';
-    apps.forEach(a => grid.appendChild(makeCard(a)));
-    root.appendChild(grid);
+    const gridKey = activeTab==='all' ? 'all_search' : activeTab;
+    root.appendChild(buildGrid(apps, gridKey));
   }
 }
 
-// ═══════════════════════════════════════════════
-// CARD BUILDER
-// ═══════════════════════════════════════════════
-function makeCard(app) {
-  const isMaint   = app.maintenance;
-  const hasLock   = !isMaint && !!app.password;
-  const unlocked  = hasLock && !!sessionUnlocks[app.title];
+// ── buildGrid: applies saved order, creates card-wraps ──
+function buildGrid(apps, gridKey) {
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+  grid.dataset.gridKey = gridKey;
 
-  const el = document.createElement(isMaint ? 'div' : 'a');
-  el.className = 'card'
-    + (isMaint             ? ' maintenance'      : '')
-    + (hasLock && !unlocked ? ' locked'          : '')
-    + (unlocked             ? ' unlocked-session': '');
-
-  if (!isMaint) {
-    if (hasLock && !unlocked) {
-      el.href = '#';
-      el.addEventListener('click', e => { e.preventDefault(); openPwModal(app); });
-    } else {
-      // ── CACHE BUST the app URL so users always get the latest build ──
-      el.href   = bustUrl(app.url);
-      el.target = app.newTab ? '_blank' : '_self';
-      if (app.newTab) el.rel = 'noopener noreferrer';
-    }
+  // Apply saved order if it exists and covers the same apps
+  const savedOrder = orderState[gridKey];
+  let ordered = apps;
+  if (savedOrder && savedOrder.length) {
+    const byTitle = Object.fromEntries(apps.map(a=>[a.title,a]));
+    const reordered = savedOrder.map(t=>byTitle[t]).filter(Boolean);
+    // append any new apps not yet in saved order
+    const inOrder = new Set(savedOrder);
+    apps.forEach(a => { if (!inOrder.has(a.title)) reordered.push(a); });
+    ordered = reordered;
   }
 
+  ordered.forEach(app => grid.appendChild(makeCardWrap(app, gridKey)));
+  initDragDrop(grid, gridKey);
+  return grid;
+}
+
+// ═══════════════════════════════════════════════════════
+// CARD WRAP + CARD BUILDER
+// ═══════════════════════════════════════════════════════
+function makeCardWrap(app, gridKey) {
+  const wrap = document.createElement('div');
+  wrap.className = 'card-wrap';
+  wrap.dataset.title   = app.title;
+  wrap.dataset.gridKey = gridKey;
+  if (collapseState[app.title]) wrap.classList.add('collapsed');
+
+  // collapse toggle button
+  const collapseBtn = document.createElement('button');
+  collapseBtn.className = 'collapse-toggle';
+  collapseBtn.title = 'Collapse / expand';
+  collapseBtn.innerHTML = `<svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>`;
+  collapseBtn.addEventListener('click', e => {
+    e.preventDefault(); e.stopPropagation();
+    wrap.classList.toggle('collapsed');
+    collapseState[app.title] = wrap.classList.contains('collapsed');
+    saveCollapseState();
+  });
+
+  // drag handle
+  const dragBtn = document.createElement('button');
+  dragBtn.className = 'drag-handle';
+  dragBtn.title = 'Drag to reorder';
+  dragBtn.setAttribute('draggable','true');
+  dragBtn.innerHTML = `<svg viewBox="0 0 24 24"><circle cx="9" cy="5" r="1.2"/><circle cx="15" cy="5" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="19" r="1.2"/><circle cx="15" cy="19" r="1.2"/></svg>`;
+
+  const card = makeCard(app);
+  wrap.appendChild(collapseBtn);
+  wrap.appendChild(dragBtn);
+  wrap.appendChild(card);
+  return wrap;
+}
+
+function makeCard(app) {
+  const isMaint  = app.maintenance;
+  const hasLock  = !isMaint && !!app.password;
+  const unlocked = hasLock && !!sessionUnlocks[app.title];
+
+  const card = document.createElement('div');
+  card.className = 'card'
+    + (isMaint              ? ' maintenance'      : '')
+    + (hasLock && !unlocked ? ' locked'           : '')
+    + (unlocked             ? ' unlocked-session' : '');
+
+  // ── COLLAPSED STRIP (mini view) ──
+  const logoSmHtml = app.logo
+    ? `<img class="strip-logo" src="${h(app.logo)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">${stripFb(app.title)}`
+    : stripFb(app.title);
+
+  const strip = document.createElement('div');
+  strip.className = 'card-strip';
+  strip.innerHTML = `${logoSmHtml}<span class="strip-name">${h(app.title)}</span>${app.version?`<span class="strip-version">v${h(app.version)}</span>`:''}`;
+
+  // ── FULL CARD CONTENT ──
   const logoHtml = app.logo
     ? `<img class="app-logo" src="${h(app.logo)}" alt="${h(app.title)} logo" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">${fbLogo(app.title)}`
     : fbLogo(app.title);
 
   let footerRight;
   if (isMaint) {
-    footerRight = `<span class="maintenance-banner">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      ${h(app.maintMsg)}
-    </span>`;
+    footerRight = `<span class="maintenance-banner"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>${h(app.maintMsg)}</span>`;
   } else if (hasLock && !unlocked) {
-    footerRight = `<span class="lock-badge" title="Password protected">
-      <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-    </span>`;
+    footerRight = `<span class="lock-badge" title="Password protected"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>`;
   } else {
     footerRight = `<span class="arrow-icon"><svg viewBox="0 0 12 12"><path d="M2 10L10 2M10 2H4M10 2v6"/></svg></span>`;
   }
 
-  el.innerHTML = `
-    <div class="card-top">
-      ${logoHtml}
-      <div class="app-meta">
-        <div class="app-name">${h(app.title)}</div>
-        ${app.version ? `<div class="app-version">v${h(app.version)}</div>` : ''}
-      </div>
-    </div>
-    ${app.desc ? `<div class="app-desc">${h(app.desc)}</div>` : ''}
-    <div class="card-footer">
-      <span class="cat-badge">${h(app.category || 'Uncategorized')}</span>
-      ${footerRight}
-    </div>`;
+  const full = document.createElement('div');
+  full.className = 'card-full';
+  full.innerHTML = `
+    <div class="card-top">${logoHtml}<div class="app-meta"><div class="app-name">${h(app.title)}</div>${app.version?`<div class="app-version">v${h(app.version)}</div>`:''}</div></div>
+    ${app.desc?`<div class="app-desc">${h(app.desc)}</div>`:''}
+    <div class="card-footer"><span class="cat-badge">${h(app.category||'Uncategorized')}</span>${footerRight}</div>`;
 
-  return el;
+  card.appendChild(strip);
+  card.appendChild(full);
+
+  // Click handler — only on the full view (not collapsed strip, which has no link)
+  if (!isMaint) {
+    const clickHandler = e => {
+      // Don't fire if clicking collapse/drag controls
+      if (e.target.closest('.collapse-toggle,.drag-handle')) return;
+      // Don't fire if card is collapsed
+      if (card.closest('.card-wrap.collapsed')) return;
+      e.preventDefault();
+      if (hasLock && !unlocked) {
+        openPwModal(app);
+      } else {
+        launchApp(app.url, app.newTab);
+      }
+    };
+    card.addEventListener('click', clickHandler);
+    // Keyboard accessibility
+    card.setAttribute('tabindex','0');
+    card.setAttribute('role','button');
+    card.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); clickHandler(e); } });
+  }
+
+  return card;
 }
 
 function fbLogo(title) {
   const i = title.split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
   return `<div class="app-logo-fallback" style="display:none">${i}</div>`;
 }
-
-// ── Cache-bust helper ─────────────────────────
-// Appends ?_v=<timestamp> (or &_v=) so the browser
-// and any reverse proxy always fetches a fresh copy.
-function bustUrl(url) {
-  try {
-    const u = new URL(url);
-    u.searchParams.set('_v', Date.now());
-    return u.toString();
-  } catch {
-    const [base, frag] = url.split('#');
-    return base + (base.includes('?') ? '&' : '?') + '_v=' + Date.now() + (frag ? '#' + frag : '');
-  }
+function stripFb(title) {
+  const i = title.split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  return `<div class="strip-logo-fb" style="display:none">${i}</div>`;
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// DRAG AND DROP (HTML5, no library)
+// ═══════════════════════════════════════════════════════
+function initDragDrop(grid, gridKey) {
+  let draggingWrap = null;
+
+  grid.addEventListener('dragstart', e => {
+    const handle = e.target.closest('.drag-handle');
+    if (!handle) { e.preventDefault(); return; }
+    draggingWrap = handle.closest('.card-wrap');
+    draggingWrap.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', draggingWrap.dataset.title);
+  });
+
+  grid.addEventListener('dragend', () => {
+    if (draggingWrap) { draggingWrap.classList.remove('dragging'); draggingWrap = null; }
+    grid.querySelectorAll('.card-wrap').forEach(w => w.classList.remove('drag-over'));
+  });
+
+  grid.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const target = e.target.closest('.card-wrap');
+    if (!target || target === draggingWrap) return;
+    grid.querySelectorAll('.card-wrap').forEach(w => w.classList.remove('drag-over'));
+    target.classList.add('drag-over');
+  });
+
+  grid.addEventListener('dragleave', e => {
+    const target = e.target.closest('.card-wrap');
+    if (target) target.classList.remove('drag-over');
+  });
+
+  grid.addEventListener('drop', e => {
+    e.preventDefault();
+    const target = e.target.closest('.card-wrap');
+    if (!target || !draggingWrap || target === draggingWrap) return;
+    target.classList.remove('drag-over');
+
+    // Insert draggingWrap before or after target based on mouse position
+    const rect = target.getBoundingClientRect();
+    const mid  = rect.left + rect.width / 2;
+    if (e.clientX < mid) {
+      grid.insertBefore(draggingWrap, target);
+    } else {
+      grid.insertBefore(draggingWrap, target.nextSibling);
+    }
+
+    // Save new order
+    const newOrder = [...grid.querySelectorAll('.card-wrap')].map(w => w.dataset.title);
+    orderState[gridKey] = newOrder;
+    saveOrderState();
+  });
+
+  // Touch drag support (mobile) — long press to initiate
+  let touchTimer = null, touchWrap = null, touchClone = null;
+
+  grid.addEventListener('touchstart', e => {
+    const handle = e.target.closest('.drag-handle');
+    if (!handle) return;
+    touchWrap = handle.closest('.card-wrap');
+    touchTimer = setTimeout(() => {
+      touchWrap.classList.add('dragging');
+      // create visual clone
+      touchClone = touchWrap.cloneNode(true);
+      touchClone.style.cssText = `position:fixed;pointer-events:none;z-index:9999;width:${touchWrap.offsetWidth}px;opacity:0.85;border-radius:var(--radius)`;
+      document.body.appendChild(touchClone);
+    }, 300);
+  }, { passive:true });
+
+  grid.addEventListener('touchmove', e => {
+    if (!touchWrap || !touchWrap.classList.contains('dragging')) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    if (touchClone) { touchClone.style.left=(touch.clientX-touchWrap.offsetWidth/2)+'px'; touchClone.style.top=(touch.clientY-30)+'px'; }
+    // find element under touch
+    touchClone && (touchClone.style.display='none');
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    touchClone && (touchClone.style.display='');
+    const overWrap = el && el.closest('.card-wrap');
+    grid.querySelectorAll('.card-wrap').forEach(w => w.classList.remove('drag-over'));
+    if (overWrap && overWrap !== touchWrap) overWrap.classList.add('drag-over');
+  }, { passive:false });
+
+  grid.addEventListener('touchend', e => {
+    clearTimeout(touchTimer);
+    if (!touchWrap || !touchWrap.classList.contains('dragging')) { touchWrap=null; return; }
+    const touch = e.changedTouches[0];
+    if (touchClone) { touchClone.remove(); touchClone=null; }
+    touchClone && (touchClone.style.display='none');
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const target = el && el.closest('.card-wrap');
+    if (target && target !== touchWrap) {
+      const rect = target.getBoundingClientRect();
+      if (touch.clientX < rect.left + rect.width/2) grid.insertBefore(touchWrap, target);
+      else grid.insertBefore(touchWrap, target.nextSibling);
+      const newOrder = [...grid.querySelectorAll('.card-wrap')].map(w => w.dataset.title);
+      orderState[gridKey] = newOrder;
+      saveOrderState();
+    }
+    touchWrap.classList.remove('dragging');
+    grid.querySelectorAll('.card-wrap').forEach(w => w.classList.remove('drag-over'));
+    touchWrap = null;
+  }, { passive:true });
+}
+
+// ═══════════════════════════════════════════════════════
 // PASSWORD MODAL
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 let pwApp = null;
 
 function openPwModal(app) {
@@ -760,159 +890,100 @@ function openPwModal(app) {
   const logoHtml = app.logo
     ? `<img class="pw-logo" src="${h(app.logo)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="">${fbPwLogo(app.title)}`
     : fbPwLogo(app.title);
-
-  document.getElementById('pw-app-header').innerHTML = `
-    ${logoHtml}
-    <div>
-      <div class="pw-app-name">${h(app.title)}</div>
-      <div class="pw-app-sub">${h(app.category || '')}</div>
-    </div>`;
-
+  document.getElementById('pw-app-header').innerHTML = `${logoHtml}<div><div class="pw-app-name">${h(app.title)}</div><div class="pw-app-sub">${h(app.category||'')}</div></div>`;
   const inp = document.getElementById('pw-input');
-  inp.value = ''; inp.type = 'password'; inp.classList.remove('shake');
-  // reset eye icon
-  document.getElementById('pw-eye').innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
-  document.getElementById('pw-error').style.display = 'none';
-  document.getElementById('pw-remember').checked = true;
+  inp.value=''; inp.type='password'; inp.classList.remove('shake');
+  document.getElementById('pw-eye').innerHTML='<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  document.getElementById('pw-error').style.display='none';
+  document.getElementById('pw-remember').checked=true;
   document.getElementById('pw-modal-bg').classList.add('open');
   setTimeout(() => inp.focus(), 80);
 }
-
-function closePwModal() {
-  document.getElementById('pw-modal-bg').classList.remove('open');
-  pwApp = null;
-}
-
+function closePwModal() { document.getElementById('pw-modal-bg').classList.remove('open'); pwApp=null; }
 function fbPwLogo(title) {
-  const i = title.split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  const i=title.split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
   return `<div class="pw-logo-fb" style="display:none">${i}</div>`;
 }
 
-// show/hide password
 document.getElementById('pw-toggle').addEventListener('click', () => {
-  const inp  = document.getElementById('pw-input');
-  const icon = document.getElementById('pw-eye');
-  if (inp.type === 'password') {
-    inp.type = 'text';
-    icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
-  } else {
-    inp.type = 'password';
-    icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
-  }
+  const inp=document.getElementById('pw-input'), icon=document.getElementById('pw-eye');
+  if (inp.type==='password') { inp.type='text'; icon.innerHTML='<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'; }
+  else { inp.type='password'; icon.innerHTML='<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'; }
 });
-
-document.getElementById('pw-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') document.getElementById('pw-submit').click();
-});
-
+document.getElementById('pw-input').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('pw-submit').click(); });
 document.getElementById('pw-cancel').addEventListener('click', closePwModal);
-document.getElementById('pw-modal-bg').addEventListener('click', e => {
-  if (e.target === document.getElementById('pw-modal-bg')) closePwModal();
-});
-
+document.getElementById('pw-modal-bg').addEventListener('click', e => { if(e.target===document.getElementById('pw-modal-bg')) closePwModal(); });
 document.getElementById('pw-submit').addEventListener('click', () => {
   if (!pwApp) return;
-  const inp     = document.getElementById('pw-input');
-  const errEl   = document.getElementById('pw-error');
-  const entered = inp.value;
-
-  if (entered === pwApp.password) {
-    const app = pwApp;
-    if (document.getElementById('pw-remember').checked) sessionUnlocks[app.title] = true;
+  const inp=document.getElementById('pw-input'), errEl=document.getElementById('pw-error');
+  if (inp.value===pwApp.password) {
+    const app=pwApp;
+    if (document.getElementById('pw-remember').checked) sessionUnlocks[app.title]=true;
     closePwModal();
-    // launch with cache-busted URL
-    window.open(bustUrl(app.url), app.newTab ? '_blank' : '_self', app.newTab ? 'noopener,noreferrer' : '');
-    render();  // redraw card with unlocked state
+    launchApp(app.url, app.newTab);
+    render();
   } else {
-    errEl.style.display = 'block';
-    inp.value = '';
-    inp.classList.remove('shake');
-    void inp.offsetWidth; // reflow to re-trigger animation
-    inp.classList.add('shake');
-    inp.focus();
+    errEl.style.display='block'; inp.value='';
+    inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake'); inp.focus();
   }
 });
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // STATE SCREENS
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 function showLoading() {
-  const root = document.getElementById('pages');
-  const g = document.createElement('div');
-  g.className = 'skeleton-grid';
-  for (let i = 0; i < 8; i++) { const c = document.createElement('div'); c.className = 'skeleton-card'; g.appendChild(c); }
-  root.innerHTML = '';
-  root.appendChild(g);
-  document.getElementById('tabs-bar').innerHTML = '<button class="tab active" role="tab">All Apps</button>';
+  const root=document.getElementById('pages'), g=document.createElement('div');
+  g.className='skeleton-grid';
+  for(let i=0;i<8;i++){const c=document.createElement('div');c.className='skeleton-card';g.appendChild(c);}
+  root.innerHTML=''; root.appendChild(g);
+  document.getElementById('tabs-bar').innerHTML='<button class="tab active" role="tab">All Apps</button>';
 }
-
 function showEmpty() {
-  document.getElementById('pages').innerHTML = `<div class="state">
-    <div class="state-icon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="var(--text3)" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-    <h3>No sheet connected</h3>
-    <p>Click <strong>Configure</strong> to connect your Google Sheet.</p>
-  </div>`;
+  document.getElementById('pages').innerHTML=`<div class="state"><div class="state-icon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="var(--text3)" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><h3>No sheet connected</h3><p>Click <strong>Configure</strong> to connect your Google Sheet.</p></div>`;
 }
-
 function showError(msg) {
-  document.getElementById('pages').innerHTML = `<div class="state">
-    <div class="state-icon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
-    <h3>Could not load data</h3>
-    <p>${h(msg)}<br><br>Make sure the Sheet ID is correct and sharing is set to "Anyone with the link can view".</p>
-  </div>`;
+  document.getElementById('pages').innerHTML=`<div class="state"><div class="state-icon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><h3>Could not load data</h3><p>${h(msg)}<br><br>Make sure the Sheet ID is correct and sharing is "Anyone with the link can view".</p></div>`;
 }
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // CONFIG MODAL
-// ═══════════════════════════════════════════════
-function setStatus(state, msg) {
-  document.getElementById('status-dot').className = 'status-dot ' + state;
-  document.getElementById('status-msg').textContent = msg;
+// ═══════════════════════════════════════════════════════
+function setStatus(state,msg) {
+  document.getElementById('status-dot').className='status-dot '+state;
+  document.getElementById('status-msg').textContent=msg;
 }
-
 function openConfigModal() {
   document.getElementById('sheet-id-input').value   = cfg.sheetId;
   document.getElementById('apps-sheet-input').value = cfg.appsSheet;
   document.getElementById('cats-sheet-input').value = cfg.catsSheet;
   document.getElementById('title-input').value      = cfg.title;
-  document.getElementById('refresh-select').value   = String(cfg.refreshInterval || 0);
-
-  // Show a notice when configuration is being overridden by settings.json
-  const notice = document.getElementById('settings-file-notice');
-  if (notice) notice.style.display = settingsLocked ? 'flex' : 'none';
-
+  document.getElementById('refresh-select').value   = String(cfg.refreshInterval||0);
+  const notice=document.getElementById('settings-file-notice');
+  if(notice) notice.style.display=settingsLocked?'flex':'none';
   document.getElementById('config-modal-bg').classList.add('open');
 }
 function closeConfigModal() { document.getElementById('config-modal-bg').classList.remove('open'); }
 
 document.getElementById('open-config').addEventListener('click', openConfigModal);
 document.getElementById('close-config').addEventListener('click', closeConfigModal);
-document.getElementById('config-modal-bg').addEventListener('click', e => {
-  if (e.target === document.getElementById('config-modal-bg')) closeConfigModal();
-});
-
+document.getElementById('config-modal-bg').addEventListener('click', e => { if(e.target===document.getElementById('config-modal-bg')) closeConfigModal(); });
 document.getElementById('save-config').addEventListener('click', () => {
-  const id = document.getElementById('sheet-id-input').value.trim();
-  if (!id) { alert('Please enter a Sheet ID.'); return; }
+  const id=document.getElementById('sheet-id-input').value.trim();
+  if(!id){alert('Please enter a Sheet ID.');return;}
   cfg.sheetId         = id;
-  cfg.appsSheet       = document.getElementById('apps-sheet-input').value.trim() || 'Apps';
-  cfg.catsSheet       = document.getElementById('cats-sheet-input').value.trim() || 'Categories';
-  cfg.title           = document.getElementById('title-input').value.trim() || 'App Launcher';
-  cfg.refreshInterval = parseInt(document.getElementById('refresh-select').value, 10) || 0;
-  localStorage.setItem(LS_KEY, JSON.stringify(cfg));
-  applyTitle();
-  closeConfigModal();
-  loadData();
+  cfg.appsSheet       = document.getElementById('apps-sheet-input').value.trim()||'Apps';
+  cfg.catsSheet       = document.getElementById('cats-sheet-input').value.trim()||'Categories';
+  cfg.title           = document.getElementById('title-input').value.trim()||'App Launcher';
+  cfg.refreshInterval = parseInt(document.getElementById('refresh-select').value,10)||0;
+  localStorage.setItem(LS_KEY,JSON.stringify(cfg));
+  applyTitle(); closeConfigModal(); loadData();
 });
 
-// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 // SEARCH + UTILS
-// ═══════════════════════════════════════════════
-document.getElementById('search').addEventListener('input', e => { searchQuery = e.target.value.trim(); render(); });
-
-function h(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+// ═══════════════════════════════════════════════════════
+document.getElementById('search').addEventListener('input', e => { searchQuery=e.target.value.trim(); render(); });
+function h(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 </script>
 </body>
 </html>
