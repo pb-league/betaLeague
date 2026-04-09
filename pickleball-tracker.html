@@ -52,8 +52,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .loss{background:var(--danger-bg);color:var(--danger)}
 .fmt-badge{font-size:11px;padding:2px 7px;border-radius:var(--radius);background:var(--bg2);color:var(--text2);margin-left:6px}
 label{font-size:14px;color:var(--text2);display:block;margin-bottom:5px;margin-top:14px}
-input,select,textarea{width:100%;padding:11px 12px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:16px;font-family:inherit;-webkit-appearance:none;appearance:none}
-select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
+input,select,textarea{width:100%;padding:11px 12px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:16px;font-family:inherit;-webkit-appearance:none}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--info)}
 textarea{resize:vertical;min-height:80px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -118,7 +117,7 @@ textarea{resize:vertical;min-height:80px}
 .share-tab{flex:1;padding:9px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--text2);text-align:center}
 .share-tab.active{background:var(--bg2);color:var(--text)}
 .share-panel{display:none}.share-panel.active{display:block}
-@media print{.bottom-nav,.fab,.game-actions,.filter-bar,button,.sync-bar{display:none!important}.modal-bg{display:none!important}.view{display:block!important}#view-players,#view-dashboard,#view-activity,#view-contacts,#view-events,#view-map{display:none!important}}
+@media print{.bottom-nav,.fab,.game-actions,.filter-bar,button,.sync-bar{display:none!important}.modal-bg{display:none!important}.view{display:block!important}#view-players,#view-dashboard,#view-activity,#view-contacts,#view-events{display:none!important}}
 .ev-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:10px;cursor:pointer}
 .ev-card:hover{border-color:var(--border2)}
 .ev-type-pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:var(--radius);font-weight:500;margin-bottom:6px}
@@ -190,13 +189,6 @@ textarea{resize:vertical;min-height:80px}
 .h2h-stat-lbl{font-size:11px;color:var(--text2);margin-top:2px}
 .h2h-game-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:0.5px solid var(--border);font-size:13px}
 .h2h-game-row:last-child{border-bottom:none}
-.pb-state{fill:#ddd8cc;stroke:#fff;stroke-width:1.5;transition:fill .15s}
-.pb-state:hover{fill:#ccc6b8}
-.pb-pin-group{cursor:pointer}
-.pb-pin-group:hover .pb-pin-circle{r:19}
-.pb-pin-circle{stroke:#fff;stroke-width:2.5;transition:r .15s}
-.pb-pin-label{font-family:-apple-system,sans-serif;font-size:9px;font-weight:700;fill:#fff;text-anchor:middle;dominant-baseline:middle;pointer-events:none;user-select:none}
-.pb-mine-ring{fill:none;stroke:#fff;stroke-width:3;stroke-dasharray:4 3;pointer-events:none}
 .h2h-score{font-weight:600;font-size:14px}
 .msg-chip{display:inline-flex;align-items:center;gap:5px;background:var(--info-bg);color:var(--info);border-radius:20px;padding:4px 10px 4px 8px;font-size:13px;margin:3px;cursor:default}
 .msg-chip button{background:none;border:none;color:var(--info);cursor:pointer;font-size:15px;padding:0;line-height:1;margin-left:2px}
@@ -442,100 +434,6 @@ textarea{resize:vertical;min-height:80px}
       <div id="sent-list"><div class="empty">No sent messages yet.</div></div>
     </div>
   </div>
-
-  <!-- MAP VIEW -->
-  <div id="view-map" class="view" style="margin:-1rem -1rem 0;padding-bottom:0;position:relative">
-    <div id="map-toolbar" style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 1rem;background:var(--bg);border-bottom:0.5px solid var(--border);gap:8px;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span id="map-pin-count" style="font-size:12px;color:var(--text2)">0 pins</span>
-        <button onclick="toggleMapFilter()" id="map-filter-btn" style="padding:5px 12px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--text2)">⚙ Filter</button>
-      </div>
-      <button id="map-place-btn" onclick="startMapPlace()" style="padding:7px 16px;background:var(--info);border:none;border-radius:var(--radius);color:#fff;font-size:13px;font-weight:600;cursor:pointer">📍 Place My Pin</button>
-    </div>
-
-    <!-- Map filter strip -->
-    <div id="map-filter-panel" style="display:none;padding:.75rem 1rem;background:var(--bg2);border-bottom:0.5px solid var(--border);gap:10px;flex-wrap:wrap;align-items:center">
-      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:160px;flex-wrap:wrap">
-        <span style="font-size:13px;color:var(--text2);white-space:nowrap">Within</span>
-        <input type="number" id="mf-dist" min="0" placeholder="miles" inputmode="numeric" style="width:70px;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);font-size:14px;background:var(--bg);color:var(--text)">
-        <span style="font-size:13px;color:var(--text2)">of</span>
-        <button onclick="startPickMapRef()" style="padding:6px 12px;border:0.5px solid var(--info);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--info);white-space:nowrap">Pick point</button>
-        <span id="map-ref-label" style="font-size:12px;color:var(--text2)"></span>
-      </div>
-      <div style="display:flex;gap:6px">
-        <button onclick="applyMapFilter()" style="padding:7px 14px;background:var(--info);border:none;border-radius:var(--radius);color:#fff;font-size:13px;cursor:pointer">Apply</button>
-        <button onclick="clearMapFilter()" style="padding:7px 12px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--text2)">Clear</button>
-      </div>
-    </div>
-
-    <!-- Floating hints shown during place/pick modes -->
-    <div id="map-place-hint" style="display:none;position:absolute;top:72px;left:50%;transform:translateX(-50%);background:#2563eb;color:#fff;padding:7px 18px;border-radius:24px;font-size:13px;font-weight:500;pointer-events:none;white-space:nowrap;z-index:50;box-shadow:0 2px 12px rgba(37,99,235,.35)">Tap the map to place your pin</div>
-    <div id="map-ref-hint" style="display:none;position:absolute;top:72px;left:50%;transform:translateX(-50%);background:#059669;color:#fff;padding:7px 18px;border-radius:24px;font-size:13px;font-weight:500;pointer-events:none;white-space:nowrap;z-index:50;box-shadow:0 2px 12px rgba(5,150,105,.3)">Tap map to set reference point</div>
-
-    <!-- SVG Map -->
-    <div style="position:relative;width:100%;max-width:100%;overflow-x:auto">
-      <svg id="pb-map" viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;cursor:default">
-        <g id="pb-states">
-          <path class="pb-state" id="s-WA" d="M112,58 L117,59 L178,70 L181,87 L161,97 L155,108 L147,106 L126,120 L105,115 L89,103 L75,92 L68,80 L72,63 Z"/>
-          <path class="pb-state" id="s-OR" d="M68,80 L75,92 L89,103 L105,115 L126,120 L147,106 L143,165 L72,155 L58,150 L60,132 L68,115 Z"/>
-          <path class="pb-state" id="s-CA" d="M58,150 L72,155 L143,165 L138,190 L125,215 L118,240 L120,265 L110,285 L100,300 L90,310 L72,330 L60,340 L45,310 L48,280 L52,250 L54,220 L50,195 Z"/>
-          <path class="pb-state" id="s-NV" d="M143,165 L180,158 L185,175 L182,220 L175,240 L138,230 L120,265 L118,240 L125,215 L138,190 Z"/>
-          <path class="pb-state" id="s-ID" d="M147,106 L181,87 L190,95 L195,120 L200,145 L185,175 L180,158 L143,165 L143,120 Z"/>
-          <path class="pb-state" id="s-MT" d="M178,70 L280,72 L282,78 L285,130 L285,145 L200,145 L195,120 L190,95 L181,87 Z"/>
-          <path class="pb-state" id="s-WY" d="M200,145 L285,145 L290,195 L220,198 L200,198 Z"/>
-          <path class="pb-state" id="s-UT" d="M180,158 L200,158 L200,198 L220,198 L220,245 L175,240 L182,220 L185,175 Z"/>
-          <path class="pb-state" id="s-CO" d="M220,198 L290,195 L295,250 L220,250 Z"/>
-          <path class="pb-state" id="s-AZ" d="M175,240 L220,245 L220,300 L200,305 L175,300 L148,285 L138,260 Z"/>
-          <path class="pb-state" id="s-NM" d="M220,250 L295,250 L298,308 L248,313 L220,308 L220,300 L220,245 Z"/>
-          <path class="pb-state" id="s-ND" d="M282,78 L390,78 L388,128 L285,130 Z"/>
-          <path class="pb-state" id="s-SD" d="M285,130 L388,128 L390,182 L290,182 L285,145 Z"/>
-          <path class="pb-state" id="s-NE" d="M290,182 L390,182 L392,232 L290,230 L290,195 Z"/>
-          <path class="pb-state" id="s-KS" d="M290,230 L392,232 L393,278 L290,278 Z"/>
-          <path class="pb-state" id="s-OK" d="M290,278 L393,278 L396,326 L355,326 L338,332 L290,332 Z"/>
-          <path class="pb-state" id="s-TX" d="M290,332 L338,332 L355,326 L396,326 L400,358 L390,385 L375,408 L360,425 L340,440 L318,445 L300,445 L285,435 L270,415 L260,395 L255,370 L255,345 L260,335 Z"/>
-          <path class="pb-state" id="s-MN" d="M390,78 L455,78 L458,105 L458,130 L420,130 L420,155 L388,155 L388,128 Z"/>
-          <path class="pb-state" id="s-IA" d="M388,155 L420,155 L458,155 L460,195 L390,196 Z"/>
-          <path class="pb-state" id="s-MO" d="M390,196 L460,195 L462,245 L445,250 L440,268 L395,270 L393,278 L392,232 Z"/>
-          <path class="pb-state" id="s-AR" d="M395,270 L440,268 L445,250 L462,248 L464,310 L395,310 Z"/>
-          <path class="pb-state" id="s-LA" d="M395,310 L464,310 L462,350 L450,360 L430,365 L415,358 L400,358 L396,326 Z"/>
-          <path class="pb-state" id="s-WI" d="M458,105 L492,105 L500,130 L490,155 L458,155 L458,130 Z"/>
-          <path class="pb-state" id="s-MI" d="M492,105 L530,100 L538,112 L528,125 L512,128 L500,130 L492,105 Z"/>
-          <path class="pb-state" id="s-IL" d="M458,155 L490,155 L492,200 L490,245 L462,245 L460,195 Z"/>
-          <path class="pb-state" id="s-IN" d="M490,155 L520,155 L522,200 L520,240 L490,245 L492,200 Z"/>
-          <path class="pb-state" id="s-OH" d="M520,155 L556,150 L558,200 L552,240 L520,240 L522,200 Z"/>
-          <path class="pb-state" id="s-KY" d="M490,245 L520,240 L552,240 L558,270 L540,278 L510,282 L478,280 L462,275 L462,248 Z"/>
-          <path class="pb-state" id="s-TN" d="M462,275 L478,280 L510,282 L540,278 L558,270 L562,295 L540,298 L510,300 L478,298 L462,295 Z"/>
-          <path class="pb-state" id="s-MS" d="M462,295 L478,298 L480,345 L470,368 L455,368 L445,360 L450,350 L462,310 Z"/>
-          <path class="pb-state" id="s-AL" d="M478,298 L510,300 L514,345 L512,368 L490,370 L470,368 L480,345 Z"/>
-          <path class="pb-state" id="s-GA" d="M510,300 L540,298 L545,345 L542,375 L530,385 L512,380 L512,368 L514,345 Z"/>
-          <path class="pb-state" id="s-FL" d="M512,368 L512,380 L530,385 L542,375 L548,400 L545,425 L530,440 L515,450 L500,455 L492,445 L488,425 L490,400 L490,370 Z"/>
-          <path class="pb-state" id="s-SC" d="M545,268 L565,265 L575,285 L572,305 L555,312 L542,305 L542,290 L540,278 L558,270 Z"/>
-          <path class="pb-state" id="s-NC" d="M558,245 L610,238 L615,258 L598,268 L575,272 L565,265 L545,268 L540,258 L552,250 L558,240 Z"/>
-          <path class="pb-state" id="s-VA" d="M558,220 L608,215 L615,235 L610,238 L558,245 L552,240 L550,225 Z"/>
-          <path class="pb-state" id="s-WV" d="M550,195 L572,192 L578,212 L570,225 L558,230 L550,225 L552,210 Z"/>
-          <path class="pb-state" id="s-MD" d="M578,195 L608,192 L610,210 L608,215 L578,212 Z"/>
-          <path class="pb-state" id="s-DE" d="M608,192 L618,188 L622,205 L610,210 Z"/>
-          <path class="pb-state" id="s-PA" d="M556,165 L618,160 L618,188 L578,195 L572,192 L550,195 L552,178 Z"/>
-          <path class="pb-state" id="s-NJ" d="M618,160 L632,158 L635,178 L625,188 L618,188 L618,165 Z"/>
-          <path class="pb-state" id="s-NY" d="M558,140 L630,132 L640,145 L632,158 L618,160 L556,165 L552,155 Z"/>
-          <path class="pb-state" id="s-CT" d="M632,145 L648,142 L650,158 L635,158 L632,145 Z"/>
-          <path class="pb-state" id="s-RI" d="M648,142 L658,140 L660,152 L650,158 L648,142 Z"/>
-          <path class="pb-state" id="s-MA" d="M630,128 L668,122 L672,138 L658,140 L630,135 Z"/>
-          <path class="pb-state" id="s-VT" d="M614,115 L630,112 L632,130 L618,132 Z"/>
-          <path class="pb-state" id="s-NH" d="M630,105 L642,102 L648,120 L632,125 Z"/>
-          <path class="pb-state" id="s-ME" d="M642,78 L668,80 L672,105 L648,120 L642,102 L632,90 L635,78 Z"/>
-          <path class="pb-state" id="s-AK" d="M80,450 L150,440 L175,455 L185,480 L165,495 L140,498 L110,490 L85,475 Z"/>
-          <path class="pb-state" id="s-HI" d="M245,465 L260,460 L275,465 L278,475 L265,480 L250,478 Z"/>
-        </g>
-        <circle id="pb-dist-circle" cx="0" cy="0" r="0" fill="rgba(37,99,235,0.07)" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="6 4" display="none"/>
-        <g id="pb-ref-marker" display="none">
-          <circle cx="0" cy="0" r="8" fill="rgba(37,99,235,0.15)" stroke="#2563eb" stroke-width="1.5"/>
-          <circle cx="0" cy="0" r="3" fill="#2563eb"/>
-        </g>
-        <g id="pb-pins-layer"></g>
-      </svg>
-    </div>
-  </div>
 </div>
 
 <!-- BOTTOM NAV -->
@@ -563,9 +461,6 @@ textarea{resize:vertical;min-height:80px}
   </button>
   <button class="bnav-btn" id="nav-messaging" onclick="switchView('messaging',this)">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Msg
-  </button>
-  <button class="bnav-btn" id="nav-map" onclick="switchView('map',this)">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>Map
   </button>
 </nav>
 <button class="fab" id="fab-btn" onclick="fabAction()">+</button>
@@ -868,13 +763,6 @@ textarea{resize:vertical;min-height:80px}
   <button onclick="copyEmailScriptCode()" id="email-script-copy-btn" style="margin-top:10px;width:100%;padding:10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--text)">Copy script code</button>
 </div></div>
 
-<!-- MAP PIN PROFILE MODAL -->
-<div class="modal-bg" id="map-pin-modal"><div class="modal">
-  <div class="modal-handle"></div>
-  <button class="close-btn" onclick="closeModal('map-pin-modal')">×</button>
-  <div id="map-pin-content"></div>
-</div></div>
-
 <script src="config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -972,7 +860,6 @@ function switchView(v,btn){
   if(v==='events')renderEvents();
   if(v==='findplayers'){document.getElementById('fp-list').innerHTML='<div class="empty">Tap Search to find players.</div>';}
   if(v==='messaging')renderMessaging();
-  if(v==='map'){renderPBMap();initMapClickHandler();if(!mapPins.length)loadMapPins();}
 }
 function fabAction(){
   if(currentView==='games')openGameModal();
@@ -1007,24 +894,24 @@ function renderContactCardPanel(){
   const hasEmail=!!profile.email, hasCell=!!profile.cell, hasZip=!!profile.zip;
   el.innerHTML=`
     <div style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.6">
-      Tap each field to include or exclude it from your link.
+      Choose what to include in this link. The recipient will see a review screen before adding you.
     </div>
     <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:0 1rem;margin-bottom:16px">
       <div class="cc-check-row">
         <div><div class="cc-check-label">Name</div><div class="cc-check-sub">${profile.name}</div></div>
-        <span style="font-size:11px;padding:3px 10px;border-radius:20px;background:var(--success-bg);color:var(--success);font-weight:500">Always on</span>
+        <span style="font-size:12px;color:var(--text3)">Always included</span>
       </div>
       ${hasEmail?`<div class="cc-check-row">
         <div><div class="cc-check-label">Email</div><div class="cc-check-sub">${profile.email}</div></div>
-        <button id="cc-email-btn" onclick="toggleCCField('email')" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--info);background:var(--info);color:#fff;font-size:12px;font-weight:600;cursor:pointer;min-width:60px">On</button>
+        <input type="checkbox" id="cc-email" checked onchange="refreshContactCard()" style="width:auto;padding:0;border:none;accent-color:var(--info);width:20px;height:20px">
       </div>`:''}
       ${hasCell?`<div class="cc-check-row">
-        <div><div class="cc-check-label">Cell</div><div class="cc-check-sub">${profile.cell}</div></div>
-        <button id="cc-cell-btn" onclick="toggleCCField('cell')" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--info);background:var(--info);color:#fff;font-size:12px;font-weight:600;cursor:pointer;min-width:60px">On</button>
+        <div><div class="cc-check-label">Cell number</div><div class="cc-check-sub">${profile.cell}</div></div>
+        <input type="checkbox" id="cc-cell" checked onchange="refreshContactCard()" style="width:auto;padding:0;border:none;accent-color:var(--info);width:20px;height:20px">
       </div>`:''}
       ${hasZip?`<div class="cc-check-row">
-        <div><div class="cc-check-label">Zip</div><div class="cc-check-sub">${profile.zip}</div></div>
-        <button id="cc-zip-btn" onclick="toggleCCField('zip')" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--info);background:var(--info);color:#fff;font-size:12px;font-weight:600;cursor:pointer;min-width:60px">On</button>
+        <div><div class="cc-check-label">Zip code</div><div class="cc-check-sub">${profile.zip}</div></div>
+        <input type="checkbox" id="cc-zip" checked onchange="refreshContactCard()" style="width:auto;padding:0;border:none;accent-color:var(--info);width:20px;height:20px">
       </div>`:''}
     </div>
     <div class="section-title" style="margin-bottom:8px">Preview — what the recipient will see</div>
@@ -1036,39 +923,22 @@ function renderContactCardPanel(){
   if(!hasEmail && !hasCell && !hasZip){
     el.innerHTML+=`<div class="note">Your profile only has a name. Add email, cell, or zip in My Profile to share more.</div>`;
   }
-  // Init state: all on
-  window._ccState={email:true,cell:true,zip:true};
-  refreshContactCard();
-}
-
-function toggleCCField(field){
-  if(!window._ccState) window._ccState={email:true,cell:true,zip:true};
-  window._ccState[field]=!window._ccState[field];
-  const btn=document.getElementById(`cc-${field}-btn`);
-  if(btn){
-    const on=window._ccState[field];
-    btn.textContent=on?'On':'Off';
-    btn.style.background=on?'var(--info)':'transparent';
-    btn.style.color=on?'#fff':'var(--text2)';
-    btn.style.borderColor=on?'var(--info)':'var(--border2)';
-  }
   refreshContactCard();
 }
 
 function refreshContactCard(){
-  if(!window._ccState) window._ccState={email:true,cell:true,zip:true};
-  const shareEmail=window._ccState.email&&!!profile.email;
-  const shareCell =window._ccState.cell &&!!profile.cell;
-  const shareZip  =window._ccState.zip  &&!!profile.zip;
+  const shareEmail=document.getElementById('cc-email')?.checked ?? false;
+  const shareCell =document.getElementById('cc-cell')?.checked  ?? false;
+  const shareZip  =document.getElementById('cc-zip')?.checked   ?? false;
   // Update preview
   const prev=document.getElementById('cc-preview');
   if(prev){
     prev.innerHTML=`
       <div class="cc-preview-name">${profile.name}</div>
-      ${shareEmail?`<div class="cc-preview-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>${profile.email}</div>`:''}
-      ${shareCell?`<div class="cc-preview-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${profile.cell}</div>`:''}
-      ${shareZip?`<div class="cc-preview-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Zip: ${profile.zip}</div>`:''}
-      ${!shareEmail&&!shareCell&&!shareZip?`<div style="font-size:12px;color:var(--text3)">Name only — tap fields above to include more info</div>`:''}`;
+      ${shareEmail&&profile.email?`<div class="cc-preview-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>${profile.email}</div>`:''}
+      ${shareCell&&profile.cell?`<div class="cc-preview-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${profile.cell}</div>`:''}
+      ${shareZip&&profile.zip?`<div class="cc-preview-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Zip: ${profile.zip}</div>`:''}
+      ${!shareEmail&&!shareCell&&!shareZip?`<div style="font-size:12px;color:var(--text3)">Name only — check boxes above to include more info</div>`:''}`;
   }
   // Update URL and QR
   const url=buildContactCardUrl(shareEmail,shareCell,shareZip);
@@ -1210,9 +1080,7 @@ function openProfileModal(){
   updateDiscoverablePreview();
   const ring=document.getElementById('prof-avatar-display');
   if(ring) ring.innerHTML=avatarHtml(profile.name||'Me', profile.photoUrl, 80);
-  const statusEl=document.getElementById('prof-photo-status');
-  statusEl.textContent='';
-  statusEl.style.color='var(--text2)';
+  document.getElementById('prof-photo-status').textContent='';
   document.getElementById('profile-modal').classList.add('open');
 }
 
@@ -1248,62 +1116,40 @@ async function handlePhotoSelected(event){
   const status=document.getElementById('prof-photo-status');
   const ring=document.getElementById('prof-photo-ring');
   status.textContent='Compressing...';
-  status.style.color='var(--text2)';
   ring.classList.add('photo-uploading');
   try{
     const compressed=await compressImage(file, 200, 0.82);
-
-    // Always save compressed data URL locally first — this ensures the
-    // photo persists even if the cloud upload fails or isn't configured
-    profile.photoUrl=compressed;
-    saveLocal();
-
-    // Update avatar preview immediately
+    status.textContent='Uploading...';
+    // Show preview immediately
     document.getElementById('prof-avatar-display').innerHTML=
       `<img src="${compressed}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--border2)">`;
-
     if(!SYNC_URL||!account.email||!account.pin){
-      status.textContent='Photo saved locally';
-      status.style.color='var(--success)';
+      // No sync — store as data URL locally only
+      profile.photoUrl=compressed;
+      saveLocal();
+      status.textContent='Saved locally (no sync configured)';
       ring.classList.remove('photo-uploading');
-      event.target.value='';
       return;
     }
-
-    // Attempt cloud upload to get a stable Drive URL
-    status.textContent='Uploading to cloud...';
-    try{
-      const b64=compressed.split(',')[1];
-      const mimeType=compressed.split(';')[0].split(':')[1]||'image/jpeg';
-      const res=await fetch(SYNC_URL,{
-        method:'POST', mode:'cors',
-        body:JSON.stringify({email:account.email,pin:account.pin,action:'uploadPhoto',imageBase64:b64,mimeType}),
-        headers:{'Content-Type':'application/json'}
-      });
-      const data=await res.json();
-      if(data.status==='ok'&&data.photoUrl){
-        // Cloud upload succeeded — replace local data URL with Drive URL
-        profile.photoUrl=data.photoUrl;
-        saveLocal();
-        status.textContent='Photo saved!';
-        status.style.color='var(--success)';
-      } else {
-        // Cloud returned error — keep local copy, show soft warning
-        status.textContent='Saved locally (cloud upload failed — will retry on next sync)';
-        status.style.color='var(--text2)';
-      }
-    }catch(uploadErr){
-      // Network error — local copy already saved, that's fine
-      status.textContent='Saved locally (no cloud connection)';
-      status.style.color='var(--text2)';
-    }
-    setTimeout(()=>status.textContent='',4000);
+    // Strip data URL prefix to get raw base64
+    const b64=compressed.split(',')[1];
+    const mimeType=compressed.split(';')[0].split(':')[1]||'image/jpeg';
+    const res=await fetch(SYNC_URL,{
+      method:'POST', mode:'cors',
+      body:JSON.stringify({email:account.email,pin:account.pin,action:'uploadPhoto',imageBase64:b64,mimeType}),
+      headers:{'Content-Type':'application/json'}
+    });
+    const data=await res.json();
+    if(data.status==='error') throw new Error(data.message);
+    profile.photoUrl=data.photoUrl;
+    saveLocal();
+    status.textContent='Photo saved!';
+    setTimeout(()=>status.textContent='',3000);
   }catch(err){
-    status.textContent='Could not process image — '+err.message;
-    status.style.color='var(--danger)';
+    status.textContent='Upload failed — '+err.message;
   }
   ring.classList.remove('photo-uploading');
-  event.target.value='';
+  event.target.value=''; // reset so same file can be re-selected
 }
 
 function compressImage(file, maxSize, quality){
@@ -2632,266 +2478,6 @@ document.addEventListener('click',function(e){
     picker.style.display='none';
   }
 });
-
-// ── Player Map ─────────────────────────────────────────────────────
-// mapPins: loaded from sheet. Each pin: {id,userEmail,name,photoUrl,email,cell,zip,lat,lng,pinColor}
-let mapPins=[];
-let mapFiltered=[];
-let mapPlacing=false;
-let mapPickingRef=false;
-let mapRefPt=null;
-const MAP_MPU=3.11; // miles per SVG unit (~2800mi / 900 units)
-
-async function loadMapPins(){
-  if(!SYNC_URL) return;
-  try{
-    const url=`${SYNC_URL}?email=${encodeURIComponent(account.email)}&pin=${encodeURIComponent(account.pin)}&action=mapPins`;
-    const res=await fetch(url,{method:'GET',mode:'cors'});
-    if(!res.ok) return;
-    const data=await res.json();
-    if(data.status==='ok'&&data.pins){
-      mapPins=data.pins;
-      mapFiltered=[...mapPins];
-      renderPBMap();
-    }
-  }catch(e){}
-}
-
-async function saveMyMapPin(lat,lng){
-  if(!account.email||!account.pin){alert('Set up your account first.');return;}
-  if(!profile.name){alert('Add your name in My Profile first.');return;}
-  const pin={
-    id:'map_'+account.email,
-    userEmail:account.email,
-    name:profile.name,
-    photoUrl:profile.photoUrl||'',
-    email:profile.email||'',
-    cell:profile.cell||'',
-    zip:profile.zip||'',
-    lat:Math.round(lat),
-    lng:Math.round(lng),
-    pinColor:'#2563eb'
-  };
-  // Upsert locally
-  const idx=mapPins.findIndex(p=>p.userEmail===account.email);
-  if(idx>=0) mapPins[idx]=pin; else mapPins.push(pin);
-  mapFiltered=[...mapPins];
-  renderPBMap();
-  // Reset button
-  const btn=document.getElementById('map-place-btn');
-  if(btn){btn.textContent='📍 Place My Pin';btn.disabled=false;btn.style.opacity='1';}
-  // Push to sheet
-  if(SYNC_URL){
-    try{
-      await fetch(SYNC_URL,{method:'POST',mode:'cors',
-        body:JSON.stringify({email:account.email,pin:account.pin,action:'saveMapPin',mapPin:pin}),
-        headers:{'Content-Type':'application/json'}});
-    }catch(e){}
-  }
-  mapToast('Your pin placed!');
-}
-
-async function removeMyMapPin(){
-  if(!confirm('Remove your pin from the map?')) return;
-  mapPins=mapPins.filter(p=>p.userEmail!==account.email);
-  mapFiltered=[...mapPins];
-  renderPBMap();
-  if(SYNC_URL){
-    try{
-      await fetch(SYNC_URL,{method:'POST',mode:'cors',
-        body:JSON.stringify({email:account.email,pin:account.pin,action:'removeMapPin'}),
-        headers:{'Content-Type':'application/json'}});
-    }catch(e){}
-  }
-}
-
-function renderPBMap(){
-  const layer=document.getElementById('pb-pins-layer');
-  if(!layer) return;
-  layer.innerHTML='';
-  const vis=new Set(mapFiltered.map(p=>p.userEmail));
-
-  mapPins.forEach(pin=>{
-    if(!vis.has(pin.userEmail)) return;
-    const isMine=pin.userEmail===account.email;
-    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
-    g.classList.add('pb-pin-group');
-    g.setAttribute('transform',`translate(${pin.lng},${pin.lat})`);
-    g.addEventListener('click',e=>{e.stopPropagation();if(!mapPlacing&&!mapPickingRef)showMapPinProfile(pin);});
-
-    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    c.classList.add('pb-pin-circle');
-    c.setAttribute('cx',0);c.setAttribute('cy',0);c.setAttribute('r',16);
-    c.setAttribute('fill',isMine?'#2563eb':(pin.pinColor||'#6b7280'));
-    g.appendChild(c);
-
-    // Dashed ring for own pin
-    if(isMine){
-      const ring=document.createElementNS('http://www.w3.org/2000/svg','circle');
-      ring.classList.add('pb-mine-ring');
-      ring.setAttribute('cx',0);ring.setAttribute('cy',0);ring.setAttribute('r',21);
-      g.appendChild(ring);
-    }
-
-    if(pin.photoUrl){
-      const cid=`pbcp${pin.userEmail.replace(/\W/g,'')}`;
-      const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
-      const cp=document.createElementNS('http://www.w3.org/2000/svg','clipPath');
-      cp.setAttribute('id',cid);
-      const cc=document.createElementNS('http://www.w3.org/2000/svg','circle');
-      cc.setAttribute('cx',0);cc.setAttribute('cy',0);cc.setAttribute('r',14);
-      cp.appendChild(cc);defs.appendChild(cp);layer.appendChild(defs);
-      const img=document.createElementNS('http://www.w3.org/2000/svg','image');
-      img.setAttribute('href',pin.photoUrl);
-      img.setAttribute('x',-14);img.setAttribute('y',-14);
-      img.setAttribute('width',28);img.setAttribute('height',28);
-      img.setAttribute('clip-path',`url(#${cid})`);
-      g.appendChild(img);
-    } else {
-      const t=document.createElementNS('http://www.w3.org/2000/svg','text');
-      t.classList.add('pb-pin-label');
-      t.setAttribute('x',0);t.setAttribute('y',0);
-      t.textContent=(pin.name||'?').slice(0,3).toUpperCase();
-      g.appendChild(t);
-    }
-    layer.appendChild(g);
-  });
-
-  const v=mapFiltered.length,tot=mapPins.length;
-  const el=document.getElementById('map-pin-count');
-  if(el) el.textContent=v<tot?`${v} of ${tot} pins`:`${tot} pin${tot!==1?'s':''}`;
-}
-
-function showMapPinProfile(pin){
-  const isMine=pin.userEmail===account.email;
-  document.getElementById('map-pin-content').innerHTML=`
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem;padding-top:.5rem">
-      ${avatarHtml(pin.name,pin.photoUrl||'',56)}
-      <div>
-        <div style="font-size:18px;font-weight:600">${pin.name}</div>
-        ${isMine?`<div style="font-size:12px;color:var(--info);margin-top:2px">Your pin</div>`:''}
-      </div>
-    </div>
-    <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:0 1rem;margin-bottom:1rem">
-      ${pin.email?`<div class="cdr"><span class="cdl">Email</span><span class="cdv">${pin.email}</span></div>`:''}
-      ${pin.cell?`<div class="cdr"><span class="cdl">Cell</span><span class="cdv">${pin.cell}</span></div>`:''}
-      ${pin.zip?`<div class="cdr"><span class="cdl">Zip</span><span class="cdv">${pin.zip}</span></div>`:''}
-      ${!pin.email&&!pin.cell&&!pin.zip?`<div style="padding:12px 0;font-size:13px;color:var(--text2)">No contact info provided.</div>`:''}
-    </div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${!isMine&&pin.email?`<a href="mailto:${pin.email}" style="padding:12px;border:0.5px solid var(--border2);border-radius:var(--radius);font-size:14px;color:var(--text);text-align:center;text-decoration:none">Email</a>`:''}
-      ${!isMine&&pin.cell?`<a href="tel:${pin.cell}" style="padding:12px;border:0.5px solid var(--border2);border-radius:var(--radius);font-size:14px;color:var(--text);text-align:center;text-decoration:none">Call</a>`:''}
-      ${!isMine?`<button onclick="downloadVCard({name:'${pin.name.replace(/'/g,"\\'")}',email:'${(pin.email||'').replace(/'/g,"\\'")}',cell:'${(pin.cell||'').replace(/'/g,"\\'")}',zip:'${(pin.zip||'').replace(/'/g,"\\'")}',note:'Pickleball player'})" style="padding:12px;border:0.5px solid var(--info);border-radius:var(--radius);background:var(--info-bg);color:var(--info);font-size:14px;font-weight:500;cursor:pointer">Add to iPhone Contacts</button>`:''}
-      ${isMine?`<button onclick="closeModal('map-pin-modal');startMapPlace()" style="padding:12px;border:0.5px solid var(--info);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--info)">Move my pin</button>`:''}
-      ${isMine?`<button onclick="closeModal('map-pin-modal');removeMyMapPin()" style="padding:12px;border:0.5px solid var(--danger);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--danger)">Remove my pin</button>`:''}
-    </div>`;
-  document.getElementById('map-pin-modal').classList.add('open');
-}
-
-function startMapPlace(){
-  if(!account.email){alert('Set up your account first.');return;}
-  if(!profile.name){alert('Add your name in My Profile first.');return;}
-  mapPlacing=true;
-  const hint=document.getElementById('map-place-hint');
-  hint.style.display='block';
-  document.getElementById('pb-map').style.cursor='crosshair';
-  const btn=document.getElementById('map-place-btn');
-  btn.textContent='Tap the map…';btn.disabled=true;btn.style.opacity='0.6';
-  // Re-enable if user taps away without placing
-  function cleanup(){
-    if(!mapPlacing) return;
-    mapPlacing=false;
-    hint.style.display='none';
-    document.getElementById('pb-map').style.cursor='';
-    btn.textContent='📍 Place My Pin';btn.disabled=false;btn.style.opacity='1';
-  }
-  btn._cleanup=cleanup;
-}
-
-function toggleMapFilter(){
-  const p=document.getElementById('map-filter-panel');
-  p.style.display=p.style.display==='none'?'flex':'none';
-}
-
-function startPickMapRef(){
-  mapPickingRef=true;
-  document.getElementById('map-ref-hint').style.display='block';
-  document.getElementById('pb-map').style.cursor='crosshair';
-  document.getElementById('map-filter-panel').style.display='none';
-}
-
-function applyMapFilter(){
-  const distMi=parseFloat(document.getElementById('mf-dist').value)||0;
-  if(distMi>0&&mapRefPt){
-    mapFiltered=mapPins.filter(p=>{
-      const dx=p.lng-mapRefPt.x,dy=p.lat-mapRefPt.y;
-      return Math.sqrt(dx*dx+dy*dy)*MAP_MPU<=distMi;
-    });
-    const dc=document.getElementById('pb-dist-circle');
-    dc.setAttribute('cx',mapRefPt.x);dc.setAttribute('cy',mapRefPt.y);
-    dc.setAttribute('r',distMi/MAP_MPU);dc.removeAttribute('display');
-  } else {
-    mapFiltered=[...mapPins];
-    document.getElementById('pb-dist-circle').setAttribute('display','none');
-  }
-  renderPBMap();
-  // Update filter button to show active state
-  const fb=document.getElementById('map-filter-btn');
-  const active=mapFiltered.length<mapPins.length;
-  fb.textContent=active?`⚙ Filter (${mapFiltered.length})`:'⚙ Filter';
-  fb.style.color=active?'var(--info)':'var(--text2)';
-}
-
-function clearMapFilter(){
-  document.getElementById('mf-dist').value='';
-  document.getElementById('map-ref-label').textContent='';
-  mapRefPt=null;mapFiltered=[...mapPins];
-  document.getElementById('pb-dist-circle').setAttribute('display','none');
-  document.getElementById('pb-ref-marker').setAttribute('display','none');
-  document.getElementById('map-filter-btn').textContent='⚙ Filter';
-  document.getElementById('map-filter-btn').style.color='var(--text2)';
-  renderPBMap();
-}
-
-// Map click handler — wired up on first map view
-function initMapClickHandler(){
-  const svg=document.getElementById('pb-map');
-  if(svg._pbInited) return;
-  svg._pbInited=true;
-  svg.addEventListener('click',function(e){
-    const rect=svg.getBoundingClientRect();
-    const vb=svg.viewBox.baseVal;
-    const sx=(e.clientX-rect.left)*(vb.width/rect.width);
-    const sy=(e.clientY-rect.top)*(vb.height/rect.height);
-
-    if(mapPickingRef){
-      mapPickingRef=false;
-      svg.style.cursor='';
-      document.getElementById('map-ref-hint').style.display='none';
-      mapRefPt={x:sx,y:sy};
-      const rm=document.getElementById('pb-ref-marker');
-      rm.setAttribute('transform',`translate(${sx},${sy})`);
-      rm.removeAttribute('display');
-      document.getElementById('map-ref-label').textContent='Point set';
-      document.getElementById('map-filter-panel').style.display='flex';
-      return;
-    }
-    if(mapPlacing){
-      mapPlacing=false;
-      svg.style.cursor='';
-      document.getElementById('map-place-hint').style.display='none';
-      const btn=document.getElementById('map-place-btn');
-      if(btn){btn.textContent='📍 Place My Pin';btn.disabled=false;btn.style.opacity='1';}
-      saveMyMapPin(sy,sx);
-    }
-  });
-}
-
-function mapToast(msg){
-  // Reuse existing toast if available, otherwise alert
-  if(typeof toast==='function') toast(msg);
-  else console.log(msg);
-}
 
 // ── PWA & Push ─────────────────────────────────────────────────────
 const VAPID_PUBLIC_KEY=''; // Developer: fill in your VAPID public key here

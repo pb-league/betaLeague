@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏈 GridIron Squares</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold:#F5C518;--green:#1a472a;--green-light:#2d6a4f;--green-bright:#52b788;
+    --red:#e63946;--white:#f8f9fa;--gray:#adb5bd;
+    --dark:#0d1117;--dark2:#161b22;--dark3:#21262d;
+    --border:rgba(245,197,24,0.2);--shadow:0 8px 32px rgba(0,0,0,0.4);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',sans-serif;background:var(--dark);color:var(--white);min-height:100vh;
+    background-image:radial-gradient(ellipse at 20% 0%,rgba(26,71,42,0.4) 0%,transparent 50%),
+    radial-gradient(ellipse at 80% 100%,rgba(245,197,24,0.08) 0%,transparent 50%),
+    repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,0.02) 40px),
+    repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,0.02) 40px);}
+  nav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;
+    background:rgba(13,17,23,0.92);border-bottom:1px solid var(--border);
+    backdrop-filter:blur(12px);position:sticky;top:0;z-index:100;}
+  .logo{font-family:'Bebas Neue',cursive;font-size:26px;letter-spacing:2px;color:var(--gold);}
+  .logo span{color:var(--white)}
+  .nav-right{display:flex;gap:10px;align-items:center}
+  .badge{background:var(--green);color:var(--gold);font-size:11px;font-weight:700;padding:3px 10px;
+    border-radius:20px;font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:1px;}
+  .panel{display:none}.panel.active{display:block}
+  .container{max-width:1160px;margin:0 auto;padding:32px 20px}
+  .section-title{font-family:'Bebas Neue',cursive;font-size:36px;letter-spacing:3px;color:var(--gold);margin-bottom:4px}
+  .section-sub{color:var(--gray);font-size:14px;margin-bottom:24px}
+  .card{background:var(--dark2);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px}
+  .card h3{font-family:'Bebas Neue',cursive;font-size:20px;letter-spacing:2px;color:var(--gold);margin-bottom:16px}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+  .form-row.three{grid-template-columns:1fr 1fr 1fr}
+  .form-row.single{grid-template-columns:1fr}
+  label{display:block;font-size:12px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+  input,select,textarea{width:100%;background:var(--dark3);border:1px solid rgba(255,255,255,0.1);
+    border-radius:8px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:14px;
+    padding:10px 14px;transition:border-color .2s}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold)}
+  input[type="datetime-local"]{color-scheme:dark}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 22px;
+    border-radius:8px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;
+    font-size:14px;transition:all .18s}
+  .btn-gold{background:var(--gold);color:var(--dark)}
+  .btn-gold:hover{background:#ffd700;transform:translateY(-1px);box-shadow:0 4px 20px rgba(245,197,24,0.3)}
+  .btn-outline{background:transparent;border:1px solid var(--border);color:var(--white)}
+  .btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+  .btn-green{background:var(--green-bright);color:var(--dark)}.btn-green:hover{background:#6fcf9a}
+  .btn-red{background:var(--red);color:white}
+  .btn-sm{padding:7px 14px;font-size:12px}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+
+  /* ---- COUNTDOWN ---- */
+  #countdownBar{background:rgba(245,197,24,0.07);border:1px solid var(--border);border-radius:10px;
+    padding:14px 20px;margin-bottom:20px;display:none}
+  .cd-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  .cd-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--gray)}
+  .cd-clock{display:flex;gap:10px}
+  .cd-unit{text-align:center}
+  .cd-num{font-family:'Bebas Neue',cursive;font-size:36px;color:var(--gold);line-height:1;
+    background:var(--dark3);border:1px solid var(--border);border-radius:6px;padding:2px 10px;min-width:52px}
+  .cd-tag{font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+  .cd-status{font-size:13px;font-weight:600}
+  .cd-status.open{color:var(--green-bright)}.cd-status.closed{color:var(--red)}.cd-status.waiting{color:var(--gold)}
+  .cd-progress{height:4px;background:var(--dark3);border-radius:2px;margin-top:10px;overflow:hidden}
+  .cd-bar{height:100%;background:var(--gold);border-radius:2px;transition:width 1s linear}
+
+  /* ---- GRID ---- */
+  .grid-outer{display:flex;align-items:flex-start;gap:0}
+  .side-label{writing-mode:vertical-rl;transform:rotate(180deg);
+    font-family:'Bebas Neue',cursive;font-size:15px;letter-spacing:2px;color:var(--dark);
+    background:var(--gold);border-radius:6px;padding:10px 6px;
+    text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;
+    align-self:stretch;margin-right:6px;min-height:200px}
+  .side-label img{width:28px;height:28px;object-fit:contain;border-radius:4px;transform:rotate(90deg)}
+  .grid-inner{flex:1;min-width:0}
+  /* top label: exactly 52px*10 = 520px, offset by 52px row-num column */
+  .top-label{display:flex;align-items:center;justify-content:center;gap:10px;
+    font-family:'Bebas Neue',cursive;font-size:17px;letter-spacing:2px;color:var(--dark);
+    background:var(--gold);border-radius:6px 6px 0 0;
+    padding:8px 14px;
+    width:520px;      /* exactly 10 squares × 52px */
+    margin-left:52px; /* offset by row-number column */
+    margin-bottom:2px;box-sizing:border-box}
+  .top-label img{width:28px;height:28px;object-fit:contain;border-radius:4px}
+
+  /* grid body wrapper — holds background image behind the cells */
+  .grid-body{position:relative;width:572px;} /* 52 row-num + 520 squares */
+  .grid-rows-wrap{position:relative;z-index:1}
+  .col-nums{display:flex;margin-left:54px;margin-bottom:1px}
+  .col-num{width:52px;min-width:52px;flex-shrink:0;height:32px;text-align:center;
+    font-family:'Space Mono',monospace;font-size:15px;font-weight:700;color:var(--gold);
+    background:var(--dark3);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center}
+  /* remove gap between col-nums so they butt up */
+  .col-num+.col-num{border-left:none}
+  .grid-row{display:flex}
+  .grid-num{width:52px;min-width:52px;flex-shrink:0;height:52px;text-align:center;
+    font-family:'Space Mono',monospace;font-size:15px;font-weight:700;color:var(--gold);
+    background:var(--dark3);border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center}
+  .grid-row .grid-num{border-bottom:none}
+  .grid-row:last-child .grid-num{border-bottom:1px solid var(--border)}
+  .square{width:52px;min-width:52px;flex-shrink:0;height:52px;
+    border-top:1px solid var(--border);border-right:1px solid var(--border);
+    border-bottom:none;border-left:none;
+    display:flex;align-items:center;justify-content:center;
+    font-size:8.5px;font-weight:600;text-align:center;word-break:break-word;
+    cursor:pointer;transition:all .15s;background:var(--dark3);
+    line-height:1.2;padding:2px;overflow:hidden}
+  .grid-row:last-child .square{border-bottom:1px solid var(--border)}
+  .square:first-of-type{border-left:1px solid var(--border)}
+  /* re-apply left border to all squares since they're siblings after .grid-num */
+  .grid-row .square{border-left:none}
+  .grid-row .square:nth-child(2){border-left:1px solid var(--border)}
+  .square:hover:not(.taken):not(.locked){background:rgba(245,197,24,0.15);border-color:var(--gold)!important;transform:scale(1.06);z-index:2;position:relative}
+  .square.taken{background:rgba(26,71,42,0.75);cursor:default;color:var(--green-bright);border-color:var(--green-light)!important}
+  .square.mine{background:rgba(245,197,24,0.22)!important;color:var(--gold)!important}
+  .square.active-score{background:rgba(245,197,24,0.4)!important;box-shadow:0 0 18px rgba(245,197,24,0.6);animation:pulse 1.1s infinite;position:relative;z-index:3}
+  .square.winner{background:rgba(82,183,136,0.38)!important;box-shadow:0 0 18px rgba(82,183,136,0.5);position:relative;z-index:2}
+  .square.locked{cursor:not-allowed;opacity:.65}
+  @keyframes pulse{0%,100%{box-shadow:0 0 14px rgba(245,197,24,0.4)}50%{box-shadow:0 0 32px rgba(245,197,24,0.85)}}
+
+  /* score & quarters */
+  .score-board{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+  .score-card{flex:1;min-width:140px;background:var(--dark2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;text-align:center}
+  .score-card .s-label{font-size:11px;color:var(--gray);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+  .score-card .s-value{font-family:'Bebas Neue',cursive;font-size:44px;color:var(--gold);line-height:1}
+  .score-card .s-team{font-size:12px;color:var(--gray);margin-top:2px}
+  .quarter-results{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+  .qr{background:var(--dark3);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+  .qr .q-label{font-size:11px;color:var(--gray);font-weight:700;text-transform:uppercase;letter-spacing:1px}
+  .qr .q-score{font-family:'Space Mono',monospace;font-size:18px;color:var(--white);margin:4px 0}
+  .qr .q-winner{font-size:11px;color:var(--green-bright);font-weight:600}
+  .qr.has-winner{border-color:var(--green-bright)}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gray)}
+  .legend-box{width:16px;height:16px;border-radius:3px;border:1px solid}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{font-family:'Space Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:1px;
+    color:var(--gray);border-bottom:1px solid var(--border);padding:8px 10px;text-align:left}
+  td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:middle}
+  tr:hover td{background:rgba(255,255,255,0.02)}
+  #toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(60px);
+    background:var(--dark2);border:1px solid var(--border);border-radius:10px;
+    padding:12px 22px;font-size:14px;font-weight:500;transition:transform .3s;
+    z-index:999;pointer-events:none;box-shadow:var(--shadow)}
+  #toast.show{transform:translateX(-50%) translateY(0)}
+  #toast.success{border-color:var(--green-bright);color:var(--green-bright)}
+  #toast.error{border-color:var(--red);color:var(--red)}
+  .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:200;align-items:center;justify-content:center}
+  .modal-backdrop.open{display:flex}
+  .modal{background:var(--dark2);border:1px solid var(--border);border-radius:14px;padding:30px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+  .modal h2{font-family:'Bebas Neue',cursive;font-size:26px;letter-spacing:2px;color:var(--gold);margin-bottom:18px}
+  .modal-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  .pill-green{background:rgba(82,183,136,0.15);color:var(--green-bright);border:1px solid rgba(82,183,136,0.3)}
+  .pill-gold{background:rgba(245,197,24,0.12);color:var(--gold);border:1px solid rgba(245,197,24,0.3)}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+  .info-box{background:rgba(245,197,24,0.06);border:1px solid rgba(245,197,24,0.2);border-radius:8px;
+    padding:12px 16px;font-size:13px;color:var(--gray);margin-bottom:14px}
+  .info-box strong{color:var(--gold)}.info-box a{color:var(--gold)}
+  .mt-8{margin-top:8px}.mb-16{margin-bottom:16px}
+  .flex{display:flex}.gap-10{gap:10px}.items-center{align-items:center}
+  .justify-between{justify-content:space-between}.w-full{width:100%}
+  .tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto}
+  .tab{padding:10px 16px;font-size:13px;font-weight:600;color:var(--gray);cursor:pointer;
+    white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+  .tab:hover{color:var(--white)}.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+
+  /* ---- PAYMENT STATUS BANNER ---- */
+  #paymentStatusBanner{border-radius:10px;padding:16px 20px;margin-bottom:20px;
+    align-items:center;gap:14px;display:none}
+  #paymentStatusBanner.pending{background:rgba(230,57,70,0.1);border:1px solid rgba(230,57,70,0.4);display:flex}
+  #paymentStatusBanner.approved{background:rgba(82,183,136,0.1);border:1px solid rgba(82,183,136,0.35);display:flex}
+  .psb-icon{font-size:32px;flex-shrink:0}
+  .psb-text strong{display:block;font-size:15px;margin-bottom:3px}
+  .psb-text span{font-size:13px;color:var(--gray)}
+  .approve-check{width:20px;height:20px;accent-color:var(--green-bright);cursor:pointer;flex-shrink:0}
+  .player-row-pending td{opacity:.8}
+  .status-pill-pending{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:12px;
+    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+    background:rgba(230,57,70,0.12);color:var(--red);border:1px solid rgba(230,57,70,0.3)}
+  .status-pill-approved{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:12px;
+    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+    background:rgba(82,183,136,0.12);color:var(--green-bright);border:1px solid rgba(82,183,136,0.3)}
+
+  /* logo preview */
+  .logo-preview{width:48px;height:48px;object-fit:contain;border-radius:6px;border:1px solid var(--border);background:var(--dark3);display:block;margin-top:8px}
+  .logo-row{display:flex;align-items:flex-end;gap:10px}
+  .logo-row input{flex:1}
+
+  /* game title */
+  .game-title-display{font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:3px;color:var(--white);text-align:center;margin-bottom:4px}
+
+  @media(max-width:600px){
+    .form-row{grid-template-columns:1fr}.form-row.three{grid-template-columns:1fr}
+    .quarter-results{grid-template-columns:1fr 1fr}
+    .cd-num{font-size:28px;min-width:42px}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">🏈 Grid<span>Iron</span> Squares</div>
+  <div class="nav-right">
+    <div id="navStatus" class="badge" style="display:none"></div>
+    <button class="btn btn-outline btn-sm" id="btnHostLogin" onclick="showHostLogin()">Host</button>
+    <button class="btn btn-outline btn-sm" id="btnPlayerLogin" onclick="showPlayerLogin()">Join Game</button>
+    <button class="btn btn-red btn-sm" id="btnLogout" style="display:none" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<!-- HOME -->
+<div id="panelHome" class="panel active">
+  <div class="container" style="max-width:700px;text-align:center;padding-top:80px">
+    <div style="font-size:72px;margin-bottom:16px">🏈</div>
+    <h1 style="font-family:'Bebas Neue',cursive;font-size:60px;letter-spacing:4px;color:var(--gold);line-height:1">GridIron Squares</h1>
+    <p style="color:var(--gray);font-size:18px;margin:16px auto 36px;max-width:500px">The ultimate Super Bowl squares experience. Host a game, invite friends, and watch the action unfold square by square.</p>
+    <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-gold" style="font-size:16px;padding:14px 32px" onclick="showHostLogin()">🎯 Host a Game</button>
+      <button class="btn btn-outline" style="font-size:16px;padding:14px 32px" onclick="showPlayerLogin()">🎮 Join a Game</button>
+    </div>
+    <div class="card" style="margin-top:48px;text-align:left">
+      <h3>How It Works</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+        <div style="text-align:center"><div style="font-size:32px;margin-bottom:8px">⚙️</div><div style="font-size:13px;color:var(--gray)"><strong style="color:var(--white);display:block;margin-bottom:4px">Host Configures</strong>Set teams, deadlines, payouts &amp; invite participants</div></div>
+        <div style="text-align:center"><div style="font-size:32px;margin-bottom:8px">🎯</div><div style="font-size:13px;color:var(--gray)"><strong style="color:var(--white);display:block;margin-bottom:4px">Players Pick</strong>Choose your squares before the deadline</div></div>
+        <div style="text-align:center"><div style="font-size:32px;margin-bottom:8px">🏆</div><div style="font-size:13px;color:var(--gray)"><strong style="color:var(--white);display:block;margin-bottom:4px">Live Scoring</strong>Track scores each quarter &amp; see who wins</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HOST -->
+<div id="panelHost" class="panel">
+  <div class="container">
+    <div class="flex items-center justify-between mb-16">
+      <div><div class="section-title">Host Dashboard</div><div class="section-sub" id="hostSubTitle">Manage your Super Bowl Squares game</div></div>
+      <div id="hostGameStatus"></div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab active" onclick="hostTab('setup',this)">⚙️ Setup</div>
+      <div class="tab" onclick="hostTab('grid',this)">🏈 Grid</div>
+      <div class="tab" onclick="hostTab('scoring',this)">📊 Live Score</div>
+      <div class="tab" onclick="hostTab('players',this)">👥 Players</div>
+      <div class="tab" onclick="hostTab('invite',this)">📧 Invite</div>
+    </div>
+
+    <!-- SETUP -->
+    <div id="hostTabSetup">
+      <div class="card">
+        <h3>🔗 Registry &amp; Game Connection</h3>
+        <div class="info-box">
+          <strong>Master Registry URL</strong> — this is the single URL for the entire app, deployed once by the app developer.<br>
+          Your <strong>Host ID</strong> is assigned when you register. Both are stored in your browser and never need to be re-entered.
+        </div>
+        <div class="form-row">
+          <div><label>Master Registry URL</label>
+            <input id="cfgRegistryUrl" placeholder="https://script.google.com/macros/s/AKfycbxcxZw4_MrwEbCsQxSjiX0tDZB_Y7e8JRdQPcr9blwSLqwOLXNdNhYtbXyFYsVybLDY/exec" /></div>
+          <div><label>Your Host ID <span style="font-weight:400;text-transform:none;font-size:11px">(read-only after login)</span></label>
+            <input id="cfgHostId" placeholder="MIKE-4821" readonly style="opacity:.7" /></div>
+        </div>
+        <div class="form-row single" style="margin-bottom:8px">
+          <div><label>Your Game Script URL <span style="font-weight:400;text-transform:none;font-size:11px">(your deployed game-script.gs)</span></label>
+            <input id="cfgScriptUrl" placeholder="https://script.google.com/macros/s/AKfycbxcxZw4_MrwEbCsQxSjiX0tDZB_Y7e8JRdQPcr9blwSLqwOLXNdNhYtbXyFYsVybLDY/exec" /></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-outline btn-sm" onclick="testConnection()">🔌 Test Game Connection</button>
+          <button class="btn btn-green btn-sm" onclick="initSheetTabs()">🗂️ Initialize Sheet Tabs</button>
+          <span id="connTestResult" style="font-size:13px"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>🎮 Game Identity</h3>
+        <div class="form-row">
+          <div><label>Game Title</label><input id="cfgTitle" placeholder="2025 Super Bowl Squares" /></div>
+          <div><label>Host Name</label><input id="cfgHostName" placeholder="Your name" /></div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label>Home Team Name</label>
+            <div class="logo-row">
+              <input id="cfgTeam1" placeholder="Kansas City Chiefs" oninput="previewLogo('logo1preview','cfgLogo1')" />
+            </div>
+            <label style="margin-top:10px">Home Team Logo URL <span style="font-weight:400;text-transform:none">(paste any image URL)</span></label>
+            <input id="cfgLogo1" placeholder="https://…/chiefs.png" oninput="previewLogo('logo1preview','cfgLogo1')" />
+            <img id="logo1preview" class="logo-preview" style="display:none" />
+          </div>
+          <div>
+            <label>Away Team Name</label>
+            <div class="logo-row">
+              <input id="cfgTeam2" placeholder="San Francisco 49ers" oninput="previewLogo('logo2preview','cfgLogo2')" />
+            </div>
+            <label style="margin-top:10px">Away Team Logo URL</label>
+            <input id="cfgLogo2" placeholder="https://…/49ers.png" oninput="previewLogo('logo2preview','cfgLogo2')" />
+            <img id="logo2preview" class="logo-preview" style="display:none" />
+          </div>
+        </div>
+        <div class="form-row" style="margin-top:4px">
+          <div>
+            <label>Grid Background Image URL <span style="font-weight:400;text-transform:none">(shows behind squares, revealed as claimed)</span></label>
+            <input id="cfgGridBg" placeholder="https://…/stadium.jpg" oninput="previewGridBg()" />
+            <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
+              <label style="margin:0;white-space:nowrap">Image Opacity</label>
+              <input type="range" id="cfgGridBgOpacity" min="5" max="60" value="20" style="flex:1;padding:4px 0;background:none;border:none" oninput="document.getElementById('bgOpacityVal').textContent=this.value+'%';previewGridBg()" />
+              <span id="bgOpacityVal" style="font-family:'Space Mono',monospace;font-size:13px;color:var(--gold);min-width:36px">20%</span>
+            </div>
+            <div id="gridBgPreview" style="display:none;margin-top:10px;width:100%;height:80px;border-radius:6px;border:1px solid var(--border);background-size:cover;background-position:center;position:relative;overflow:hidden">
+              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:rgba(255,255,255,0.6)">Grid preview</div>
+            </div>
+          </div>
+          <div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>⏰ Schedule &amp; Rules</h3>
+        <div class="form-row three">
+          <div><label>Max Squares Per Player</label><input id="cfgMaxSquares" type="number" value="5" min="1" max="100" /></div>
+          <div><label>Open For Picking</label><input id="cfgOpenTime" type="datetime-local" /></div>
+          <div><label>Pick Deadline</label><input id="cfgDeadline" type="datetime-local" /></div>
+        </div>
+        <div class="form-row">
+          <div><label>Randomize Numbers After Deadline?</label>
+            <select id="cfgRandomize">
+              <option value="yes">Yes — randomize row/column numbers at deadline</option>
+              <option value="no">No — keep numbers 0–9 in order</option>
+            </select>
+          </div>
+          <div><label>Entry Code (players need this to join)</label><input id="cfgEntryCode" placeholder="SUPERBOWL2025" /></div>
+        </div>
+        <div class="form-row">
+          <div><label>Host Password</label><input id="cfgHostPw" type="password" placeholder="host1234" /></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>💰 Payouts</h3>
+        <div class="form-row three">
+          <div><label>Q1 Winner</label><input id="cfgPayQ1" placeholder="$25" /></div>
+          <div><label>Halftime Winner</label><input id="cfgPayQ2" placeholder="$50" /></div>
+          <div><label>Q3 Winner</label><input id="cfgPayQ3" placeholder="$25" /></div>
+        </div>
+        <div class="form-row">
+          <div><label>Final Score Winner</label><input id="cfgPayFinal" placeholder="$100" /></div>
+          <div><label>Payment Notes</label><input id="cfgPayNotes" placeholder="Venmo @host after game" /></div>
+        </div>
+      </div>
+
+      <button class="btn btn-gold" onclick="saveConfig()" style="font-size:15px;padding:13px 28px">💾 Save Configuration</button>
+    </div>
+
+    <!-- GRID TAB -->
+    <div id="hostTabGrid" style="display:none">
+      <div class="card">
+        <div class="flex items-center justify-between" style="margin-bottom:16px">
+          <h3 style="margin:0">🏈 Live Grid</h3>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-outline btn-sm" onclick="loadGrid()">🔄 Refresh</button>
+            <button class="btn btn-sm btn-green" onclick="exportCSV()">📥 Export CSV</button>
+          </div>
+        </div>
+        <div id="hostGridContainer"><div style="color:var(--gray);text-align:center;padding:40px">Save config then click Refresh</div></div>
+      </div>
+    </div>
+
+    <!-- SCORING TAB -->
+    <div id="hostTabScoring" style="display:none">
+      <div class="card">
+        <h3>📊 Live Score Entry</h3>
+        <div class="form-row">
+          <div><label id="scoreLabel1">Home Team Score</label><input id="scoreHome" type="number" min="0" value="0" /></div>
+          <div><label id="scoreLabel2">Away Team Score</label><input id="scoreAway" type="number" min="0" value="0" /></div>
+        </div>
+        <button class="btn btn-gold" onclick="updateLiveScore()">🔴 Update Live Score</button>
+      </div>
+      <div class="card">
+        <h3>🏆 Record Quarter Results</h3>
+        <div class="quarter-results">
+          <div class="qr"><div class="q-label">Q1 End</div>
+            <input type="number" id="q1h" placeholder="H" style="width:48%;display:inline-block;margin-top:6px" />
+            <input type="number" id="q1a" placeholder="A" style="width:48%;display:inline-block" />
+            <button class="btn btn-sm btn-green mt-8 w-full" onclick="recordQuarter(1,'Q1')">Record Q1</button></div>
+          <div class="qr"><div class="q-label">Halftime</div>
+            <input type="number" id="q2h" placeholder="H" style="width:48%;display:inline-block;margin-top:6px" />
+            <input type="number" id="q2a" placeholder="A" style="width:48%;display:inline-block" />
+            <button class="btn btn-sm btn-green mt-8 w-full" onclick="recordQuarter(2,'HALF')">Record Half</button></div>
+          <div class="qr"><div class="q-label">Q3 End</div>
+            <input type="number" id="q3h" placeholder="H" style="width:48%;display:inline-block;margin-top:6px" />
+            <input type="number" id="q3a" placeholder="A" style="width:48%;display:inline-block" />
+            <button class="btn btn-sm btn-green mt-8 w-full" onclick="recordQuarter(3,'Q3')">Record Q3</button></div>
+          <div class="qr"><div class="q-label">Final Score</div>
+            <input type="number" id="q4h" placeholder="H" style="width:48%;display:inline-block;margin-top:6px" />
+            <input type="number" id="q4a" placeholder="A" style="width:48%;display:inline-block" />
+            <button class="btn btn-sm btn-gold mt-8 w-full" onclick="recordQuarter(4,'FINAL')">Record Final</button></div>
+        </div>
+        <div id="quarterResultsHost"></div>
+      </div>
+    </div>
+
+    <!-- PLAYERS TAB -->
+    <div id="hostTabPlayers" style="display:none">
+      <div class="card">
+        <div class="flex items-center justify-between" style="margin-bottom:16px">
+          <div>
+            <h3 style="margin:0">👥 Registered Players</h3>
+            <div id="pendingCountMsg" style="font-size:13px;color:var(--gold);margin-top:4px"></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-green btn-sm" onclick="approveAllPending()">✅ Approve All Pending</button>
+            <button class="btn btn-outline btn-sm" onclick="loadPlayersTab()">🔄 Refresh</button>
+          </div>
+        </div>
+        <div class="info-box" style="font-size:12px">Check the box next to a player's name to approve their payment and allow them to pick squares.</div>
+        <div id="playersTableContainer"><div style="color:var(--gray);padding:20px;text-align:center">Click Refresh to load</div></div>
+      </div>
+    </div>
+
+    <!-- INVITE TAB -->
+    <div id="hostTabInvite" style="display:none">
+      <div class="card">
+        <h3>📧 Invite Participants</h3>
+        <div class="info-box">
+          Choose how to send invites. <strong>Auto-send via Google</strong> fires emails directly from your Google account (via Apps Script MailApp — free, uses your Gmail quota). <strong>Open in Mail</strong> opens your local email client.
+        </div>
+        <div class="form-row single">
+          <div><label>Email Addresses (one per line)</label>
+          <textarea id="inviteEmails" rows="6" placeholder="friend1@email.com&#10;friend2@email.com"></textarea></div>
+        </div>
+        <div id="invitePreviewBox" style="display:none;background:rgba(245,197,24,0.06);border:1px solid rgba(245,197,24,0.2);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--gray);white-space:pre-wrap;font-family:'Space Mono',monospace;margin-bottom:14px;max-height:240px;overflow-y:auto"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="previewInvite()">👁️ Preview</button>
+          <button class="btn btn-gold" onclick="autoSendInvites()">🚀 Auto-Send via Google</button>
+          <button class="btn btn-outline" onclick="sendInvitesMailto()">📧 Open in Mail App</button>
+          <button class="btn btn-outline btn-sm" onclick="copyCode()">📋 Copy Entry Code</button>
+        </div>
+        <div id="inviteSendResult" style="margin-top:12px;font-size:13px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PLAYER -->
+<div id="panelPlayer" class="panel">
+  <div class="container">
+    <div class="flex items-center justify-between mb-16">
+      <div>
+        <div id="gameTitleDisplay" class="game-title-display" style="display:none"></div>
+        <div class="section-title" id="playerPanelTitle">Game Board</div>
+        <div id="playerGameInfo" class="section-sub">Loading…</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-outline btn-sm" onclick="playerRefresh()" title="Refresh grid &amp; scores">🔄 Refresh</button>
+        <div id="playerStatusBadge"></div>
+      </div>
+    </div>
+
+    <!-- COUNTDOWN BAR -->
+    <div id="countdownBar">
+      <div class="cd-inner">
+        <div>
+          <div class="cd-label" id="cdLabel">Time Until Squares Close</div>
+          <div class="cd-status" id="cdStatus"></div>
+        </div>
+        <div class="cd-clock">
+          <div class="cd-unit"><div class="cd-num" id="cdD">00</div><div class="cd-tag">Days</div></div>
+          <div class="cd-unit"><div class="cd-num" id="cdH">00</div><div class="cd-tag">Hrs</div></div>
+          <div class="cd-unit"><div class="cd-num" id="cdM">00</div><div class="cd-tag">Min</div></div>
+          <div class="cd-unit"><div class="cd-num" id="cdS">00</div><div class="cd-tag">Sec</div></div>
+        </div>
+      </div>
+      <div class="cd-progress"><div class="cd-bar" id="cdBar" style="width:0%"></div></div>
+    </div>
+
+    <!-- PAYMENT STATUS BANNER -->
+    <div id="paymentStatusBanner">
+      <div class="psb-icon" id="psbIcon">⏳</div>
+      <div class="psb-text">
+        <strong id="psbTitle">Payment Pending</strong>
+        <span id="psbMsg">Your registration is awaiting payment confirmation from the host. You'll be able to pick squares once approved.</span>
+      </div>
+    </div>
+
+    <div id="scoreBoardDisplay" style="display:none">
+      <div class="score-board">
+        <div class="score-card"><div class="s-label" id="sb_label1">Home</div><div class="s-value" id="sb_score1">0</div><div class="s-team" id="sb_team1">—</div></div>
+        <div class="score-card" style="flex:0.4;min-width:50px;display:flex;align-items:center;justify-content:center"><div style="font-family:'Bebas Neue',cursive;font-size:28px;color:var(--gray)">VS</div></div>
+        <div class="score-card"><div class="s-label" id="sb_label2">Away</div><div class="s-value" id="sb_score2">0</div><div class="s-team" id="sb_team2">—</div></div>
+      </div>
+    </div>
+    <div id="quarterResultsPlayer" style="display:none;margin-bottom:20px"></div>
+    <div id="payoutInfoPlayer" style="display:none;margin-bottom:20px"></div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-box" style="background:rgba(26,71,42,0.75);border-color:var(--green-light)"></div>Taken</div>
+      <div class="legend-item"><div class="legend-box" style="background:rgba(245,197,24,0.22);border-color:var(--gold)"></div>Your Square</div>
+      <div class="legend-item"><div class="legend-box" style="background:var(--dark3);border-color:var(--border)"></div>Available</div>
+      <div class="legend-item"><div class="legend-box" style="background:rgba(245,197,24,0.4);border-color:var(--gold)"></div>Live Score</div>
+      <div class="legend-item"><div class="legend-box" style="background:rgba(82,183,136,0.38);border-color:var(--green-bright)"></div>Quarter Winner</div>
+    </div>
+    <div id="playerGridContainer"><div style="color:var(--gray);text-align:center;padding:40px">Loading grid…</div></div>
+    <div id="playerMySquares" style="margin-top:20px"></div>
+  </div>
+</div>
+
+<!-- HOST LOGIN MODAL -->
+<div class="modal-backdrop" id="modalHostLogin">
+  <div class="modal">
+    <h2>🎯 Host Login</h2>
+    <div id="hlLoginForm">
+      <div style="margin-bottom:14px"><label>Host ID <span style="font-weight:400;font-size:11px">(assigned when you registered)</span></label>
+        <input id="hlHostId" placeholder="MIKE-4821" style="text-transform:uppercase" /></div>
+      <div style="margin-bottom:4px"><label>Host Password</label>
+        <input id="hlPassword" type="password" placeholder="host1234" onkeydown="if(event.key==='Enter')hostLogin()" /></div>
+      <div style="margin-bottom:14px;text-align:right">
+        <button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 10px" onclick="showHostRecoverPw()">Forgot password?</button>
+      </div>
+      <div class="info-box" style="font-size:12px">Don't have a Host ID? <button class="btn btn-outline btn-sm" style="font-size:11px;padding:3px 10px;margin-left:4px" onclick="showHostRegister()">Register as Host →</button></div>
+    </div>
+    <div id="hlRecoverForm" style="display:none">
+      <div style="margin-bottom:12px"><label>Your Host ID</label><input id="hlRecoverId" placeholder="MIKE-4821" style="text-transform:uppercase" /></div>
+      <div style="margin-bottom:12px"><label>Your registered email</label><input id="hlRecoverEmail" type="email" placeholder="you@email.com" /></div>
+      <div id="hlRecoverMsg" style="font-size:13px;color:var(--gray);min-height:18px;margin-bottom:8px"></div>
+    </div>
+    <div id="hlRegisterForm" style="display:none">
+      <div class="info-box" style="font-size:12px;margin-bottom:14px">Register to host a game. You'll need to provide the URL to your own deployed <code>game-script.gs</code>. You'll receive an email with your Host ID, and another when approved.</div>
+      <div style="margin-bottom:12px"><label>Your Name</label><input id="hlRegName" placeholder="Mike Smith" /></div>
+      <div style="margin-bottom:12px"><label>Your Email</label><input id="hlRegEmail" type="email" placeholder="you@email.com" /></div>
+      <div style="margin-bottom:12px"><label>Your Game Script URL <span style="font-weight:400;font-size:11px">(deploy game-script.gs on your sheet first)</span></label>
+        <input id="hlRegScriptUrl" placeholder="https://script.google.com/macros/s/.../exec" /></div>
+      <div id="hlRegMsg" style="font-size:13px;color:var(--gray);min-height:18px;margin-bottom:8px"></div>
+    </div>
+    <div class="modal-actions" id="hlModalActions">
+      <button class="btn btn-outline" onclick="closeModal('modalHostLogin');resetHostLoginModal()">Cancel</button>
+      <button class="btn btn-gold" id="hlMainBtn" onclick="hostLogin()">Login</button>
+    </div>
+  </div>
+</div>
+
+<!-- PLAYER LOGIN MODAL -->
+<div class="modal-backdrop" id="modalPlayerLogin">
+  <div class="modal">
+    <h2>🎮 Join / Login</h2>
+    <div style="margin-bottom:12px"><label>Game ID <span style="font-weight:400;font-size:11px">(from your invite email)</span></label>
+      <input id="plHostId" placeholder="MIKE-4821" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" /></div>
+    <div style="margin-bottom:12px"><label>Entry Code</label>
+      <input id="plEntryCode" placeholder="SUPERBOWL2025" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" /></div>
+    <div style="margin-bottom:12px"><label>Your Email</label>
+      <input id="plEmail" type="email" placeholder="you@email.com" /></div>
+    <div id="newPlayerFields" style="display:none">
+      <div style="margin-bottom:12px"><label>Your Handle / First Name</label>
+        <input id="plHandle" placeholder="e.g. Mike" /></div>
+      <div style="margin-bottom:12px"><label>Create a 4-digit PIN</label>
+        <input id="plPinNew" type="password" maxlength="4" placeholder="••••" /></div>
+    </div>
+    <div id="returningPlayerFields" style="display:none">
+      <div style="margin-bottom:6px"><label>Your PIN</label>
+        <input id="plPin" type="password" maxlength="4" placeholder="••••"
+          onkeydown="if(event.key==='Enter')playerLoginStep()" /></div>
+      <div style="margin-bottom:12px;text-align:right">
+        <button class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 10px" onclick="showPlayerForgotPin()">Forgot PIN?</button>
+      </div>
+    </div>
+    <div id="playerLoginMsg" style="font-size:13px;color:var(--gray);margin-bottom:6px;min-height:18px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modalPlayerLogin')">Cancel</button>
+      <button class="btn btn-gold" id="btnPlSubmit" onclick="playerLoginStep()">Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- CLAIM MODAL -->
+<div class="modal-backdrop" id="modalClaim">
+  <div class="modal">
+    <h2>🎯 Claim Square</h2>
+    <p id="claimInfo" style="color:var(--gray);margin-bottom:12px"></p>
+    <div id="claimLimit" style="font-size:13px;color:var(--gold);margin-bottom:14px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modalClaim')">Cancel</button>
+      <button class="btn btn-gold" id="btnConfirmClaim" onclick="confirmClaim()">✅ Claim It</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN RECOVERY MODAL -->
+<div class="modal-backdrop" id="modalPinRecovery">
+  <div class="modal">
+    <h2>🔑 Forgot PIN?</h2>
+    <p style="color:var(--gray);font-size:13px;margin-bottom:16px">We'll email your PIN to the address you registered with.</p>
+    <div style="margin-bottom:12px"><label>Game ID</label><input id="prHostId" placeholder="MIKE-4821" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" /></div>
+    <div style="margin-bottom:12px"><label>Your Email</label><input id="prEmail" type="email" placeholder="you@email.com" /></div>
+    <div id="prMsg" style="font-size:13px;min-height:18px;margin-bottom:8px"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modalPinRecovery')">Cancel</button>
+      <button class="btn btn-gold" onclick="sendPinRecovery()">📧 Email My PIN</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ==================== STATE ====================
+const S = {
+  registryUrl:'https://script.google.com/macros/s/AKfycbyCOtjA3wQoJIm12XkWzsxHebItQTNayzVbNFqR7I_Gc7xSJoRKnWw7ixXW8HecSWLbiw/exec',  // master registry script URL
+  scriptUrl:'',    // per-game script URL (looked up via registry)
+  hostId:'',       // assigned by registry
+  mode:null, player:null,
+  cfg:{}, grid:[], rowNums:[0,1,2,3,4,5,6,7,8,9], colNums:[0,1,2,3,4,5,6,7,8,9],
+  scores:{live:null,quarters:{}}, pendingCell:null, plStep:0,
+  _plEmail:'',_plHandle:'',_plPin:'',_plStatus:'',_plHostId:'',
+  _cdTimer:null, _cdOpen:null, _cdClose:null, _cdTotal:0
+};
+
+// ==================== API ====================
+// Call the per-game script (requires S.scriptUrl to be set)
+async function api(params) {
+  if (!S.scriptUrl) throw new Error('No game script URL. Please log in first.');
+  const url = new URL(S.scriptUrl);
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, String(v)));
+  const r = await fetch(url.toString());
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const j = await r.json();
+  if (j.status === 'error') throw new Error(j.message);
+  return j.data;
+}
+
+// Call the master registry script
+async function registry(params) {
+  const regUrl = S.registryUrl || S.cfg.registryUrl || localStorage.getItem('sbs_registryUrl') || '';
+  if (!regUrl) throw new Error('No registry URL configured. Check Setup tab.');
+  const url = new URL(regUrl);
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, String(v)));
+  const r = await fetch(url.toString());
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const j = await r.json();
+  if (j.status === 'error') throw new Error(j.message);
+  return j.data;
+}
+
+// ==================== CONFIG ====================
+async function saveConfig() {
+  const url = gi('cfgScriptUrl');
+  if (!url) { toast('Enter the Game Script URL first','error'); return; }
+  S.scriptUrl = url;
+  const registryUrl = gi('cfgRegistryUrl') || S.registryUrl;
+  const cfg = {
+    registryUrl,
+    scriptUrl:url,
+    hostId:    S.hostId || gi('cfgHostId'),
+    title:     gi('cfgTitle') || 'Super Bowl Squares',
+    hostName:  gi('cfgHostName'),
+    team1:     gi('cfgTeam1') || 'Home Team',
+    team2:     gi('cfgTeam2') || 'Away Team',
+    logo1:     gi('cfgLogo1'),
+    logo2:     gi('cfgLogo2'),
+    gridBg:    gi('cfgGridBg'),
+    gridBgOpacity: document.getElementById('cfgGridBgOpacity')?.value || '20',
+    maxSquares:gi('cfgMaxSquares') || '5',
+    openTime:  gi('cfgOpenTime'),
+    deadline:  gi('cfgDeadline'),
+    randomize: gi('cfgRandomize'),
+    // Store entry code as plain string — prefix with apostrophe trick handled in sheet by Apps Script
+    entryCode: gi('cfgEntryCode').toUpperCase(),
+    hostPw:    gi('cfgHostPw') || 'host1234',
+    payQ1:gi('cfgPayQ1'), payQ2:gi('cfgPayQ2'), payQ3:gi('cfgPayQ3'),
+    payFinal:gi('cfgPayFinal'), payNotes:gi('cfgPayNotes'),
+    rowNums: S.rowNums.join(','), colNums: S.colNums.join(','),
+  };
+  try {
+    const rows = Object.entries(cfg).map(([k,val]) => [k, val]);
+    await api({action:'setRange',sheet:'Config',row:1,col:1,values:JSON.stringify(rows)});
+    S.cfg = cfg;
+    localStorage.setItem('sbs_cfg', JSON.stringify(cfg));
+    toast('Configuration saved ✅','success');
+    updateHostStatus(); fillScoringLabels();
+    document.getElementById('hostSubTitle').textContent =
+      `${cfg.title}${cfg.hostName ? ' · hosted by '+cfg.hostName : ''}`;
+  } catch(e) { toast('Save error: '+e.message,'error'); }
+}
+
+async function loadConfigFromSheet() {
+  try {
+    const rows = await api({action:'get',sheet:'Config'});
+    const cfg = {};
+    rows.forEach(r => { if (r[0]) cfg[r[0]] = r[1] ?? ''; });
+    S.cfg = cfg;
+    S.scriptUrl = cfg.scriptUrl || S.scriptUrl;
+    S.rowNums = cfg.rowNums ? cfg.rowNums.split(',').map(Number) : [0,1,2,3,4,5,6,7,8,9];
+    S.colNums = cfg.colNums ? cfg.colNums.split(',').map(Number) : [0,1,2,3,4,5,6,7,8,9];
+    return cfg;
+  } catch(e) { return null; }
+}
+
+async function testConnection() {
+  const url = gi('cfgScriptUrl');
+  if (!url) { toast('Enter URL first','error'); return; }
+  S.scriptUrl = url;
+  const el = document.getElementById('connTestResult');
+  el.textContent = 'Testing…'; el.style.color = 'var(--gray)';
+  try {
+    await api({action:'get',sheet:'Config'});
+    el.textContent = '✅ Connected!'; el.style.color = 'var(--green-bright)';
+  } catch(e) { el.textContent = '❌ '+e.message.substring(0,80); el.style.color = 'var(--red)'; }
+}
+
+async function initSheetTabs() {
+  const url = gi('cfgScriptUrl');
+  if (!url) { toast('Enter URL first','error'); return; }
+  S.scriptUrl = url;
+  try {
+    await api({action:'init'});
+    toast('Sheet tabs created/verified ✅','success');
+  } catch(e) { toast('Init error: '+e.message,'error'); }
+}
+
+// ==================== LOGO PREVIEW ====================
+function previewLogo(imgId, inputId) {
+  const src = gi(inputId);
+  const img = document.getElementById(imgId);
+  if (src) { img.src = src; img.style.display = 'block'; img.onerror = ()=>img.style.display='none'; }
+  else img.style.display = 'none';
+}
+
+function previewGridBg() {
+  const src = gi('cfgGridBg');
+  const opacity = (document.getElementById('cfgGridBgOpacity')?.value || 20) / 100;
+  const el = document.getElementById('gridBgPreview');
+  if (!el) return;
+  if (src) {
+    el.style.display = 'block';
+    el.style.backgroundImage = `url('${src}')`;
+    el.style.opacity = opacity + 0.4; // preview slightly brighter than actual
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+// ==================== GRID ====================
+async function loadGrid() {
+  try {
+    const rows = await api({action:'get',sheet:'Grid'});
+    S.grid = [];
+    for (let r=0;r<10;r++) {
+      S.grid[r] = [];
+      for (let c=0;c<10;c++) S.grid[r][c] = rows[r+1]?.[c+1] ?? '';
+    }
+    await loadConfigFromSheet();
+    renderGrid('hostGridContainer', true);
+    renderGrid('playerGridContainer', false);
+    renderQResults('quarterResultsHost');
+    renderQResults('quarterResultsPlayer');
+  } catch(e) { toast('Grid load error: '+e.message,'error'); }
+}
+
+function renderGrid(containerId, isHost) {
+  const el = document.getElementById(containerId); if (!el) return;
+  const cfg = S.cfg;
+  const team1  = cfg.team1  || 'Home Team';
+  const team2  = cfg.team2  || 'Away Team';
+  const logo1  = cfg.logo1  || '';
+  const logo2  = cfg.logo2  || '';
+  const gridBg = cfg.gridBg || '';
+  const bgOpacity = parseFloat(cfg.gridBgOpacity || 20) / 100;
+  const deadline = cfg.deadline ? new Date(cfg.deadline) : null;
+  const openTime = cfg.openTime ? new Date(cfg.openTime) : null;
+  const now = new Date();
+  const isOpen = (!openTime || now >= openTime) && (!deadline || now < deadline);
+
+  const img1 = logo1 ? `<img src="${logo1}" style="width:28px;height:28px;object-fit:contain;border-radius:4px;transform:rotate(90deg);flex-shrink:0" onerror="this.style.display='none'" />` : '';
+  const img2 = logo2 ? `<img src="${logo2}" style="width:28px;height:28px;object-fit:contain;border-radius:4px;flex-shrink:0" onerror="this.style.display='none'" />` : '';
+
+  let h = `<div class="grid-outer" style="overflow-x:auto">`;
+  h += `<div class="side-label">${img1}<span>${team1} ↑</span></div>`;
+  h += `<div class="grid-inner">`;
+
+  // Top label — exactly 520px (10×52), offset 52px for row-num column
+  h += `<div class="top-label">${img2}<span>${team2} →</span></div>`;
+
+  // grid-body: position:relative container for bg image
+  h += `<div class="grid-body">`;
+
+  // Background image — absolutely positioned behind column numbers and grid cells
+  // Sits from top:0, left:52px (after row-num col), spans 520×552px (32 col-header + 520 cells)
+  if (gridBg) {
+    h += `<img src="${gridBg}" onerror="this.style.display='none'"
+      style="position:absolute;top:0;left:52px;width:520px;height:552px;
+             object-fit:cover;object-position:center;opacity:${bgOpacity};
+             pointer-events:none;z-index:0;display:block" />`;
+  }
+
+  // Column number header row
+  h += `<div style="display:flex;position:relative;z-index:1">`;
+  // spacer for row-num column
+  h += `<div style="width:52px;min-width:52px;flex-shrink:0"></div>`;
+  for (let c=0;c<10;c++) {
+    const bL = c===0 ? 'border-left:1px solid var(--border)' : 'border-left:none';
+    // col-num bg: semi-transparent dark so number is legible over bg image
+    h += `<div style="width:52px;min-width:52px;flex-shrink:0;height:32px;display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:var(--gold);background:rgba(13,17,23,0.82);border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border);${bL}">${S.colNums[c]}</div>`;
+  }
+  h += `</div>`;
+
+  // Grid rows
+  h += `<div style="position:relative;z-index:1">`;
+  for (let r=0;r<10;r++) {
+    h += `<div style="display:flex">`;
+    const rBB = r===9 ? 'border-bottom:1px solid var(--border)' : 'border-bottom:none';
+    // Row number — semi-transparent bg so legible over image
+    h += `<div style="width:52px;min-width:52px;flex-shrink:0;height:52px;display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:var(--gold);background:rgba(13,17,23,0.82);border-left:1px solid var(--border);border-right:1px solid var(--border);border-top:1px solid var(--border);${rBB}">${S.rowNums[r]}</div>`;
+
+    for (let c=0;c<10;c++) {
+      const val    = S.grid[r]?.[c] || '';
+      const handle = val ? val.split('|')[0] : '';
+      const isMe   = S.player && handle === S.player.handle;
+      const isActive = isCurrentScore(r,c);
+      const isWin    = isWinner(r,c);
+
+      const bT = 'border-top:1px solid var(--border)';
+      const bR = 'border-right:1px solid var(--border)';
+      const bB = r===9 ? 'border-bottom:1px solid var(--border)' : 'border-bottom:none';
+      const bL = c===0 ? 'border-left:1px solid var(--border)' : 'border-left:none';
+      const borders = `${bT};${bR};${bB};${bL}`;
+
+      // Claimed squares: opaque solid bg covers the image (the "reveal" mechanic)
+      // Empty squares: transparent so bg image shows through
+      let bg, color='', textShadow='';
+      if (isWin)         { bg='background:rgba(82,183,136,0.92)';  color='color:#fff'; }
+      else if (isActive) { bg='background:rgba(245,197,24,0.92)';  color='color:var(--dark)'; }
+      else if (isMe)     { bg='background:rgba(200,160,20,0.92)';  color='color:#fff'; textShadow='text-shadow:0 1px 2px rgba(0,0,0,0.5)'; }
+      else if (val)      { bg='background:rgba(20,55,30,0.90)';    color='color:var(--green-bright)'; }
+      else               { bg = gridBg ? 'background:transparent' : 'background:var(--dark3)'; }
+
+      const glow = isActive ? 'box-shadow:0 0 18px rgba(245,197,24,0.7);animation:pulse 1.1s infinite;position:relative;z-index:3;' :
+                   isWin    ? 'box-shadow:0 0 18px rgba(82,183,136,0.6);position:relative;z-index:2;' : '';
+      const cursor  = (!isHost && isOpen && !val) ? 'cursor:pointer' : val ? 'cursor:default' : 'cursor:not-allowed;opacity:.7';
+      const onclick = (!isHost && isOpen && !val) ? `onclick="claimSquare(${r},${c})"` : '';
+      const display = val ? handle : (isActive ? '🏈' : isWin ? '🏆' : '');
+
+      const hoverBg = gridBg ? 'rgba(245,197,24,0.28)' : 'rgba(245,197,24,0.15)';
+      const hIn  = (!isHost && isOpen && !val) ? `onmouseenter="this.style.background='${hoverBg}'"` : '';
+      const hOut = (!isHost && isOpen && !val) ? `onmouseleave="this.style.background='${gridBg?'transparent':'var(--dark3)'}'"` : '';
+
+      h += `<div style="width:52px;min-width:52px;flex-shrink:0;height:52px;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;text-align:center;word-break:break-word;line-height:1.2;padding:2px;overflow:hidden;transition:background .15s;${borders};${bg};${color};${textShadow};${glow};${cursor}" ${onclick} ${hIn} ${hOut} title="${val||'Available'}">${display}</div>`;
+    }
+    h += `</div>`;
+  }
+  h += `</div>`; // close grid rows div
+  h += `</div>`; // close grid-body
+  h += `</div>`; // close grid-inner
+  h += `</div>`; // close grid-outer
+
+  el.innerHTML = h;
+}
+
+
+function isCurrentScore(r,c) {
+  if (!S.scores.live) return false;
+  const {home,away} = S.scores.live;
+  return S.rowNums[r] === (home%10) && S.colNums[c] === (away%10);
+}
+function isWinner(r,c) {
+  return Object.values(S.scores.quarters).some(q =>
+    S.rowNums[r] === (q.home%10) && S.colNums[c] === (q.away%10));
+}
+
+// ==================== SCORING ====================
+async function updateLiveScore() {
+  const home = parseInt(document.getElementById('scoreHome').value)||0;
+  const away = parseInt(document.getElementById('scoreAway').value)||0;
+  S.scores.live = {home,away};
+  try {
+    await api({action:'setRange',sheet:'Scores',row:1,col:1,
+      values:JSON.stringify([['LIVE',home,away,'',new Date().toISOString()]])});
+    toast('Live score updated 🔴','success');
+    renderGrid('hostGridContainer',true); renderGrid('playerGridContainer',false);
+    updateScoreBoard();
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+async function recordQuarter(q,label) {
+  const h=parseInt(document.getElementById(`q${q}h`).value);
+  const a=parseInt(document.getElementById(`q${q}a`).value);
+  if (isNaN(h)||isNaN(a)) { toast('Enter both scores','error'); return; }
+  S.scores.quarters[q] = {home:h,away:a};
+  const wr=S.rowNums.indexOf(h%10), wc=S.colNums.indexOf(a%10);
+  const winner=(wr>=0&&wc>=0)?(S.grid[wr]?.[wc]||'unclaimed'):'unclaimed';
+  S.scores.quarters[q].winner = winner;
+  try {
+    await api({action:'setRange',sheet:'Scores',row:q+1,col:1,
+      values:JSON.stringify([[label,h,a,winner,new Date().toISOString()]])});
+    toast(`Recorded! Winner: ${winner.split('|')[0]} 🏆`,'success');
+    renderGrid('hostGridContainer',true); renderGrid('playerGridContainer',false);
+    renderQResults('quarterResultsHost'); renderQResults('quarterResultsPlayer');
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+async function loadScores() {
+  try {
+    const rows = await api({action:'get',sheet:'Scores'});
+    rows.forEach(row => {
+      if (!row[0]) return;
+      const lbl=row[0], h=parseInt(row[1]), a=parseInt(row[2]);
+      if (lbl==='LIVE')  S.scores.live={home:h||0,away:a||0};
+      else if (lbl==='Q1')    S.scores.quarters[1]={home:h,away:a,winner:row[3]};
+      else if (lbl==='HALF')  S.scores.quarters[2]={home:h,away:a,winner:row[3]};
+      else if (lbl==='Q3')    S.scores.quarters[3]={home:h,away:a,winner:row[3]};
+      else if (lbl==='FINAL') S.scores.quarters[4]={home:h,away:a,winner:row[3]};
+    });
+    updateScoreBoard();
+  } catch(e) {}
+}
+
+function updateScoreBoard() {
+  if (!S.scores.live) return;
+  const cfg = S.cfg;
+  document.getElementById('sb_score1').textContent = S.scores.live.home ?? 0;
+  document.getElementById('sb_score2').textContent = S.scores.live.away ?? 0;
+  document.getElementById('sb_team1').textContent  = cfg.team1||'Home';
+  document.getElementById('sb_team2').textContent  = cfg.team2||'Away';
+  document.getElementById('sb_label1').textContent = cfg.team1||'Home';
+  document.getElementById('sb_label2').textContent = cfg.team2||'Away';
+  document.getElementById('scoreBoardDisplay').style.display = 'block';
+}
+
+function renderQResults(elId) {
+  const el = document.getElementById(elId); if (!el) return;
+  const cfg=S.cfg, labels=['Q1','Halftime','Q3','Final'];
+  const payouts=[cfg.payQ1,cfg.payQ2,cfg.payQ3,cfg.payFinal];
+  const hasAny = Object.keys(S.scores.quarters).length > 0;
+  if (elId==='quarterResultsPlayer') el.style.display = hasAny ? 'block' : 'none';
+  let h = `<div class="quarter-results">`;
+  for (let i=1;i<=4;i++) {
+    const q=S.scores.quarters[i];
+    h += `<div class="qr ${q?'has-winner':''}"><div class="q-label">${labels[i-1]}</div>`;
+    if (q) {
+      h += `<div class="q-score" style="color:var(--gold)">${q.home} – ${q.away}</div>
+            <div class="q-winner">🏆 ${(q.winner||'—').split('|')[0]}</div>`;
+    } else {
+      h += `<div class="q-score" style="color:var(--gray)">— – —</div><div class="q-winner" style="color:var(--gray)">Pending</div>`;
+    }
+    if (payouts[i-1]) h += `<div style="font-size:11px;color:${q?'var(--green-bright)':'var(--gray)'}">${payouts[i-1]}</div>`;
+    h += `</div>`;
+  }
+  h += `</div>`;
+  el.innerHTML = h;
+}
+
+// ==================== PLAYERS ====================
+// Cache of player rows for approval operations: [{rowIndex, handle, email, status}, ...]
+S._playerRows = [];
+
+async function loadPlayersTab() {
+  const el = document.getElementById('playersTableContainer');
+  const countEl = document.getElementById('pendingCountMsg');
+  try {
+    const rows  = await api({action:'get',sheet:'Players'});
+    const gRows = await api({action:'get',sheet:'Grid'});
+    const counts = {};
+    for (let r=0;r<10;r++) for (let c=0;c<10;c++) {
+      const val = gRows[r+1]?.[c+1]||'';
+      if (val) { const h=val.split('|')[0]; counts[h]=(counts[h]||0)+1; }
+    }
+    const data = rows.slice(1).filter(r=>r[0]);
+    // Cache with sheet row index (1-based; row 1 = header, so data starts at row 2)
+    S._playerRows = data.map((r,i) => ({
+      sheetRow: i+2,
+      handle:   r[0],
+      email:    r[1],
+      pin:      r[2],
+      joined:   r[3],
+      status:   r[4] || 'pending',
+    }));
+
+    const pendingCount = S._playerRows.filter(p=>p.status!=='approved').length;
+    if (countEl) countEl.textContent = pendingCount > 0 ? `⚠️ ${pendingCount} player${pendingCount>1?'s':''} pending approval` : '✅ All players approved';
+
+    if (!data.length) { el.innerHTML='<div style="color:var(--gray);padding:20px;text-align:center">No players yet</div>'; return; }
+
+    let h = `<table>
+      <tr>
+        <th style="width:36px">✅</th>
+        <th>Handle</th><th>Email</th><th>Status</th><th>Squares</th><th>Joined</th>
+      </tr>`;
+    S._playerRows.forEach((p,i) => {
+      const isApproved = p.status === 'approved';
+      const statusPill = isApproved
+        ? `<span class="status-pill-approved">✓ Approved</span>`
+        : `<span class="status-pill-pending">⏳ Pending</span>`;
+      const rowCls = isApproved ? '' : 'player-row-pending';
+      h += `<tr class="${rowCls}" id="playerRow_${i}">
+        <td><input type="checkbox" class="approve-check" ${isApproved?'checked':''} onchange="approvePlayer(${i}, this.checked)" title="${isApproved?'Revoke approval':'Approve player'}" /></td>
+        <td style="color:var(--gold);font-weight:600">${p.handle}</td>
+        <td style="color:var(--gray)">${p.email}</td>
+        <td id="playerStatus_${i}">${statusPill}</td>
+        <td>${counts[p.handle]||0}</td>
+        <td style="color:var(--gray);font-size:12px">${p.joined ? new Date(p.joined).toLocaleDateString() : '—'}</td>
+      </tr>`;
+    });
+    h += `</table>`;
+    el.innerHTML = h;
+  } catch(e) { el.innerHTML=`<div style="color:var(--red);padding:16px">${e.message}</div>`; }
+}
+
+async function approvePlayer(idx, approve) {
+  const p = S._playerRows[idx];
+  if (!p) return;
+  const newStatus = approve ? 'approved' : 'pending';
+  const statusEl = document.getElementById(`playerStatus_${idx}`);
+  const rowEl    = document.getElementById(`playerRow_${idx}`);
+  // Optimistic UI update
+  if (statusEl) statusEl.innerHTML = newStatus==='approved'
+    ? `<span class="status-pill-approved">✓ Approved</span>`
+    : `<span class="status-pill-pending">⏳ Pending</span>`;
+  if (rowEl) rowEl.className = newStatus==='approved' ? '' : 'player-row-pending';
+  p.status = newStatus;
+  try {
+    // Col 5 = status (A=handle, B=email, C=pin, D=joined, E=status)
+    await api({action:'set', sheet:'Players', row:p.sheetRow, col:5, value:newStatus});
+    const pendingCount = S._playerRows.filter(pp=>pp.status!=='approved').length;
+    const countEl = document.getElementById('pendingCountMsg');
+    if (countEl) countEl.textContent = pendingCount > 0
+      ? `⚠️ ${pendingCount} player${pendingCount>1?'s':''} pending approval`
+      : '✅ All players approved';
+    toast(`${p.handle} ${approve ? 'approved ✅' : 'set to pending'}`, 'success');
+  } catch(e) {
+    toast('Error saving: '+e.message,'error');
+    // Revert
+    p.status = approve ? 'pending' : 'approved';
+    if (statusEl) statusEl.innerHTML = p.status==='approved'
+      ? `<span class="status-pill-approved">✓ Approved</span>`
+      : `<span class="status-pill-pending">⏳ Pending</span>`;
+  }
+}
+
+async function approveAllPending() {
+  const pending = S._playerRows.filter(p=>p.status!=='approved');
+  if (!pending.length) { toast('No pending players','success'); return; }
+  for (const p of pending) {
+    await approvePlayer(S._playerRows.indexOf(p), true);
+  }
+  toast(`Approved ${pending.length} player${pending.length>1?'s':''}! ✅`,'success');
+}
+
+function updatePaymentStatusBanner() {
+  const banner = document.getElementById('paymentStatusBanner');
+  const icon   = document.getElementById('psbIcon');
+  const title  = document.getElementById('psbTitle');
+  const msg    = document.getElementById('psbMsg');
+  if (!banner || !S.player) return;
+  const status = S.player.status || 'pending';
+  banner.className = status; // 'pending' or 'approved'
+  if (status === 'approved') {
+    icon.textContent  = '✅';
+    title.textContent = 'Payment Approved — You\'re In!';
+    msg.textContent   = 'Your payment has been confirmed. Click any open square on the grid below to claim it.';
+    // Hide banner after 5s once approved
+    setTimeout(() => { banner.style.opacity='0'; banner.style.transition='opacity 1s'; setTimeout(()=>banner.style.display='none',1000); }, 5000);
+  } else {
+    icon.textContent  = '⏳';
+    title.textContent = 'Awaiting Payment Confirmation';
+    msg.textContent   = `Your spot is reserved! Once ${S.cfg.hostName||'the host'} confirms your payment you'll be able to pick squares. ${S.cfg.payNotes||''}`;
+  }
+}
+
+// ==================== CLAIM ====================
+function claimSquare(r,c) {
+  if (!S.player) { toast('Please log in first','error'); return; }
+  if (S.player.status !== 'approved') {
+    toast('⏳ Waiting for host to approve your payment before you can pick squares.','error');
+    return;
+  }
+  const max = parseInt(S.cfg.maxSquares)||5;
+  let count=0;
+  for (let rr=0;rr<10;rr++) for (let cc=0;cc<10;cc++)
+    if ((S.grid[rr]?.[cc]||'').split('|')[0]===S.player.handle) count++;
+  S.pendingCell = {r,c};
+  document.getElementById('claimInfo').textContent =
+    `Claim square: ${S.cfg.team1||'Home'} ${S.rowNums[r]} — ${S.cfg.team2||'Away'} ${S.colNums[c]}`;
+  const over = count >= max;
+  document.getElementById('claimLimit').textContent = over
+    ? `⚠️ You've reached your limit of ${max} squares.`
+    : `You have ${count} of ${max} max squares.`;
+  document.getElementById('btnConfirmClaim').disabled = over;
+  openModal('modalClaim');
+}
+
+async function confirmClaim() {
+  const {r,c} = S.pendingCell;
+  if (S.grid[r]?.[c]) { toast('Already taken!','error'); closeModal('modalClaim'); return; }
+  const val = `${S.player.handle}|${S.player.email}`;
+  S.grid[r][c] = val;
+  try {
+    await api({action:'set',sheet:'Grid',row:r+2,col:c+2,value:val});
+    closeModal('modalClaim');
+    toast('Square claimed! ✅','success');
+    renderGrid('playerGridContainer',false); updateMySquares();
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
+function updateMySquares() {
+  const el = document.getElementById('playerMySquares'); if (!S.player||!el) return;
+  const sq=[];
+  for (let r=0;r<10;r++) for (let c=0;c<10;c++)
+    if ((S.grid[r]?.[c]||'').split('|')[0]===S.player.handle) sq.push({r,c});
+
+  const isPending = S.player.status !== 'approved';
+
+  if (!sq.length && !isPending) { el.innerHTML=''; return; }
+
+  const cfg=S.cfg;
+  let h=`<div class="card">`;
+
+  if (isPending) {
+    h+=`<div style="display:flex;align-items:center;gap:12px;padding:4px 0 16px">
+      <span style="font-size:28px">⏳</span>
+      <div>
+        <div style="font-weight:600;font-size:15px;margin-bottom:3px">Payment Pending Approval</div>
+        <div style="font-size:13px;color:var(--gray)">You'll be able to claim squares once ${cfg.hostName||'the host'} approves your payment.${cfg.payNotes?' <em>'+cfg.payNotes+'</em>':''}</div>
+      </div>
+    </div>`;
+  }
+
+  if (sq.length) {
+    h+=`<h3>Your Squares</h3><div style="display:flex;flex-wrap:wrap;gap:8px">`;
+    sq.forEach(({r,c}) => {
+      const isWin = isWinner(r,c);
+      const extra = isWin ? 'background:rgba(82,183,136,0.2);border-color:var(--green-bright);' : '';
+      h+=`<div style="background:rgba(245,197,24,0.15);border:1px solid var(--gold);${extra}border-radius:8px;padding:8px 14px;font-family:'Space Mono',monospace;font-size:13px;color:var(--gold)">
+        ${(cfg.team1||'HM').substring(0,3).toUpperCase()} <strong>${S.rowNums[r]}</strong> – ${(cfg.team2||'AW').substring(0,3).toUpperCase()} <strong>${S.colNums[c]}</strong>
+        ${isWin?'<span style="color:var(--green-bright);margin-left:4px">🏆</span>':''}</div>`;
+    });
+    h+=`</div>`;
+  }
+
+  h+=`</div>`;
+  el.innerHTML=h;
+}
+
+// ==================== COUNTDOWN ====================
+function startCountdown() {
+  const cfg = S.cfg;
+  if (S._cdTimer) clearInterval(S._cdTimer);
+  const bar   = document.getElementById('countdownBar');
+  const cdD   = document.getElementById('cdD');
+  const cdH   = document.getElementById('cdH');
+  const cdM   = document.getElementById('cdM');
+  const cdS   = document.getElementById('cdS');
+  const cdStatus = document.getElementById('cdStatus');
+  const cdLabel  = document.getElementById('cdLabel');
+  const cdBarEl  = document.getElementById('cdBar');
+
+  S._cdOpen  = cfg.openTime  ? new Date(cfg.openTime)  : null;
+  S._cdClose = cfg.deadline  ? new Date(cfg.deadline)  : null;
+
+  if (!S._cdOpen && !S._cdClose) { bar.style.display='none'; return; }
+  bar.style.display = 'block';
+
+  function tick() {
+    const now = new Date();
+    let target=null, pct=0;
+
+    if (S._cdClose && now >= S._cdClose) {
+      cdStatus.textContent = '🔒 Squares are closed';
+      cdStatus.className = 'cd-status closed';
+      cdLabel.textContent = 'Picking has ended';
+      [cdD,cdH,cdM,cdS].forEach(e=>e.textContent='00');
+      cdBarEl.style.width='100%'; cdBarEl.style.background='var(--red)';
+      clearInterval(S._cdTimer); return;
+    }
+    if (S._cdOpen && now < S._cdOpen) {
+      target = S._cdOpen;
+      cdLabel.textContent = 'Time Until Picking Opens';
+      cdStatus.textContent = '⏳ Not yet open';
+      cdStatus.className = 'cd-status waiting';
+      const total = S._cdOpen - (S._cdClose ? S._cdOpen - 86400000 : now);
+      pct = Math.min(100, ((now - (S._cdOpen - 86400000)) / 86400000) * 100);
+    } else if (S._cdClose) {
+      target = S._cdClose;
+      cdLabel.textContent = 'Time Until Squares Close';
+      cdStatus.textContent = '✅ Open for picking!';
+      cdStatus.className = 'cd-status open';
+      if (!S._cdOpen) { S._cdTotal = S._cdTotal || (S._cdClose - now + (now - new Date(now.toDateString()))); }
+      const total = S._cdOpen ? (S._cdClose - S._cdOpen) : S._cdTotal || (S._cdClose - now) + 1;
+      const elapsed = S._cdOpen ? (now - S._cdOpen) : 0;
+      pct = total > 0 ? Math.min(100, (elapsed / total) * 100) : 0;
+      cdBarEl.style.background = 'var(--gold)';
+    }
+
+    if (!target) return;
+    const diff = Math.max(0, target - now);
+    const dd = Math.floor(diff / 86400000);
+    const hh = Math.floor((diff % 86400000) / 3600000);
+    const mm = Math.floor((diff % 3600000) / 60000);
+    const ss = Math.floor((diff % 60000) / 1000);
+    cdD.textContent = String(dd).padStart(2,'0');
+    cdH.textContent = String(hh).padStart(2,'0');
+    cdM.textContent = String(mm).padStart(2,'0');
+    cdS.textContent = String(ss).padStart(2,'0');
+    cdBarEl.style.width = pct+'%';
+  }
+  tick();
+  S._cdTimer = setInterval(tick, 1000);
+}
+
+// ==================== HOST AUTH ====================
+function showHostLogin() { resetHostLoginModal(); openModal('modalHostLogin'); }
+
+function resetHostLoginModal() {
+  document.getElementById('hlLoginForm').style.display='block';
+  document.getElementById('hlRecoverForm').style.display='none';
+  document.getElementById('hlRegisterForm').style.display='none';
+  document.getElementById('hlMainBtn').textContent='Login';
+  document.getElementById('hlMainBtn').onclick=hostLogin;
+}
+
+function showHostRecoverPw() {
+  document.getElementById('hlLoginForm').style.display='none';
+  document.getElementById('hlRecoverForm').style.display='block';
+  document.getElementById('hlRegisterForm').style.display='none';
+  document.getElementById('hlMainBtn').textContent='Send Password Email';
+  document.getElementById('hlMainBtn').onclick=sendHostRecoverPw;
+  document.getElementById('hlRecoverMsg').textContent='';
+}
+
+function showHostRegister() {
+  document.getElementById('hlLoginForm').style.display='none';
+  document.getElementById('hlRecoverForm').style.display='none';
+  document.getElementById('hlRegisterForm').style.display='block';
+  document.getElementById('hlMainBtn').textContent='Submit Registration';
+  document.getElementById('hlMainBtn').onclick=submitHostRegister;
+  document.getElementById('hlRegMsg').textContent='';
+}
+
+async function hostLogin() {
+  const hostId = document.getElementById('hlHostId').value.trim().toUpperCase();
+  const pw     = document.getElementById('hlPassword').value;
+  if (!hostId || !pw) { toast('Enter Host ID and password','error'); return; }
+  // Look up game script URL from registry
+  const regUrl = S.registryUrl || localStorage.getItem('sbs_registryUrl');
+  if (!regUrl) { toast('No registry URL configured. Ask the app administrator.','error'); return; }
+  S.registryUrl = regUrl;
+  try {
+    const data = await registry({action:'lookup', hostId});
+    S.scriptUrl = data.gameScriptUrl;
+    S.hostId    = hostId;
+  } catch(e) { toast('Registry error: '+e.message,'error'); return; }
+  // Now verify password against the game's Config sheet
+  const cfg = await loadConfigFromSheet();
+  const correctPw = (cfg&&cfg.hostPw) || 'host1234';
+  if (pw !== correctPw) { toast('Wrong password','error'); return; }
+  closeModal('modalHostLogin');
+  S.mode='host';
+  showPanel('panelHost');
+  navBadge('🎯 HOST');
+  toast('Welcome, Host! ✅','success');
+  fillFormFromConfig(); updateHostStatus();
+  document.getElementById('hostSubTitle').textContent =
+    `${S.cfg.title||'Super Bowl Squares'}${S.cfg.hostName ? ' · hosted by '+S.cfg.hostName : ''}`;
+}
+
+async function sendHostRecoverPw() {
+  const hostId = document.getElementById('hlRecoverId').value.trim().toUpperCase();
+  const email  = document.getElementById('hlRecoverEmail').value.trim();
+  const msgEl  = document.getElementById('hlRecoverMsg');
+  if (!hostId||!email) { msgEl.textContent='Fill in both fields.'; msgEl.style.color='var(--red)'; return; }
+  msgEl.textContent='Sending…'; msgEl.style.color='var(--gray)';
+  try {
+    await registry({action:'recoverHostPin', hostId, email});
+    msgEl.textContent='✅ Email sent! Check your inbox.'; msgEl.style.color='var(--green-bright)';
+  } catch(e) { msgEl.textContent='❌ '+e.message; msgEl.style.color='var(--red)'; }
+}
+
+async function submitHostRegister() {
+  const name          = document.getElementById('hlRegName').value.trim();
+  const email         = document.getElementById('hlRegEmail').value.trim();
+  const gameScriptUrl = document.getElementById('hlRegScriptUrl').value.trim();
+  const msgEl         = document.getElementById('hlRegMsg');
+  if (!name||!email||!gameScriptUrl) { msgEl.textContent='Fill in all fields.'; msgEl.style.color='var(--red)'; return; }
+  msgEl.textContent='Submitting…'; msgEl.style.color='var(--gray)';
+  try {
+    const data = await registry({action:'registerHost', name, email, gameScriptUrl});
+    msgEl.textContent=`✅ Registered! Host ID: ${data.hostId}. Check your email — you'll be notified when approved.`;
+    msgEl.style.color='var(--green-bright)';
+    document.getElementById('hlMainBtn').disabled=true;
+  } catch(e) { msgEl.textContent='❌ '+e.message; msgEl.style.color='var(--red)'; }
+}
+
+// ==================== PLAYER AUTH ====================
+function showPlayerLogin() { S.plStep=0; resetPlForm(); openModal('modalPlayerLogin'); }
+
+function showPlayerForgotPin() {
+  closeModal('modalPlayerLogin');
+  const hostId = document.getElementById('plHostId')?.value?.trim().toUpperCase() || '';
+  const email  = document.getElementById('plEmail')?.value?.trim() || '';
+  if (hostId) document.getElementById('prHostId').value = hostId;
+  if (email)  document.getElementById('prEmail').value  = email;
+  openModal('modalPinRecovery');
+}
+
+async function sendPinRecovery() {
+  const hostId = document.getElementById('prHostId').value.trim().toUpperCase();
+  const email  = document.getElementById('prEmail').value.trim();
+  const msgEl  = document.getElementById('prMsg');
+  if (!hostId||!email) { msgEl.textContent='Fill in both fields.'; msgEl.style.color='var(--red)'; return; }
+  msgEl.textContent='Sending…'; msgEl.style.color='var(--gray)';
+  try {
+    await registry({action:'recoverPin', hostId, email});
+    msgEl.textContent='✅ Email sent! Check your inbox.'; msgEl.style.color='var(--green-bright)';
+  } catch(e) { msgEl.textContent='❌ '+e.message; msgEl.style.color='var(--red)'; }
+}
+
+async function playerLoginStep() {
+  const msg = document.getElementById('playerLoginMsg');
+  const btn = document.getElementById('btnPlSubmit');
+
+  if (S.plStep===0) {
+    const hostId = document.getElementById('plHostId').value.trim().toUpperCase();
+    const code   = document.getElementById('plEntryCode').value.trim().toUpperCase();
+    const email  = document.getElementById('plEmail').value.trim().toLowerCase();
+    if (!hostId||!code||!email) { msg.textContent='Fill in all fields.'; msg.style.color='var(--red)'; return; }
+    msg.textContent='Looking up game…'; msg.style.color='var(--gray)';
+    // Resolve game URL from registry
+    try {
+      const data = await registry({action:'lookup', hostId});
+      S.scriptUrl   = data.gameScriptUrl;
+      S._plHostId   = hostId;
+    } catch(e) { msg.textContent='❌ '+e.message; msg.style.color='var(--red)'; return; }
+    // Load config to check entry code
+    const cfg = await loadConfigFromSheet();
+    if (!cfg) { msg.textContent='Cannot reach game data.'; msg.style.color='var(--red)'; return; }
+    // String compare — trim both sides, case-insensitive
+    const storedCode = String(cfg.entryCode||'').trim().toUpperCase();
+    if (storedCode && code !== storedCode) {
+      msg.textContent='❌ Wrong entry code.'; msg.style.color='var(--red)'; return;
+    }
+    msg.textContent='Checking player…'; msg.style.color='var(--gray)';
+    try {
+      const rows = await api({action:'get',sheet:'Players'});
+      const existing = rows.slice(1).find(r => String(r[1]||'').toLowerCase().trim()===email);
+      S._plEmail = email;
+      if (existing) {
+        S._plHandle=existing[0]; S._plPin=String(existing[2]); S._plStatus=existing[4]||'pending';
+        document.getElementById('returningPlayerFields').style.display='block';
+        document.getElementById('newPlayerFields').style.display='none';
+        msg.textContent=`Welcome back, ${existing[0]}! Enter your PIN.`; msg.style.color='var(--green-bright)';
+        S.plStep=2; btn.textContent='Login';
+      } else {
+        document.getElementById('newPlayerFields').style.display='block';
+        document.getElementById('returningPlayerFields').style.display='none';
+        msg.textContent='New player! Set your handle and PIN.'; msg.style.color='var(--gold)';
+        S.plStep=1; btn.textContent='Register & Join';
+      }
+    } catch(e) { msg.textContent='Error: '+e.message; msg.style.color='var(--red)'; }
+    return;
+  }
+
+  if (S.plStep===1) {
+    const handle = document.getElementById('plHandle').value.trim();
+    const pin    = document.getElementById('plPinNew').value.trim();
+    if (!handle||pin.length<4) { msg.textContent='Enter handle and 4-digit PIN.'; msg.style.color='var(--red)'; return; }
+    try {
+      await api({action:'append',sheet:'Players',
+        row:JSON.stringify([handle,S._plEmail,pin,new Date().toISOString(),'pending'])});
+      S.player={handle,email:S._plEmail,status:'pending'};
+      finishPlayerLogin();
+    } catch(e) { msg.textContent='Error: '+e.message; msg.style.color='var(--red)'; }
+    return;
+  }
+
+  if (S.plStep===2) {
+    const pin = document.getElementById('plPin').value.trim();
+    if (pin!==S._plPin) { msg.textContent='❌ Wrong PIN.'; msg.style.color='var(--red)'; return; }
+    S.player={handle:S._plHandle,email:S._plEmail,status:S._plStatus||'pending'};
+    finishPlayerLogin();
+    return;
+  }
+}
+
+async function finishPlayerLogin() {
+  closeModal('modalPlayerLogin');
+  S.mode='player';
+  showPanel('panelPlayer');
+  navBadge('👤 '+S.player.handle);
+  toast(`Welcome, ${S.player.handle}! 🏈`,'success');
+
+  // Re-fetch player status fresh from sheet (may have been approved since registration)
+  try {
+    const rows = await api({action:'get',sheet:'Players'});
+    const match = rows.slice(1).find(r => r[1]?.toLowerCase()===S.player.email);
+    if (match) S.player.status = match[4] || 'pending';
+  } catch(e) {}
+
+  await loadScores();
+  await loadGrid();
+  updateMySquares(); updateScoreBoard();
+  renderQResults('quarterResultsPlayer');
+  renderPayoutInfo();
+
+  // Game title
+  const cfg=S.cfg;
+  const titleEl = document.getElementById('gameTitleDisplay');
+  if (cfg.title) { titleEl.textContent=cfg.title; titleEl.style.display='block'; }
+
+  const deadline = cfg.deadline ? new Date(cfg.deadline) : null;
+  const openTime = cfg.openTime ? new Date(cfg.openTime) : null;
+  const now=new Date();
+  const st = deadline&&now>deadline ? '🔒 Picking closed'
+           : openTime&&now<openTime ? `⏳ Opens ${openTime.toLocaleString()}`
+           : '✅ Open for picking!';
+  document.getElementById('playerGameInfo').textContent =
+    `${cfg.team1||'?'} vs ${cfg.team2||'?'}${cfg.hostName?' · Hosted by '+cfg.hostName:''}  ·  ${st}`;
+
+  startCountdown();
+  updatePaymentStatusBanner();
+}
+
+async function playerRefresh() {
+  const btn = document.querySelector('[onclick="playerRefresh()"]');
+  if (btn) { btn.textContent='⏳'; btn.disabled=true; }
+  try {
+    await loadScores();
+    await loadGrid();
+    updateMySquares(); updateScoreBoard();
+    renderQResults('quarterResultsPlayer');
+    // Re-check approval status
+    try {
+      const rows = await api({action:'get',sheet:'Players'});
+      const match = rows.slice(1).find(r => String(r[1]||'').toLowerCase()===S.player.email);
+      if (match) {
+        const newStatus = match[4]||'pending';
+        if (newStatus !== S.player.status) {
+          S.player.status = newStatus;
+          updatePaymentStatusBanner();
+          if (newStatus==='approved') toast('🎉 You\'ve been approved! Pick your squares!','success');
+        }
+      }
+    } catch(e){}
+    toast('Refreshed ✅','success');
+  } finally {
+    if (btn) { btn.textContent='🔄 Refresh'; btn.disabled=false; }
+  }
+
+  const cfg=S.cfg; const el=document.getElementById('payoutInfoPlayer'); if (!el) return;
+  const labels=['Q1','Halftime','Q3','Final'], vals=[cfg.payQ1,cfg.payQ2,cfg.payQ3,cfg.payFinal];
+  if (!vals.some(Boolean)) return;
+  el.style.display='block';
+  el.innerHTML=`<div class="card" style="padding:14px"><h3 style="margin-bottom:10px">💰 Payouts</h3>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">${vals.map((p,i)=>p?`<div style="background:var(--dark3);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:11px;color:var(--gray)">${labels[i]}</div><div style="font-family:'Bebas Neue',cursive;font-size:22px;color:var(--gold)">${p}</div></div>`:'').join('')}</div>
+    ${cfg.payNotes?`<div style="color:var(--gray);font-size:12px;margin-top:8px">${cfg.payNotes}</div>`:''}</div>`;
+}
+
+function logout() {
+  S.mode=null; S.player=null; S.scriptUrl='';
+  if (S._cdTimer) clearInterval(S._cdTimer);
+  document.getElementById('btnLogout').style.display='none';
+  document.getElementById('btnHostLogin').style.display='';
+  document.getElementById('btnPlayerLogin').style.display='';
+  document.getElementById('navStatus').style.display='none';
+  showPanel('panelHome');
+  toast('Logged out','success');
+}
+
+// ==================== INVITE ====================
+function buildInviteBody(html=false) {
+  const c=S.cfg;
+  const ot = c.openTime ? new Date(c.openTime).toLocaleString() : 'TBD';
+  const dl = c.deadline ? new Date(c.deadline).toLocaleString() : 'TBD';
+  const host = c.hostName ? `Hosted by ${c.hostName}` : '';
+  const appUrl = window.location.href.split('?')[0]; // current page URL
+  const gameId = S.hostId || c.hostId || '(see host)';
+  if (html) {
+    return `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#0d1117;color:#f8f9fa;border-radius:12px;overflow:hidden">
+  <div style="background:#F5C518;padding:20px 24px;text-align:center">
+    <div style="font-size:36px">🏈</div>
+    <div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:#0d1117;margin:4px 0">${c.title||'Super Bowl Squares'}</div>
+    ${host?`<div style="font-size:14px;color:#333">${host}</div>`:''}
+  </div>
+  <div style="padding:24px">
+    <p style="font-size:16px;margin:0 0 16px">You're invited to play <strong>${c.team1||'Home'} vs ${c.team2||'Away'}</strong> Super Bowl Squares!</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+      <tr><td style="padding:8px 0;border-bottom:1px solid #21262d;color:#adb5bd;font-size:13px">🎮 Game ID</td><td style="padding:8px 0;border-bottom:1px solid #21262d;font-weight:700;font-size:18px;color:#F5C518;letter-spacing:1px">${gameId}</td></tr>
+      <tr><td style="padding:8px 0;border-bottom:1px solid #21262d;color:#adb5bd;font-size:13px">🔑 Entry Code</td><td style="padding:8px 0;border-bottom:1px solid #21262d;font-weight:700;font-size:16px;color:#F5C518">${c.entryCode||'(ask host)'}</td></tr>
+      <tr><td style="padding:8px 0;border-bottom:1px solid #21262d;color:#adb5bd;font-size:13px">⏰ Opens</td><td style="padding:8px 0;border-bottom:1px solid #21262d;font-size:13px">${ot}</td></tr>
+      <tr><td style="padding:8px 0;border-bottom:1px solid #21262d;color:#adb5bd;font-size:13px">🔒 Deadline</td><td style="padding:8px 0;border-bottom:1px solid #21262d;font-size:13px">${dl}</td></tr>
+      <tr><td style="padding:8px 0;color:#adb5bd;font-size:13px">📊 Max squares</td><td style="padding:8px 0;font-size:13px">${c.maxSquares||5} per player</td></tr>
+    </table>
+    ${(c.payQ1||c.payQ2||c.payQ3||c.payFinal)?`<div style="background:#161b22;border-radius:8px;padding:14px;margin-bottom:16px">
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#adb5bd;margin-bottom:10px">💰 Payouts</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">${[c.payQ1,c.payQ2,c.payQ3,c.payFinal].map((p,i)=>p?`<div style="background:#21262d;border-radius:6px;padding:8px 12px;text-align:center"><div style="font-size:11px;color:#adb5bd">${['Q1','Half','Q3','Final'][i]}</div><div style="font-size:18px;font-weight:700;color:#F5C518">${p}</div></div>`:'').join('')}</div>
+      ${c.payNotes?`<div style="font-size:12px;color:#adb5bd;margin-top:8px">${c.payNotes}</div>`:''}
+    </div>`:''}
+    <p style="font-size:13px;color:#adb5bd;margin:0 0 16px">Open the app, click <strong style="color:#f8f9fa">Join Game</strong>, and enter the Game ID and Entry Code above to pick your squares.</p>
+    <a href="${appUrl}" style="display:inline-block;background:#F5C518;color:#0d1117;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700">🏈 Open GridIron Squares →</a>
+  </div>
+</div>`;
+  }
+  // plain text
+  return `You're invited to play Super Bowl Squares!\n\n🏈 ${c.title||'Super Bowl Squares'}\n${host?host+'\n':''}\n${c.team1||'Home'} vs ${c.team2||'Away'}\n\n🎮 Game ID:    ${gameId}\n🔑 Entry Code: ${c.entryCode||'(ask host)'}\n⏰ Opens:      ${ot}\n🔒 Deadline:   ${dl}\n📊 Max squares: ${c.maxSquares||5} per player\n\n💰 Payouts: Q1 ${c.payQ1||'?'} | Half ${c.payQ2||'?'} | Q3 ${c.payQ3||'?'} | Final ${c.payFinal||'?'}\n${c.payNotes||''}\n\nOpen the app, click "Join Game", enter your Game ID and Entry Code:\n👉 ${appUrl}\n\nGood luck! 🏆`;
+
+    return `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#0d1117;color:#f8f9fa;border-radius:12px;overflow:hidden">
+  <div style="background:#F5C518;padding:20px 24px;text-align:center">
+    <div style="font-size:36px">🏈</div>
+    <div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:#0d1117;margin:4px 0">${c.title||'Super Bowl Squares'}</div>
+    ${host?`<div style="font-size:14px;color:#333">${host}</div>`:''}
+  </div>
+  <div style="padding:24px">
+    <p style="font-size:16px;margin:0 0 16px">You're invited to play <strong>${c.team1||'Home'} vs ${c.team2||'Away'}</strong> Super Bowl Squares!</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+      <tr><td style="padding:8px 0;border-bottom:1px solid #21262d;color:#adb5bd;font-size:13px">🔑 Entry Code</td><td style="padding:8px 0;border-bottom:1px solid #21262d;font-weight:700;font-size:16px;color:#F5C518">${c.entryCode||'(ask host)'}</td></tr>
+      <tr><td style="padding:8px 0;border-bottom:1px solid #21262d;color:#adb5bd;font-size:13px">⏰ Opens</td><td style="padding:8px 0;border-bottom:1px solid #21262d;font-size:13px">${ot}</td></tr>
+      <tr><td style="padding:8px 0;border-bottom:1px solid #21262d;color:#adb5bd;font-size:13px">🔒 Deadline</td><td style="padding:8px 0;border-bottom:1px solid #21262d;font-size:13px">${dl}</td></tr>
+      <tr><td style="padding:8px 0;color:#adb5bd;font-size:13px">📊 Max squares</td><td style="padding:8px 0;font-size:13px">${c.maxSquares||5} per player</td></tr>
+    </table>
+    ${(c.payQ1||c.payQ2||c.payQ3||c.payFinal)?`<div style="background:#161b22;border-radius:8px;padding:14px;margin-bottom:16px">
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#adb5bd;margin-bottom:10px">💰 Payouts</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">${[c.payQ1,c.payQ2,c.payQ3,c.payFinal].map((p,i)=>p?`<div style="background:#21262d;border-radius:6px;padding:8px 12px;text-align:center"><div style="font-size:11px;color:#adb5bd">${['Q1','Half','Q3','Final'][i]}</div><div style="font-size:18px;font-weight:700;color:#F5C518">${p}</div></div>`:'').join('')}</div>
+      ${c.payNotes?`<div style="font-size:12px;color:#adb5bd;margin-top:8px">${c.payNotes}</div>`:''}
+    </div>`:''}
+    <p style="font-size:13px;color:#adb5bd;margin:0">Open the app, click <strong style="color:#f8f9fa">Join Game</strong>, enter your email and the entry code above to pick your squares. Good luck! 🏆</p>
+  </div>
+</div>`;
+  
+  // plain text
+  return `You're invited to play Super Bowl Squares!\n\n🏈 ${c.title||'Super Bowl Squares'}\n${host?host+'\n':''}\n${c.team1||'Home'} vs ${c.team2||'Away'}\n\n🔑 Entry Code: ${c.entryCode||'(ask host)'}\n⏰ Opens: ${ot}\n🔒 Deadline: ${dl}\n📊 Max squares: ${c.maxSquares||5} per player\n\n💰 Payouts: Q1 ${c.payQ1||'?'} | Half ${c.payQ2||'?'} | Q3 ${c.payQ3||'?'} | Final ${c.payFinal||'?'}\n${c.payNotes||''}\n\nOpen the app, click "Join Game", enter your email + entry code above.\n\nGood luck! 🏆`;
+}
+
+function previewInvite() {
+  const el=document.getElementById('invitePreviewBox');
+  el.style.display='block'; el.textContent=buildInviteBody(false);
+}
+
+// Auto-send via Apps Script MailApp
+async function autoSendInvites() {
+  const emails = document.getElementById('inviteEmails').value.split('\n').map(e=>e.trim()).filter(Boolean);
+  if (!emails.length) { toast('Enter at least one email','error'); return; }
+  const resultEl = document.getElementById('inviteSendResult');
+  resultEl.textContent='Sending…'; resultEl.style.color='var(--gray)';
+  try {
+    const data = await api({
+      action:  'sendInvites',
+      emails:  JSON.stringify(emails),
+      subject: `You're Invited: ${S.cfg.title||'Super Bowl Squares'} 🏈`,
+      body:    buildInviteBody(false),
+      html:    buildInviteBody(true),
+    });
+    const sentCount   = data.sent?.length  || 0;
+    const failedCount = data.failed?.length || 0;
+    resultEl.style.color = failedCount ? 'var(--gold)' : 'var(--green-bright)';
+    resultEl.textContent = `✅ Sent: ${sentCount}${failedCount ? `  ⚠️ Failed: ${failedCount} (${data.failed.map(f=>f.addr).join(', ')})` : ''}`;
+    toast(`Emails sent via Google! (${sentCount} delivered)`,'success');
+  } catch(e) {
+    resultEl.style.color='var(--red)';
+    resultEl.textContent='❌ Error: '+e.message;
+    toast('Send failed: '+e.message,'error');
+  }
+}
+
+// Fallback: open local mail client
+function sendInvitesMailto() {
+  const emails=document.getElementById('inviteEmails').value.split('\n').map(e=>e.trim()).filter(Boolean);
+  if (!emails.length) { toast('Enter at least one email','error'); return; }
+  const sub  = encodeURIComponent(`You're Invited: ${S.cfg.title||'Super Bowl Squares'} 🏈`);
+  const body = encodeURIComponent(buildInviteBody(false));
+  emails.forEach(e => window.open(`mailto:${e}?subject=${sub}&body=${body}`,'_blank'));
+  toast(`Opened ${emails.length} email(s) ✅`,'success');
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(S.cfg.entryCode||'').then(()=>toast('Entry code copied!','success'));
+}
+
+// ==================== RANDOMIZE ====================
+function shuffle(arr) {
+  const a=[...arr];
+  for (let i=a.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+async function applyRandomization() {
+  S.rowNums=shuffle([0,1,2,3,4,5,6,7,8,9]);
+  S.colNums=shuffle([0,1,2,3,4,5,6,7,8,9]);
+  S.cfg.rowNums=S.rowNums.join(','); S.cfg.colNums=S.colNums.join(',');
+  const rows=Object.entries(S.cfg).map(([k,val])=>[k,val]);
+  await api({action:'setRange',sheet:'Config',row:1,col:1,values:JSON.stringify(rows)});
+  toast('Numbers randomized 🎲','success');
+  loadGrid();
+}
+
+// ==================== EXPORT ====================
+function exportCSV() {
+  const cfg=S.cfg;
+  let csv=`,"${cfg.team2||'Away'} →"\n,"${cfg.team1||'Home'} ↓",`+S.colNums.join(',')+'\n';
+  for (let r=0;r<10;r++) {
+    const row=[S.rowNums[r]];
+    for (let c=0;c<10;c++) row.push((S.grid[r]?.[c]||'').split('|')[0]);
+    csv+=row.join(',')+'\n';
+  }
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='squares.csv'; a.click();
+}
+
+// ==================== UI HELPERS ====================
+function gi(id) { return document.getElementById(id)?.value?.trim()||''; }
+function showPanel(id) { document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active')); document.getElementById(id)?.classList.add('active'); }
+function openModal(id)  { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+function toast(msg,type='success') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`show ${type}`;
+  clearTimeout(t._t); t._t=setTimeout(()=>t.className='',2800);
+}
+function navBadge(text) {
+  const el=document.getElementById('navStatus');
+  el.textContent=text; el.style.display='';
+  document.getElementById('btnLogout').style.display='';
+  document.getElementById('btnHostLogin').style.display='none';
+  document.getElementById('btnPlayerLogin').style.display='none';
+}
+function hostTab(name,el) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  ['Setup','Grid','Scoring','Players','Invite'].forEach(t=>{
+    document.getElementById(`hostTab${t}`).style.display=t.toLowerCase()===name?'block':'none';
+  });
+  if (name==='grid') loadGrid();
+  if (name==='players') loadPlayersTab();
+  if (name==='scoring') loadScores().then(()=>renderQResults('quarterResultsHost'));
+}
+function fillFormFromConfig() {
+  const c=S.cfg;
+  const set=(id,val)=>{ const e=document.getElementById(id); if(e&&val!==undefined&&val!==null) e.value=val; };
+  set('cfgRegistryUrl', c.registryUrl || S.registryUrl);
+  set('cfgHostId',      c.hostId      || S.hostId);
+  set('cfgScriptUrl',c.scriptUrl); set('cfgTitle',c.title); set('cfgHostName',c.hostName);
+  set('cfgTeam1',c.team1); set('cfgTeam2',c.team2);
+  set('cfgLogo1',c.logo1); set('cfgLogo2',c.logo2);
+  set('cfgGridBg',c.gridBg);
+  if (c.gridBgOpacity) {
+    const sl=document.getElementById('cfgGridBgOpacity');
+    if(sl){sl.value=c.gridBgOpacity; document.getElementById('bgOpacityVal').textContent=c.gridBgOpacity+'%';}
+  }
+  set('cfgMaxSquares',c.maxSquares); set('cfgOpenTime',c.openTime); set('cfgDeadline',c.deadline);
+  set('cfgRandomize',c.randomize); set('cfgEntryCode',c.entryCode); set('cfgHostPw',c.hostPw);
+  set('cfgPayQ1',c.payQ1); set('cfgPayQ2',c.payQ2); set('cfgPayQ3',c.payQ3);
+  set('cfgPayFinal',c.payFinal); set('cfgPayNotes',c.payNotes);
+  if (c.logo1) previewLogo('logo1preview','cfgLogo1');
+  if (c.logo2) previewLogo('logo2preview','cfgLogo2');
+  if (c.gridBg) previewGridBg();
+  fillScoringLabels();
+}
+function fillScoringLabels() {
+  const l1=document.getElementById('scoreLabel1'), l2=document.getElementById('scoreLabel2');
+  if (l1&&S.cfg.team1) l1.textContent=S.cfg.team1+' Score';
+  if (l2&&S.cfg.team2) l2.textContent=S.cfg.team2+' Score';
+}
+function updateHostStatus() {
+  const el=document.getElementById('hostGameStatus'); if (!el) return;
+  const deadline=S.cfg.deadline?new Date(S.cfg.deadline):null, now=new Date();
+  if (deadline&&now>deadline) {
+    let h=`<span class="pill pill-gold"><span class="dot"></span>DEADLINE PASSED</span>`;
+    if (S.cfg.randomize==='yes') h+=` <button class="btn btn-sm btn-gold" style="margin-left:8px" onclick="applyRandomization()">🎲 Randomize Numbers</button>`;
+    el.innerHTML=h;
+  } else {
+    el.innerHTML=`<span class="pill pill-green"><span class="dot"></span>ACTIVE</span>`;
+  }
+}
+function resetPlForm() {
+  ['plHostId','plEntryCode','plEmail','plHandle','plPinNew','plPin'].forEach(id=>{
+    const e=document.getElementById(id); if(e) e.value='';
+  });
+  document.getElementById('newPlayerFields').style.display='none';
+  document.getElementById('returningPlayerFields').style.display='none';
+  document.getElementById('playerLoginMsg').textContent='';
+  document.getElementById('btnPlSubmit').textContent='Continue';
+}
+
+// ==================== INIT ====================
+window.addEventListener('load',()=>{
+  const saved=localStorage.getItem('sbs_cfg');
+  if (saved) {
+    try { S.cfg=JSON.parse(saved); S.scriptUrl=S.cfg.scriptUrl||''; } catch(e){}
+  }
+  document.querySelectorAll('.modal-backdrop').forEach(b=>{
+    b.addEventListener('click',e=>{ if(e.target===b) b.classList.remove('open'); });
+  });
+});
+</script>
+</body>
+</html>
