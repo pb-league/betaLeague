@@ -328,6 +328,10 @@
   <div class="modal">
     <h2>Connect Google Sheet</h2>
     <p class="sub">Paste your published Google Sheet ID. The sheet must be shared as "Anyone with the link can view".</p>
+    <div id="settings-file-notice" style="display:none;align-items:center;gap:10px;font-size:12.5px;color:var(--green);background:rgba(34,211,160,0.08);border:1px solid rgba(34,211,160,0.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Configured via <strong style="color:var(--green)">settings.json</strong> — changes saved here apply to this browser only.
+    </div>
     <div class="status-bar">
       <span class="status-dot" id="status-dot"></span>
       <span id="status-msg">Not connected</span>
@@ -428,13 +432,38 @@ const sessionUnlocks = {};
 
 // ═══════════════════════════════════════════════
 // BOOT
+// Priority: settings.json > localStorage > prompt
 // ═══════════════════════════════════════════════
-(function boot() {
+let settingsLocked = false;  // true when config is loaded from settings.json
+
+async function boot() {
+  // 1. Try localStorage first as a baseline
   try { Object.assign(cfg, JSON.parse(localStorage.getItem(LS_KEY) || '{}')); } catch(e) {}
+
+  // 2. Try to load settings.json from the same directory as the HTML file.
+  //    If found, its values win over localStorage and the Configure button is hidden.
+  try {
+    const res = await fetch('./settings.json', { cache: 'no-store' });
+    if (res.ok) {
+      const settings = await res.json();
+      // Only copy recognised keys so stray properties are ignored
+      const allowed = ['sheetId','appsSheet','catsSheet','title','refreshInterval'];
+      allowed.forEach(k => { if (settings[k] !== undefined) cfg[k] = settings[k]; });
+      settingsLocked = !!cfg.sheetId;  // lock UI only when we got a usable sheetId
+    }
+  } catch(e) {
+    // settings.json absent or malformed — silently continue with localStorage values
+  }
+
   applyTitle();
+  // Hide the Configure button when settings.json is in charge
+  if (settingsLocked) document.getElementById('open-config').style.display = 'none';
+
   document.getElementById('refresh-pill').addEventListener('click', () => loadData(true));
   if (cfg.sheetId) loadData(); else { showEmpty(); openConfigModal(); }
-})();
+}
+
+boot();
 
 function applyTitle() {
   document.title = cfg.title || 'App Launcher';
@@ -455,8 +484,20 @@ async function fetchSheet(name) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const text = await res.text();
   const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);?\s*$/)[1]);
-  const cols = json.table.cols.map(c => c.label.trim());
-  return (json.table.rows || []).map(r =>
+  const rawRows = json.table.rows || [];
+
+  // Google Sheets gviz sometimes returns empty col labels when the sheet has no
+  // frozen header row — the actual column names land in the first data row instead.
+  // Detect this and promote that row into the header automatically.
+  let cols = json.table.cols.map(c => c.label.trim());
+  if (cols.every(c => c === '') && rawRows.length > 0) {
+    cols = rawRows[0].c.map(cell => (cell && cell.v !== null ? String(cell.v).trim() : ''));
+    return rawRows.slice(1).map(r =>
+      Object.fromEntries(cols.map((c, i) => [c, r.c[i] ? (r.c[i].v !== null ? String(r.c[i].v).trim() : '') : '']))
+    );
+  }
+
+  return rawRows.map(r =>
     Object.fromEntries(cols.map((c, i) => [c, r.c[i] ? (r.c[i].v !== null ? String(r.c[i].v).trim() : '') : '']))
   );
 }
@@ -524,9 +565,15 @@ function parseApp(r) {
   // ── new-tab (default = true) ──────────────────
   const newTab = !isFalsy(find('new tab', 'newtab', 'tab', 'target', 'window', 'open'));
 
+  const url = find('url', 'link', 'href');
+  // Fall back to hostname if title cell is blank (some rows omit it)
+  let title = find('title', 'name', 'app');
+  if (!title && url) {
+    try { title = new URL(url).hostname.replace(/^www\./, ''); } catch { title = url; }
+  }
+
   return {
-    title:    find('title', 'name', 'app'),
-    url:      find('url', 'link', 'href'),
+    title, url,
     desc:     find('desc', 'description', 'summary', 'about'),
     category: find('cat', 'category', 'group', 'tag'),
     logo:     find('logo', 'icon', 'image', 'img'),
@@ -829,6 +876,11 @@ function openConfigModal() {
   document.getElementById('cats-sheet-input').value = cfg.catsSheet;
   document.getElementById('title-input').value      = cfg.title;
   document.getElementById('refresh-select').value   = String(cfg.refreshInterval || 0);
+
+  // Show a notice when configuration is being overridden by settings.json
+  const notice = document.getElementById('settings-file-notice');
+  if (notice) notice.style.display = settingsLocked ? 'flex' : 'none';
+
   document.getElementById('config-modal-bg').classList.add('open');
 }
 function closeConfigModal() { document.getElementById('config-modal-bg').classList.remove('open'); }
