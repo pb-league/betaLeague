@@ -1,0 +1,3019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="PB Tracker">
+<link rel="manifest" href="manifest.json">
+<title>Pickleball Tracker</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;--bg2:#f5f5f4;--bg3:#eeece9;
+  --text:#1a1a1a;--text2:#6b7280;--text3:#9ca3af;
+  --border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);
+  --success-bg:#f0fdf4;--success:#16a34a;
+  --danger-bg:#fef2f2;--danger:#dc2626;
+  --info:#2563eb;--info-bg:#eff6ff;
+  --radius:8px;--radius-lg:12px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;
+  --text:#f2f2f7;--text2:#aeaeb2;--text3:#636366;
+  --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.18);
+  --success-bg:#052e16;--success:#4ade80;
+  --danger-bg:#450a0a;--danger:#f87171;
+  --info:#60a5fa;--info-bg:#1e3a5f;
+}}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--text);min-height:100vh}
+.app{max-width:700px;margin:0 auto;padding:1rem 1rem 5rem;background:var(--bg3);min-height:100vh}
+.top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;padding:0 0.25rem}
+.top-bar-title{font-size:19px;font-weight:600;letter-spacing:-0.3px}
+.top-bar-sub{font-size:12px;color:var(--text2)}
+.top-actions{display:flex;gap:6px}
+.top-btn{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);padding:7px 13px;font-size:13px;cursor:pointer;color:var(--text2)}
+.top-btn:hover{background:var(--bg2)}
+.view{display:none}.view.active{display:block}
+.card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:12px}
+.stat-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:1.25rem}
+.stat{background:var(--bg);border-radius:var(--radius);padding:12px 10px;border:0.5px solid var(--border)}
+.stat-label{font-size:11px;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em}
+.stat-val{font-size:24px;font-weight:600}
+.section-title{font-size:11px;font-weight:500;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em}
+.game-row{display:flex;align-items:flex-start;justify-content:space-between;padding:12px 0;border-bottom:0.5px solid var(--border)}
+.game-row:last-child{border-bottom:none}
+.game-score{font-size:19px;font-weight:600}
+.game-meta{font-size:12px;color:var(--text2);margin-top:3px;line-height:1.6}
+.badge{font-size:11px;padding:2px 8px;border-radius:var(--radius);font-weight:500;white-space:nowrap;margin-left:6px}
+.win{background:var(--success-bg);color:var(--success)}
+.loss{background:var(--danger-bg);color:var(--danger)}
+.fmt-badge{font-size:11px;padding:2px 7px;border-radius:var(--radius);background:var(--bg2);color:var(--text2);margin-left:6px}
+label{font-size:14px;color:var(--text2);display:block;margin-bottom:5px;margin-top:14px}
+input,select,textarea{width:100%;padding:11px 12px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:16px;font-family:inherit;-webkit-appearance:none;appearance:none}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--info)}
+textarea{resize:vertical;min-height:80px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-primary{margin-top:18px;width:100%;padding:13px;background:var(--text);border:none;border-radius:var(--radius);font-size:15px;font-weight:600;color:var(--bg);cursor:pointer}
+.btn-primary:hover{opacity:0.88}
+.player-card,.contact-card{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:0.5px solid var(--border);cursor:pointer}
+.player-card:last-child,.contact-card:last-child{border-bottom:none}
+.avatar{width:40px;height:40px;border-radius:50%;background:var(--info-bg);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:var(--info);flex-shrink:0}
+.avatar.ca{background:#f3e8ff;color:#7c3aed}
+.player-info{margin-left:12px;flex:1}
+.player-name{font-size:15px;font-weight:500}
+.player-sub{font-size:12px;color:var(--text2)}
+.rating-row{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px}
+.rating-item label{font-size:13px;margin-bottom:4px}
+.sync-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--radius);background:var(--bg2);font-size:12px;color:var(--text2);margin-bottom:1rem}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot.green{background:#22c55e}.dot.amber{background:#f59e0b}.dot.gray{background:#9ca3af}.dot.spin{background:#60a5fa;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.fab{position:fixed;bottom:80px;right:20px;width:54px;height:54px;border-radius:50%;border:none;background:var(--text);color:var(--bg);font-size:28px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;z-index:49;box-shadow:0 4px 16px rgba(0,0,0,0.2)}
+.fab.visible{display:flex}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:50;background:var(--bg);border-top:0.5px solid var(--border);display:flex;justify-content:space-around;padding:6px 0;padding-bottom:max(6px,env(safe-area-inset-bottom))}
+.bnav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border:none;background:transparent;cursor:pointer;color:var(--text2);font-size:9px;flex:1}
+.bnav-btn.active{color:var(--text)}
+.bnav-btn.active svg{stroke:var(--text) !important}
+.bnav-btn svg{stroke:var(--text2)}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;align-items:flex-end;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--bg);border-radius:20px 20px 0 0;border-top:0.5px solid var(--border);padding:0 1.25rem 2rem;width:100%;max-width:600px;max-height:92vh;overflow-y:auto}
+.modal-handle{width:36px;height:4px;border-radius:2px;background:var(--border2);margin:12px auto 16px}
+.modal-title{font-size:18px;font-weight:600;margin-bottom:1rem}
+.close-btn{float:right;background:none;border:none;font-size:22px;cursor:pointer;color:var(--text2);padding:4px;line-height:1}
+.empty{text-align:center;padding:2.5rem 1rem;color:var(--text2);font-size:14px}
+.game-actions{display:flex;gap:8px;margin-top:8px}
+.game-act-btn{font-size:12px;padding:5px 12px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;cursor:pointer;color:var(--text2)}
+.game-act-btn.del{border-color:var(--danger);color:var(--danger)}
+.filter-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.filter-bar select,.filter-bar input{font-size:14px;padding:9px 10px;flex:1;min-width:100px}
+.rbar-wrap{padding:7px 0;border-bottom:0.5px solid var(--border)}
+.rbar-label{display:flex;justify-content:space-between;margin-bottom:5px;font-size:13px}
+.rbar-track{height:5px;background:var(--bg2);border-radius:4px}
+.rbar-fill{height:5px;background:var(--info);border-radius:4px}
+.toggle-group{display:flex;gap:4px}
+.toggle-btn{padding:7px 14px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--text2)}
+.toggle-btn.active{background:var(--bg2);color:var(--text)}
+.chart-container{position:relative;width:100%;height:200px;margin-top:8px}
+.chart-tooltip{position:absolute;background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);padding:6px 10px;font-size:12px;pointer-events:none;display:none;z-index:10;white-space:nowrap}
+.url-box{background:var(--bg2);border:0.5px solid var(--border2);border-radius:var(--radius);padding:10px 12px;font-size:12px;word-break:break-all;color:var(--text2);margin:10px 0;user-select:all}
+.copy-btn{width:100%;padding:12px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--text);margin-bottom:6px}
+.copy-btn:hover{background:var(--bg2)}
+.qrwrap{display:flex;justify-content:center;margin:12px 0 4px}
+.note{background:var(--bg2);border-left:3px solid var(--info);border-radius:0 var(--radius) var(--radius) 0;padding:10px 14px;font-size:13px;color:var(--text2);line-height:1.6;margin-top:12px}
+.psr{display:flex;gap:8px;align-items:center}
+.psr select{flex:1}
+.apib{flex-shrink:0;padding:11px 13px;border:0.5px solid var(--info);border-radius:var(--radius);background:transparent;font-size:14px;font-weight:500;color:var(--info);cursor:pointer;white-space:nowrap}
+.apib:hover{background:var(--info-bg)}
+.ref-banner{background:var(--info-bg);border:1px solid var(--info);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1rem}
+.cdr{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--border)}
+.cdr:last-child{border-bottom:none}
+.cdl{font-size:12px;color:var(--text2);width:56px;flex-shrink:0}
+.cdv{font-size:14px;font-weight:500;flex:1;word-break:break-all}
+.share-tabs{display:flex;gap:4px;margin-bottom:1rem}
+.share-tab{flex:1;padding:9px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--text2);text-align:center}
+.share-tab.active{background:var(--bg2);color:var(--text)}
+.share-panel{display:none}.share-panel.active{display:block}
+@media print{.bottom-nav,.fab,.game-actions,.filter-bar,button,.sync-bar{display:none!important}.modal-bg{display:none!important}.view{display:block!important}#view-players,#view-dashboard,#view-activity,#view-contacts,#view-events,#view-map{display:none!important}}
+.ev-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:10px;cursor:pointer}
+.ev-card:hover{border-color:var(--border2)}
+.ev-type-pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:var(--radius);font-weight:500;margin-bottom:6px}
+.ev-type-openPlay{background:#fef9c3;color:#854d0e}
+.ev-type-tournament{background:#fce7f3;color:#9d174d}
+.ev-type-club{background:#e0e7ff;color:#3730a3}
+.ev-type-publicCourts{background:#dcfce7;color:#166534}
+@media(prefers-color-scheme:dark){
+  .ev-type-openPlay{background:#422006;color:#fde68a}
+  .ev-type-tournament{background:#500724;color:#fbcfe8}
+  .ev-type-club{background:#1e1b4b;color:#c7d2fe}
+  .ev-type-publicCourts{background:#052e16;color:#86efac}
+}
+.ev-title{font-size:15px;font-weight:600;margin-bottom:3px}
+.ev-meta{font-size:12px;color:var(--text2);line-height:1.6}
+.ev-mine-badge{font-size:11px;padding:2px 7px;border-radius:var(--radius);background:var(--info-bg);color:var(--info);margin-left:6px;font-weight:500}
+.ev-filter-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.ev-filter-bar select,.ev-filter-bar input{font-size:14px;padding:8px 10px;flex:1;min-width:110px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text)}
+.ev-subtabs{display:flex;gap:4px;margin-bottom:1rem}
+.ev-subtab{flex:1;padding:9px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--text2);text-align:center}
+.ev-subtab.active{background:var(--bg2);color:var(--text)}
+.cc-check-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:0.5px solid var(--border)}
+.cc-check-row:last-child{border-bottom:none}
+.cc-check-label{font-size:14px;color:var(--text)}
+.cc-check-sub{font-size:12px;color:var(--text2);margin-top:1px}
+.cc-preview{background:var(--bg2);border-radius:var(--radius-lg);padding:1rem;margin:12px 0}
+.cc-preview-name{font-size:17px;font-weight:600;margin-bottom:8px}
+.cc-preview-row{font-size:13px;color:var(--text2);margin-bottom:3px;display:flex;align-items:center;gap:6px}
+.incoming-card{text-align:center;padding:1rem 0}
+.incoming-avatar{width:72px;height:72px;border-radius:50%;background:var(--info-bg);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:var(--info);margin:0 auto 1rem}
+.notif-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:10px}
+.notif-card.pending{border-left:3px solid var(--info)}
+.notif-badge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--danger);color:#fff;font-size:11px;font-weight:700;margin-left:4px;vertical-align:middle}
+.fp-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:10px;display:flex;align-items:center;gap:12px}
+.fp-info{flex:1}
+.fp-name{font-size:15px;font-weight:600}
+.fp-meta{font-size:12px;color:var(--text2);margin-top:2px;line-height:1.5}
+.fp-actions{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+.fp-connect-btn{padding:8px 14px;background:var(--info);border:none;border-radius:var(--radius);color:#fff;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
+.fp-connect-btn:disabled{background:var(--bg2);color:var(--text3);cursor:default}
+.fp-connected-badge{font-size:11px;padding:3px 8px;border-radius:var(--radius);background:var(--success-bg);color:var(--success);font-weight:500;text-align:center}
+.disc-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:0.5px solid var(--border)}
+.disc-toggle:last-child{border-bottom:none}
+.toggle-switch{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--bg3);border:0.5px solid var(--border2);border-radius:12px;cursor:pointer;transition:background 0.2s}
+.toggle-slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:2px;background:#fff;border-radius:50%;transition:transform 0.2s}
+.toggle-switch input:checked+.toggle-slider{background:var(--info);border-color:var(--info)}
+.toggle-switch input:checked+.toggle-slider:before{transform:translateX(20px)}
+.pwa-banner{display:none;position:fixed;bottom:72px;left:12px;right:12px;background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);padding:14px 16px;z-index:48;box-shadow:0 4px 20px rgba(0,0,0,0.15);align-items:center;gap:12px}
+.pwa-banner.visible{display:flex}
+.pwa-icon{width:44px;height:44px;border-radius:10px;background:var(--info);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pwa-icon svg{stroke:#fff;fill:none;width:22px;height:22px}
+.pwa-text{flex:1}
+.pwa-title{font-size:14px;font-weight:600}
+.pwa-sub{font-size:12px;color:var(--text2);margin-top:1px}
+.pwa-install-btn{padding:8px 14px;background:var(--info);border:none;border-radius:var(--radius);color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.pwa-dismiss{background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);padding:0 0 0 4px;line-height:1;flex-shrink:0}
+.reaction-bar{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.reaction-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border:0.5px solid var(--border2);border-radius:20px;background:transparent;font-size:13px;cursor:pointer;color:var(--text2);transition:all 0.15s}
+.reaction-btn:hover{background:var(--bg2)}
+.reaction-btn.active{border-color:var(--info);background:var(--info-bg);color:var(--info);font-weight:500}
+.reaction-count{font-size:12px;color:var(--text3)}
+.reaction-btn.active .reaction-count{color:var(--info)}
+.h2h-section{margin-top:1rem}
+.h2h-stat-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:1rem}
+.h2h-stat{background:var(--bg2);border-radius:var(--radius);padding:10px 6px;text-align:center}
+.h2h-stat-val{font-size:20px;font-weight:700}
+.h2h-stat-lbl{font-size:11px;color:var(--text2);margin-top:2px}
+.h2h-game-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:0.5px solid var(--border);font-size:13px}
+.h2h-game-row:last-child{border-bottom:none}
+.pb-state{fill:#ddd8cc;stroke:#fff;stroke-width:1.5;transition:fill .15s}
+.pb-state:hover{fill:#ccc6b8}
+.pb-pin-group{cursor:pointer}
+.pb-pin-group:hover .pb-pin-circle{r:19}
+.pb-pin-circle{stroke:#fff;stroke-width:2.5;transition:r .15s}
+.pb-pin-label{font-family:-apple-system,sans-serif;font-size:9px;font-weight:700;fill:#fff;text-anchor:middle;dominant-baseline:middle;pointer-events:none;user-select:none}
+.pb-mine-ring{fill:none;stroke:#fff;stroke-width:3;stroke-dasharray:4 3;pointer-events:none}
+.h2h-score{font-weight:600;font-size:14px}
+.msg-chip{display:inline-flex;align-items:center;gap:5px;background:var(--info-bg);color:var(--info);border-radius:20px;padding:4px 10px 4px 8px;font-size:13px;margin:3px;cursor:default}
+.msg-chip button{background:none;border:none;color:var(--info);cursor:pointer;font-size:15px;padding:0;line-height:1;margin-left:2px}
+.msg-chip.group-chip{background:var(--success-bg);color:var(--success)}
+.msg-chip.group-chip button{color:var(--success)}
+.recipient-box{min-height:44px;border:0.5px solid var(--border2);border-radius:var(--radius);padding:6px 8px;background:var(--bg);display:flex;flex-wrap:wrap;align-items:center;gap:2px;cursor:text}
+.recipient-box input{border:none;background:transparent;font-size:14px;color:var(--text);outline:none;min-width:120px;padding:4px 2px;flex:1}
+.msg-picker{background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius-lg);max-height:200px;overflow-y:auto;margin-top:4px}
+.msg-picker-item{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:0.5px solid var(--border)}
+.msg-picker-item:last-child{border-bottom:none}
+.msg-picker-item:hover{background:var(--bg2)}
+.msg-picker-label{font-size:14px}
+.msg-picker-sub{font-size:12px;color:var(--text2)}
+.sent-msg-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem;margin-bottom:10px}
+.sent-msg-to{font-size:12px;color:var(--text2);margin-bottom:4px}
+.sent-msg-subj{font-size:14px;font-weight:600;margin-bottom:3px}
+.sent-msg-body{font-size:13px;color:var(--text2);line-height:1.5;white-space:pre-wrap}
+.sent-msg-meta{font-size:11px;color:var(--text3);margin-top:6px}
+.delivery-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.delivery-opt{display:flex;align-items:center;gap:6px;padding:8px 12px;border:0.5px solid var(--border2);border-radius:var(--radius);cursor:pointer;font-size:13px;flex:1;background:var(--bg)}
+.delivery-opt.selected{border-color:var(--info);background:var(--info-bg);color:var(--info)}
+.delivery-opt input{width:auto;padding:0;border:none;accent-color:var(--info)}
+.photo-avatar{width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--border2)}
+.photo-upload-ring{position:relative;width:80px;height:80px;margin:0 auto 1rem;cursor:pointer}
+.photo-upload-ring .avatar{width:80px;height:80px;font-size:22px}
+.photo-upload-ring img{width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--border2)}
+.photo-badge{position:absolute;bottom:0;right:0;width:24px;height:24px;border-radius:50%;background:var(--info);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center}
+.photo-badge svg{width:12px;height:12px;stroke:#fff;stroke-width:2.5;fill:none}
+.photo-uploading{opacity:0.5;pointer-events:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top-bar">
+    <div><div class="top-bar-title">Pickleball Tracker</div><div class="top-bar-sub">Your personal game log</div></div>
+    <div class="top-actions">
+      <button class="top-btn" onclick="openShare()">Share</button>
+      <button class="top-btn" onclick="showSettings()">Settings</button>
+    </div>
+  </div>
+  <div class="sync-bar"><div class="dot gray" id="sync-dot"></div><span id="sync-msg">No sync configured</span></div>
+  <div id="ref-banner" style="display:none"></div>
+
+  <!-- PWA Install Banner -->
+  <div class="pwa-banner" id="pwa-banner">
+    <div class="pwa-icon">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12l4 4 4-4"/></svg>
+    </div>
+    <div class="pwa-text">
+      <div class="pwa-title">Install Pickleball Tracker</div>
+      <div class="pwa-sub">Add to home screen for the best experience</div>
+    </div>
+    <button class="pwa-install-btn" onclick="installPWA()">Install</button>
+    <button class="pwa-dismiss" onclick="dismissPWABanner()">×</button>
+  </div>
+
+  <div id="view-dashboard" class="view active">
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-label">Total</div><div class="stat-val" id="stat-total">0</div></div>
+      <div class="stat"><div class="stat-label">This month</div><div class="stat-val" id="stat-month">0</div></div>
+      <div class="stat"><div class="stat-label">Win rate</div><div class="stat-val" id="stat-wr">—</div></div>
+    </div>
+    <div id="notif-section" style="display:none">
+      <div class="card" id="notif-card-container">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="section-title" style="margin-bottom:0">Connection requests <span class="notif-badge" id="notif-count">0</span></div>
+        </div>
+        <div id="notif-list"></div>
+      </div>
+    </div>
+    <div class="card"><div class="section-title">Recent games</div><div id="recent-list"><div class="empty">No games yet!</div></div></div>
+  </div>
+
+  <div id="view-activity" class="view">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="chart-bar-btn" onclick="setChartType('bar')">Bar</button>
+          <button class="toggle-btn" id="chart-line-btn" onclick="setChartType('line')">Line</button>
+        </div>
+        <select id="chart-range" onchange="drawChart()" style="width:auto;font-size:14px;padding:8px 10px">
+          <option value="30">Last 30 days</option><option value="90">Last 3 months</option>
+          <option value="180">Last 6 months</option><option value="365">Last year</option><option value="0">All time</option>
+        </select>
+      </div>
+      <div class="chart-container"><canvas id="activity-chart"></canvas><div class="chart-tooltip" id="chart-tooltip"></div></div>
+      <div style="display:flex;gap:16px;margin-top:10px;font-size:12px;color:var(--text2)">
+        <span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#22c55e"></span>Win</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:#f87171"></span>Loss</span>
+      </div>
+    </div>
+    <div class="card"><div class="section-title">Summary</div><div id="activity-summary" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px"></div></div>
+  </div>
+
+  <div id="view-games" class="view">
+    <div class="filter-bar">
+      <select id="filter-format" onchange="renderGames()"><option value="">All formats</option><option value="doubles">Doubles</option><option value="singles">Singles</option></select>
+      <select id="filter-result" onchange="renderGames()"><option value="">All results</option><option value="win">Wins</option><option value="loss">Losses</option></select>
+      <input type="text" id="filter-venue" placeholder="Venue..." oninput="renderGames()">
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="section-title" style="margin-bottom:0">All games</div>
+        <button onclick="printGames()" style="padding:7px 14px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--text2)">Print</button>
+      </div>
+      <div id="all-games-list"><div class="empty">No games yet.</div></div>
+    </div>
+  </div>
+
+  <div id="view-players" class="view">
+    <div class="card"><div class="section-title">Player directory</div><div id="player-list"><div class="empty">No players yet.</div></div></div>
+  </div>
+
+  <div id="view-contacts" class="view">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="section-title" style="margin-bottom:0">My contacts</div>
+        <button onclick="openProfileModal()" style="padding:7px 14px;border:0.5px solid var(--info);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--info)">My profile</button>
+      </div>
+      <div id="contact-list"><div class="empty">No contacts yet. Share your referral link to connect!</div></div>
+    </div>
+  </div>
+
+  <div id="view-events" class="view">
+    <div class="ev-subtabs">
+      <button class="ev-subtab active" id="evtab-feed" onclick="switchEvTab('feed',this)">Feed</button>
+      <button class="ev-subtab" id="evtab-mine" onclick="switchEvTab('mine',this)">My events</button>
+    </div>
+
+    <!-- Feed filters -->
+    <div id="ev-feed-filters">
+      <div class="ev-filter-bar">
+        <select id="ef-type" onchange="renderEvents()">
+          <option value="">All types</option>
+          <option value="openPlay">Open play</option>
+          <option value="tournament">Tournament</option>
+          <option value="club">Club</option>
+          <option value="publicCourts">Public courts</option>
+        </select>
+        <select id="ef-who" onchange="renderEvents()">
+          <option value="all">Everyone</option>
+          <option value="contacts">My contacts only</option>
+        </select>
+      </div>
+      <div class="ev-filter-bar">
+        <div style="display:flex;align-items:center;gap:8px;flex:1;background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);padding:8px 10px">
+          <span style="font-size:13px;color:var(--text2);white-space:nowrap">Within</span>
+          <input type="number" id="ef-dist" min="0" placeholder="any" inputmode="numeric" style="border:none;background:transparent;font-size:14px;padding:0;width:60px;color:var(--text)">
+          <span style="font-size:13px;color:var(--text2)">miles</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex:1;background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);padding:8px 10px">
+          <span style="font-size:13px;color:var(--text2);white-space:nowrap">Min rating</span>
+          <input type="number" id="ef-rating" min="0" max="10" step="0.5" placeholder="any" inputmode="decimal" style="border:none;background:transparent;font-size:14px;padding:0;width:50px;color:var(--text)">
+        </div>
+      </div>
+      <div class="ev-filter-bar" style="align-items:center">
+        <label style="margin:0;font-size:13px;color:var(--text2);display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="ef-upcoming" checked onchange="renderEvents()" style="width:auto;padding:0;border:none">
+          Upcoming only
+        </label>
+        <button onclick="renderEvents()" style="padding:8px 14px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--text2)">Apply</button>
+      </div>
+    </div>
+
+    <div id="ev-feed-list"></div>
+
+    <!-- My events panel -->
+    <div id="ev-mine-panel" style="display:none">
+      <div id="ev-mine-list"></div>
+    </div>
+  </div>
+
+  <div id="view-findplayers" class="view">
+    <div class="ev-filter-bar">
+      <div style="display:flex;align-items:center;gap:8px;flex:1;background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);padding:8px 10px">
+        <span style="font-size:13px;color:var(--text2);white-space:nowrap">Within</span>
+        <input type="number" id="fp-dist" min="0" placeholder="any" inputmode="numeric" style="border:none;background:transparent;font-size:14px;padding:0;width:60px;color:var(--text)">
+        <span style="font-size:13px;color:var(--text2)">miles</span>
+      </div>
+      <label style="margin:0;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2);background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);padding:8px 12px;flex:1">
+        <input type="checkbox" id="fp-contacts-only" style="width:auto;padding:0;border:none;accent-color:var(--info)">
+        Mutual contacts only
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input type="text" id="fp-search" placeholder="Search by name..." oninput="renderFindPlayers()" style="flex:1;font-size:14px;padding:8px 12px">
+      <button onclick="loadDiscoverablePlayers()" style="padding:8px 16px;border:0.5px solid var(--info);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--info);white-space:nowrap">Search</button>
+    </div>
+    <div id="fp-list"><div class="empty">Tap Search to find players.</div></div>
+  </div>
+
+  <!-- MESSAGING VIEW -->
+  <div id="view-messaging" class="view">
+    <div class="ev-subtabs">
+      <button class="ev-subtab active" id="msgtab-compose" onclick="switchMsgTab('compose',this)">Compose</button>
+      <button class="ev-subtab" id="msgtab-groups" onclick="switchMsgTab('groups',this)">Groups</button>
+      <button class="ev-subtab" id="msgtab-sent" onclick="switchMsgTab('sent',this)">Sent</button>
+    </div>
+
+    <!-- Compose panel -->
+    <div id="msg-compose-panel">
+      <div class="card">
+        <label style="margin-top:0">To</label>
+        <div class="recipient-box" id="recipient-box" onclick="focusRecipientInput()">
+          <div id="recipient-chips"></div>
+          <input type="text" id="recipient-input" placeholder="Name or group..." oninput="filterRecipientPicker()" onfocus="showRecipientPicker()" autocomplete="off">
+        </div>
+        <div id="recipient-picker" class="msg-picker" style="display:none"></div>
+        <label>Subject</label>
+        <input type="text" id="msg-subject" placeholder="e.g. Pickleball Saturday?">
+        <label>Message</label>
+        <textarea id="msg-body" placeholder="Your message..." style="min-height:120px"></textarea>
+        <label style="margin-top:14px">Deliver via</label>
+        <div class="delivery-row">
+          <label class="delivery-opt selected" id="del-email-opt">
+            <input type="checkbox" id="del-email" checked onchange="toggleDelivery('email')">
+            Email
+          </label>
+          <label class="delivery-opt" id="del-push-opt">
+            <input type="checkbox" id="del-push" onchange="toggleDelivery('push')">
+            Push alert
+          </label>
+        </div>
+        <div id="msg-push-note" style="font-size:12px;color:var(--text2);margin-top:6px;display:none">Push alerts only reach recipients who have installed the app and allowed notifications.</div>
+        <button class="btn-primary" onclick="sendMessage()">Send message</button>
+        <div id="msg-send-status" style="font-size:13px;text-align:center;margin-top:10px;min-height:18px"></div>
+      </div>
+    </div>
+
+    <!-- Groups panel -->
+    <div id="msg-groups-panel" style="display:none">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div class="section-title" style="margin-bottom:0">My groups</div>
+          <button onclick="openGroupModal()" style="padding:6px 14px;border:0.5px solid var(--info);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--info)">+ New group</button>
+        </div>
+        <div id="groups-list"><div class="empty">No groups yet.</div></div>
+      </div>
+    </div>
+
+    <!-- Sent panel -->
+    <div id="msg-sent-panel" style="display:none">
+      <div id="sent-list"><div class="empty">No sent messages yet.</div></div>
+    </div>
+  </div>
+
+  <!-- MAP VIEW -->
+  <div id="view-map" class="view" style="margin:-1rem -1rem 0;padding-bottom:0;position:relative">
+    <div id="map-toolbar" style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 1rem;background:var(--bg);border-bottom:0.5px solid var(--border);gap:8px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="map-pin-count" style="font-size:12px;color:var(--text2)">0 pins</span>
+        <button onclick="toggleMapFilter()" id="map-filter-btn" style="padding:5px 12px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--text2)">⚙ Filter</button>
+      </div>
+      <button id="map-place-btn" onclick="startMapPlace()" style="padding:7px 16px;background:var(--info);border:none;border-radius:var(--radius);color:#fff;font-size:13px;font-weight:600;cursor:pointer">📍 Place My Pin</button>
+    </div>
+
+    <!-- Map filter strip -->
+    <div id="map-filter-panel" style="display:none;padding:.75rem 1rem;background:var(--bg2);border-bottom:0.5px solid var(--border);gap:10px;flex-wrap:wrap;align-items:center">
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:160px;flex-wrap:wrap">
+        <span style="font-size:13px;color:var(--text2);white-space:nowrap">Within</span>
+        <input type="number" id="mf-dist" min="0" placeholder="miles" inputmode="numeric" style="width:70px;padding:6px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);font-size:14px;background:var(--bg);color:var(--text)">
+        <span style="font-size:13px;color:var(--text2)">of</span>
+        <button onclick="startPickMapRef()" style="padding:6px 12px;border:0.5px solid var(--info);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--info);white-space:nowrap">Pick point</button>
+        <span id="map-ref-label" style="font-size:12px;color:var(--text2)"></span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="applyMapFilter()" style="padding:7px 14px;background:var(--info);border:none;border-radius:var(--radius);color:#fff;font-size:13px;cursor:pointer">Apply</button>
+        <button onclick="clearMapFilter()" style="padding:7px 12px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--text2)">Clear</button>
+      </div>
+    </div>
+
+    <!-- Floating hints shown during place/pick modes -->
+    <div id="map-place-hint" style="display:none;position:absolute;top:72px;left:50%;transform:translateX(-50%);background:#2563eb;color:#fff;padding:7px 18px;border-radius:24px;font-size:13px;font-weight:500;pointer-events:none;white-space:nowrap;z-index:50;box-shadow:0 2px 12px rgba(37,99,235,.35)">Tap the map to place your pin</div>
+    <div id="map-ref-hint" style="display:none;position:absolute;top:72px;left:50%;transform:translateX(-50%);background:#059669;color:#fff;padding:7px 18px;border-radius:24px;font-size:13px;font-weight:500;pointer-events:none;white-space:nowrap;z-index:50;box-shadow:0 2px 12px rgba(5,150,105,.3)">Tap map to set reference point</div>
+
+    <!-- SVG Map -->
+    <div style="position:relative;width:100%;max-width:100%;overflow-x:auto">
+      <svg id="pb-map" viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;cursor:default">
+        <g id="pb-states">
+          <path class="pb-state" id="s-WA" d="M112,58 L117,59 L178,70 L181,87 L161,97 L155,108 L147,106 L126,120 L105,115 L89,103 L75,92 L68,80 L72,63 Z"/>
+          <path class="pb-state" id="s-OR" d="M68,80 L75,92 L89,103 L105,115 L126,120 L147,106 L143,165 L72,155 L58,150 L60,132 L68,115 Z"/>
+          <path class="pb-state" id="s-CA" d="M58,150 L72,155 L143,165 L138,190 L125,215 L118,240 L120,265 L110,285 L100,300 L90,310 L72,330 L60,340 L45,310 L48,280 L52,250 L54,220 L50,195 Z"/>
+          <path class="pb-state" id="s-NV" d="M143,165 L180,158 L185,175 L182,220 L175,240 L138,230 L120,265 L118,240 L125,215 L138,190 Z"/>
+          <path class="pb-state" id="s-ID" d="M147,106 L181,87 L190,95 L195,120 L200,145 L185,175 L180,158 L143,165 L143,120 Z"/>
+          <path class="pb-state" id="s-MT" d="M178,70 L280,72 L282,78 L285,130 L285,145 L200,145 L195,120 L190,95 L181,87 Z"/>
+          <path class="pb-state" id="s-WY" d="M200,145 L285,145 L290,195 L220,198 L200,198 Z"/>
+          <path class="pb-state" id="s-UT" d="M180,158 L200,158 L200,198 L220,198 L220,245 L175,240 L182,220 L185,175 Z"/>
+          <path class="pb-state" id="s-CO" d="M220,198 L290,195 L295,250 L220,250 Z"/>
+          <path class="pb-state" id="s-AZ" d="M175,240 L220,245 L220,300 L200,305 L175,300 L148,285 L138,260 Z"/>
+          <path class="pb-state" id="s-NM" d="M220,250 L295,250 L298,308 L248,313 L220,308 L220,300 L220,245 Z"/>
+          <path class="pb-state" id="s-ND" d="M282,78 L390,78 L388,128 L285,130 Z"/>
+          <path class="pb-state" id="s-SD" d="M285,130 L388,128 L390,182 L290,182 L285,145 Z"/>
+          <path class="pb-state" id="s-NE" d="M290,182 L390,182 L392,232 L290,230 L290,195 Z"/>
+          <path class="pb-state" id="s-KS" d="M290,230 L392,232 L393,278 L290,278 Z"/>
+          <path class="pb-state" id="s-OK" d="M290,278 L393,278 L396,326 L355,326 L338,332 L290,332 Z"/>
+          <path class="pb-state" id="s-TX" d="M290,332 L338,332 L355,326 L396,326 L400,358 L390,385 L375,408 L360,425 L340,440 L318,445 L300,445 L285,435 L270,415 L260,395 L255,370 L255,345 L260,335 Z"/>
+          <path class="pb-state" id="s-MN" d="M390,78 L455,78 L458,105 L458,130 L420,130 L420,155 L388,155 L388,128 Z"/>
+          <path class="pb-state" id="s-IA" d="M388,155 L420,155 L458,155 L460,195 L390,196 Z"/>
+          <path class="pb-state" id="s-MO" d="M390,196 L460,195 L462,245 L445,250 L440,268 L395,270 L393,278 L392,232 Z"/>
+          <path class="pb-state" id="s-AR" d="M395,270 L440,268 L445,250 L462,248 L464,310 L395,310 Z"/>
+          <path class="pb-state" id="s-LA" d="M395,310 L464,310 L462,350 L450,360 L430,365 L415,358 L400,358 L396,326 Z"/>
+          <path class="pb-state" id="s-WI" d="M458,105 L492,105 L500,130 L490,155 L458,155 L458,130 Z"/>
+          <path class="pb-state" id="s-MI" d="M492,105 L530,100 L538,112 L528,125 L512,128 L500,130 L492,105 Z"/>
+          <path class="pb-state" id="s-IL" d="M458,155 L490,155 L492,200 L490,245 L462,245 L460,195 Z"/>
+          <path class="pb-state" id="s-IN" d="M490,155 L520,155 L522,200 L520,240 L490,245 L492,200 Z"/>
+          <path class="pb-state" id="s-OH" d="M520,155 L556,150 L558,200 L552,240 L520,240 L522,200 Z"/>
+          <path class="pb-state" id="s-KY" d="M490,245 L520,240 L552,240 L558,270 L540,278 L510,282 L478,280 L462,275 L462,248 Z"/>
+          <path class="pb-state" id="s-TN" d="M462,275 L478,280 L510,282 L540,278 L558,270 L562,295 L540,298 L510,300 L478,298 L462,295 Z"/>
+          <path class="pb-state" id="s-MS" d="M462,295 L478,298 L480,345 L470,368 L455,368 L445,360 L450,350 L462,310 Z"/>
+          <path class="pb-state" id="s-AL" d="M478,298 L510,300 L514,345 L512,368 L490,370 L470,368 L480,345 Z"/>
+          <path class="pb-state" id="s-GA" d="M510,300 L540,298 L545,345 L542,375 L530,385 L512,380 L512,368 L514,345 Z"/>
+          <path class="pb-state" id="s-FL" d="M512,368 L512,380 L530,385 L542,375 L548,400 L545,425 L530,440 L515,450 L500,455 L492,445 L488,425 L490,400 L490,370 Z"/>
+          <path class="pb-state" id="s-SC" d="M545,268 L565,265 L575,285 L572,305 L555,312 L542,305 L542,290 L540,278 L558,270 Z"/>
+          <path class="pb-state" id="s-NC" d="M558,245 L610,238 L615,258 L598,268 L575,272 L565,265 L545,268 L540,258 L552,250 L558,240 Z"/>
+          <path class="pb-state" id="s-VA" d="M558,220 L608,215 L615,235 L610,238 L558,245 L552,240 L550,225 Z"/>
+          <path class="pb-state" id="s-WV" d="M550,195 L572,192 L578,212 L570,225 L558,230 L550,225 L552,210 Z"/>
+          <path class="pb-state" id="s-MD" d="M578,195 L608,192 L610,210 L608,215 L578,212 Z"/>
+          <path class="pb-state" id="s-DE" d="M608,192 L618,188 L622,205 L610,210 Z"/>
+          <path class="pb-state" id="s-PA" d="M556,165 L618,160 L618,188 L578,195 L572,192 L550,195 L552,178 Z"/>
+          <path class="pb-state" id="s-NJ" d="M618,160 L632,158 L635,178 L625,188 L618,188 L618,165 Z"/>
+          <path class="pb-state" id="s-NY" d="M558,140 L630,132 L640,145 L632,158 L618,160 L556,165 L552,155 Z"/>
+          <path class="pb-state" id="s-CT" d="M632,145 L648,142 L650,158 L635,158 L632,145 Z"/>
+          <path class="pb-state" id="s-RI" d="M648,142 L658,140 L660,152 L650,158 L648,142 Z"/>
+          <path class="pb-state" id="s-MA" d="M630,128 L668,122 L672,138 L658,140 L630,135 Z"/>
+          <path class="pb-state" id="s-VT" d="M614,115 L630,112 L632,130 L618,132 Z"/>
+          <path class="pb-state" id="s-NH" d="M630,105 L642,102 L648,120 L632,125 Z"/>
+          <path class="pb-state" id="s-ME" d="M642,78 L668,80 L672,105 L648,120 L642,102 L632,90 L635,78 Z"/>
+          <path class="pb-state" id="s-AK" d="M80,450 L150,440 L175,455 L185,480 L165,495 L140,498 L110,490 L85,475 Z"/>
+          <path class="pb-state" id="s-HI" d="M245,465 L260,460 L275,465 L278,475 L265,480 L250,478 Z"/>
+        </g>
+        <circle id="pb-dist-circle" cx="0" cy="0" r="0" fill="rgba(37,99,235,0.07)" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="6 4" display="none"/>
+        <g id="pb-ref-marker" display="none">
+          <circle cx="0" cy="0" r="8" fill="rgba(37,99,235,0.15)" stroke="#2563eb" stroke-width="1.5"/>
+          <circle cx="0" cy="0" r="3" fill="#2563eb"/>
+        </g>
+        <g id="pb-pins-layer"></g>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="bnav-btn active" id="nav-dashboard" onclick="switchView('dashboard',this)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Home
+  </button>
+  <button class="bnav-btn" id="nav-activity" onclick="switchView('activity',this)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Activity
+  </button>
+  <button class="bnav-btn" id="nav-games" onclick="switchView('games',this)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>Games
+  </button>
+  <button class="bnav-btn" id="nav-players" onclick="switchView('players',this)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Players
+  </button>
+  <button class="bnav-btn" id="nav-contacts" onclick="switchView('contacts',this)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Contacts
+  </button>
+  <button class="bnav-btn" id="nav-events" onclick="switchView('events',this)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Events
+  </button>
+  <button class="bnav-btn" id="nav-findplayers" onclick="switchView('findplayers',this)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><path d="M11 8a3 3 0 1 0 0 6"/></svg>Find
+  </button>
+  <button class="bnav-btn" id="nav-messaging" onclick="switchView('messaging',this)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Msg
+  </button>
+  <button class="bnav-btn" id="nav-map" onclick="switchView('map',this)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>Map
+  </button>
+</nav>
+<button class="fab" id="fab-btn" onclick="fabAction()">+</button>
+
+<!-- GAME MODAL -->
+<div class="modal-bg" id="game-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <button class="close-btn" onclick="closeModal('game-modal')">×</button>
+  <div class="modal-title" id="game-modal-title">Log a game</div>
+  <input type="hidden" id="g-id">
+  <div class="row2">
+    <div><label>Date & time</label><input type="datetime-local" id="g-date"></div>
+    <div><label>Format</label><select id="g-format"><option value="doubles">Doubles</option><option value="singles">Singles</option></select></div>
+  </div>
+  <div class="row2">
+    <div><label>Your score</label><input type="number" id="g-score-us" min="0" placeholder="11" inputmode="numeric"></div>
+    <div><label>Opp score</label><input type="number" id="g-score-them" min="0" placeholder="9" inputmode="numeric"></div>
+  </div>
+  <label>Venue / location</label><input type="text" id="g-venue" placeholder="e.g. Riverside courts">
+  <label>Partner <span style="font-size:12px;color:var(--text2)">(doubles)</span></label>
+  <div class="psr"><select id="g-partner"><option value="">— none —</option></select><button type="button" class="apib" onclick="openQuickAddPlayer('g-partner')">+ New</button></div>
+  <label>Opponent 1</label>
+  <div class="psr"><select id="g-opp1"><option value="">— select —</option></select><button type="button" class="apib" onclick="openQuickAddPlayer('g-opp1')">+ New</button></div>
+  <label>Opponent 2 <span style="font-size:12px;color:var(--text2)">(doubles)</span></label>
+  <div class="psr"><select id="g-opp2"><option value="">— select —</option></select><button type="button" class="apib" onclick="openQuickAddPlayer('g-opp2')">+ New</button></div>
+  <label>Notes</label><textarea id="g-notes" placeholder="Anything worth remembering..."></textarea>
+  <button class="btn-primary" onclick="saveGame()">Save game</button>
+</div></div>
+
+<!-- PLAYER MODAL -->
+<div class="modal-bg" id="player-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <button class="close-btn" onclick="closeModal('player-modal')">×</button>
+  <div class="modal-title" id="player-modal-title">Add player</div>
+  <input type="hidden" id="p-id">
+  <label>Name</label><input type="text" id="p-name" placeholder="Full name">
+  <label>Ratings (1–10)</label>
+  <div class="rating-row">
+    <div class="rating-item"><label>Serve</label><input type="number" id="p-serve" min="1" max="10" placeholder="—" inputmode="numeric"></div>
+    <div class="rating-item"><label>Dinking</label><input type="number" id="p-dink" min="1" max="10" placeholder="—" inputmode="numeric"></div>
+    <div class="rating-item"><label>Athleticism</label><input type="number" id="p-ath" min="1" max="10" placeholder="—" inputmode="numeric"></div>
+    <div class="rating-item"><label>Sportsmanship</label><input type="number" id="p-sport" min="1" max="10" placeholder="—" inputmode="numeric"></div>
+  </div>
+  <label>Notes</label><textarea id="p-notes" placeholder="Playing style, reminders..."></textarea>
+  <button class="btn-primary" onclick="savePlayer()">Save player</button>
+</div></div>
+
+<!-- QUICK-ADD PLAYER -->
+<div class="modal-bg" id="quick-add-player-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <button class="close-btn" onclick="closeModal('quick-add-player-modal')">×</button>
+  <div class="modal-title">Add new player</div>
+  <input type="hidden" id="qp-return-to">
+  <label>Name</label><input type="text" id="qp-name" placeholder="Full name">
+  <label>Ratings (1–10) <span style="font-size:12px;color:var(--text2)">— optional</span></label>
+  <div class="rating-row">
+    <div class="rating-item"><label>Serve</label><input type="number" id="qp-serve" min="1" max="10" placeholder="—" inputmode="numeric"></div>
+    <div class="rating-item"><label>Dinking</label><input type="number" id="qp-dink" min="1" max="10" placeholder="—" inputmode="numeric"></div>
+    <div class="rating-item"><label>Athleticism</label><input type="number" id="qp-ath" min="1" max="10" placeholder="—" inputmode="numeric"></div>
+    <div class="rating-item"><label>Sportsmanship</label><input type="number" id="qp-sport" min="1" max="10" placeholder="—" inputmode="numeric"></div>
+  </div>
+  <label>Notes</label><textarea id="qp-notes" placeholder="Playing style, reminders..."></textarea>
+  <button class="btn-primary" onclick="saveQuickPlayer()">Add player & select</button>
+</div></div>
+
+<!-- PLAYER DETAIL -->
+<div class="modal-bg" id="player-detail-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <button class="close-btn" onclick="closeModal('player-detail-modal')">×</button>
+  <div id="player-detail-content"></div>
+</div></div>
+
+<!-- CONTACT DETAIL -->
+<div class="modal-bg" id="contact-detail-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <button class="close-btn" onclick="closeModal('contact-detail-modal')">×</button>
+  <div id="contact-detail-content"></div>
+</div></div>
+
+<!-- REVIEW REFERRAL -->
+<div class="modal-bg" id="ref-review-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-title" id="ref-review-title">Add contact?</div>
+  <div id="ref-review-body"></div>
+  <button class="btn-primary" onclick="acceptReferral()">Add to my contacts & players</button>
+  <button onclick="closeModal('ref-review-modal')" style="margin-top:10px;width:100%;padding:11px;border:none;background:transparent;font-size:14px;color:var(--text2);cursor:pointer">Skip</button>
+</div></div>
+
+<!-- SHARE MODAL -->
+<div class="modal-bg" id="share-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <button class="close-btn" onclick="closeModal('share-modal')">×</button>
+  <div class="modal-title">Share</div>
+  <div class="share-tabs">
+    <button class="share-tab active" onclick="switchShareTab('app',this)">Share the app</button>
+    <button class="share-tab" onclick="switchShareTab('ref',this)">Referral link</button>
+    <button class="share-tab" onclick="switchShareTab('card',this)">Contact card</button>
+  </div>
+  <div class="share-panel active" id="share-panel-app">
+    <div style="font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:4px">Send to anyone who wants to use Pickleball Tracker.</div>
+    <div class="url-box" id="share-url-box"></div>
+    <button class="copy-btn" id="app-copy-btn" onclick="copyUrl('share-url-box','app-copy-btn')">Copy link</button>
+    <div style="font-size:13px;color:var(--text2);text-align:center;margin-bottom:4px">Or scan</div>
+    <div class="qrwrap" id="qr-wrap"></div>
+  </div>
+  <div class="share-panel" id="share-panel-ref">
+    <div id="ref-profile-check"></div>
+  </div>
+  <div class="share-panel" id="share-panel-card">
+    <div id="contact-card-panel"></div>
+  </div>
+</div></div>
+
+<!-- INCOMING CONTACT CARD (full-screen overlay when ?cmd=addcontact) -->
+<div class="modal-bg" id="incoming-contact-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <div id="incoming-contact-content"></div>
+</div></div>
+
+<!-- MY PROFILE MODAL -->
+<div class="modal-bg" id="profile-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <button class="close-btn" onclick="closeModal('profile-modal')">×</button>
+  <div class="modal-title">My profile</div>
+  <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px">This info is shared via referral links and contact cards.</div>
+
+  <!-- Photo upload -->
+  <div class="photo-upload-ring" id="prof-photo-ring" onclick="triggerPhotoUpload()">
+    <div id="prof-avatar-display"></div>
+    <div class="photo-badge">
+      <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+    </div>
+  </div>
+  <input type="file" id="prof-photo-input" accept="image/*" style="display:none" onchange="handlePhotoSelected(event)">
+  <div id="prof-photo-status" style="font-size:12px;color:var(--text2);text-align:center;min-height:16px;margin-bottom:8px"></div>
+
+  <label>Name</label><input type="text" id="prof-name" placeholder="Your full name">
+  <label>Email</label><input type="email" id="prof-email" placeholder="you@example.com" inputmode="email">
+  <label>Cell number</label><input type="tel" id="prof-cell" placeholder="(555) 555-5555" inputmode="tel">
+  <label>Zip code</label><input type="text" id="prof-zip" placeholder="12345" inputmode="numeric" maxlength="10">
+  <div style="margin-top:20px;padding-top:1rem;border-top:0.5px solid var(--border)">
+    <div class="section-title" style="margin-bottom:10px">Discoverability</div>
+    <div class="disc-toggle">
+      <div>
+        <div style="font-size:14px;font-weight:500">Allow others to find me</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">Show my profile in the Find Players search</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="prof-discoverable" onchange="updateDiscoverablePreview()">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div id="disc-preview" style="margin-top:10px;font-size:12px;color:var(--text2);line-height:1.6;padding:8px 12px;background:var(--bg2);border-radius:var(--radius)"></div>
+  </div>
+  <div style="margin-top:20px;padding-top:1rem;border-top:0.5px solid var(--border)">
+    <div class="section-title" style="margin-bottom:10px">Communication preferences</div>
+    <div class="disc-toggle">
+      <div>
+        <div style="font-size:14px;font-weight:500">Allow email from contacts</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">Contacts can send you messages by email</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="prof-allow-email">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="disc-toggle">
+      <div>
+        <div style="font-size:14px;font-weight:500">Allow push alerts from contacts</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">Contacts can send push notifications if app is installed</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="prof-allow-push">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+  <button class="btn-primary" onclick="saveProfile()">Save profile</button>
+</div></div>
+
+<!-- GROUP MODAL -->
+<div class="modal-bg" id="group-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <button class="close-btn" onclick="closeModal('group-modal')">×</button>
+  <div class="modal-title" id="group-modal-title">New group</div>
+  <input type="hidden" id="grp-id">
+  <label>Group name</label>
+  <input type="text" id="grp-name" placeholder="e.g. Thursday crew">
+  <label>Members</label>
+  <div id="grp-member-list" style="margin-top:6px;max-height:260px;overflow-y:auto;border:0.5px solid var(--border2);border-radius:var(--radius)"></div>
+  <button class="btn-primary" onclick="saveGroup()">Save group</button>
+</div></div>
+
+<!-- ACCOUNT SETUP -->
+<div class="modal-bg" id="account-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-title">Welcome to Pickleball Tracker</div>
+  <div style="font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:4px">Set up an account to sync data across devices.</div>
+  <label>Email address</label><input type="email" id="setup-email" placeholder="you@example.com" inputmode="email" autocomplete="email">
+  <label>PIN <span style="font-size:12px;color:var(--text2)">(4–6 digits)</span></label>
+  <input type="password" id="setup-pin" placeholder="••••" inputmode="numeric" maxlength="6" autocomplete="new-password">
+  <div id="setup-error" style="font-size:13px;color:var(--danger);margin-top:8px;min-height:18px"></div>
+  <button class="btn-primary" onclick="saveAccount()">Save & start syncing</button>
+  <button onclick="closeModal('account-modal')" style="margin-top:10px;width:100%;padding:11px;border:none;background:transparent;font-size:14px;color:var(--text2);cursor:pointer">Skip — use local only</button>
+</div></div>
+
+<!-- SETTINGS -->
+<div class="modal-bg" id="settings-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <button class="close-btn" onclick="closeModal('settings-modal')">×</button>
+  <div class="modal-title">Settings</div>
+  <div style="margin-bottom:1rem"><div class="section-title" style="margin-bottom:8px">Sync account</div><div id="settings-account-info"></div></div>
+  <div style="padding-top:1rem;border-top:0.5px solid var(--border)">
+    <div class="section-title" style="margin-bottom:8px">Change account</div>
+    <label>Email</label><input type="email" id="settings-email" placeholder="you@example.com" inputmode="email">
+    <label>PIN <span style="font-size:12px;color:var(--text2)">(4–6 digits)</span></label>
+    <input type="password" id="settings-pin" placeholder="••••" inputmode="numeric" maxlength="6">
+    <div id="settings-error" style="font-size:13px;color:var(--danger);margin-top:8px;min-height:18px"></div>
+    <button class="btn-primary" onclick="saveAccount('settings')">Save & sync</button>
+  </div>
+  <div style="margin-top:1.5rem;padding-top:1rem;border-top:0.5px solid var(--border)">
+    <div class="section-title" style="margin-bottom:6px">Sync endpoint</div>
+    <div style="font-size:12px;color:var(--text3);word-break:break-all" id="sync-url-display"></div>
+  </div>
+  <div style="margin-top:1.5rem;padding-top:1rem;border-top:0.5px solid var(--border)">
+    <div class="section-title" style="margin-bottom:6px">My email script URL</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px;line-height:1.6">Paste your own Apps Script URL to send messages from your Gmail account. If blank, the app's shared mailer is used.</div>
+    <input type="url" id="settings-email-script-url" placeholder="https://script.google.com/macros/s/..." inputmode="url">
+    <button onclick="saveEmailScriptUrl()" style="margin-top:10px;width:100%;padding:10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--text)">Save email script URL</button>
+    <button onclick="showEmailScriptInstructions()" style="margin-top:8px;width:100%;padding:10px;border:0.5px solid var(--info);border-radius:var(--radius);background:transparent;font-size:13px;cursor:pointer;color:var(--info)">How to set up my email script ↗</button>
+  </div>
+</div></div>
+
+<!-- EVENT FORM MODAL -->
+<div class="modal-bg" id="event-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <button class="close-btn" onclick="closeModal('event-modal')">×</button>
+  <div class="modal-title" id="event-modal-title">Add event</div>
+  <input type="hidden" id="ev-id">
+  <label>Title</label><input type="text" id="ev-title" placeholder="e.g. Sunday open play at Riverside">
+  <div class="row2">
+    <div><label>Date & time</label><input type="datetime-local" id="ev-date"></div>
+    <div><label>Type</label>
+      <select id="ev-type">
+        <option value="openPlay">Open play</option>
+        <option value="tournament">Tournament</option>
+        <option value="club">Club</option>
+        <option value="publicCourts">Public courts</option>
+      </select>
+    </div>
+  </div>
+  <label>Location</label><input type="text" id="ev-location" placeholder="Court name or address">
+  <label>Zip code</label><input type="text" id="ev-zip" placeholder="12345" inputmode="numeric" maxlength="10">
+  <label>Description</label><textarea id="ev-desc" placeholder="Details, skill level, what to bring..."></textarea>
+  <label>Minimum avg rating to attend <span style="font-size:12px;color:var(--text2)">(0 = anyone welcome)</span></label>
+  <input type="number" id="ev-minrating" min="0" max="10" step="0.5" placeholder="0" inputmode="decimal">
+  <label style="margin-top:14px;font-size:14px;color:var(--text2)">Visibility</label>
+  <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
+    <label style="margin:0;display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text)">
+      <input type="radio" name="ev-vis" id="ev-vis-anyone" value="anyone" checked style="width:auto;padding:0;border:none;accent-color:var(--info)">
+      Anyone using the app
+    </label>
+    <label style="margin:0;display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text)">
+      <input type="radio" name="ev-vis" id="ev-vis-contacts" value="contacts" style="width:auto;padding:0;border:none;accent-color:var(--info)">
+      Only people in my contacts
+    </label>
+  </div>
+  <button class="btn-primary" onclick="saveEvent()">Save event</button>
+</div></div>
+
+<!-- EVENT DETAIL MODAL -->
+<div class="modal-bg" id="event-detail-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <button class="close-btn" onclick="closeModal('event-detail-modal')">×</button>
+  <div id="event-detail-content"></div>
+</div></div>
+
+<!-- EMAIL SCRIPT INSTRUCTIONS MODAL -->
+<div class="modal-bg" id="email-script-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <button class="close-btn" onclick="closeModal('email-script-modal')">×</button>
+  <div class="modal-title">Set up your email script</div>
+  <div style="font-size:13px;color:var(--text2);line-height:1.8;margin-bottom:12px">
+    This lets the app send messages from your own Gmail account so recipients see your name in the From field.
+  </div>
+  <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:1rem;margin-bottom:12px">
+    <div style="font-size:13px;font-weight:500;margin-bottom:8px">Setup steps</div>
+    <div style="font-size:13px;color:var(--text2);line-height:2">
+      1. Go to <a href="https://sheets.google.com" target="_blank" style="color:var(--info)">sheets.google.com</a> and create a new Sheet<br>
+      2. Click <strong>Extensions → Apps Script</strong><br>
+      3. Delete all existing code, paste the script below<br>
+      4. Click <strong>Save</strong> (disk icon)<br>
+      5. Click <strong>Deploy → New deployment</strong><br>
+      6. Type: <strong>Web app</strong> · Execute as: <strong>Me</strong> · Access: <strong>Anyone</strong><br>
+      7. Click Deploy — authorize Gmail access when prompted<br>
+      8. Copy the web app URL and paste it in Settings above
+    </div>
+  </div>
+  <div style="background:var(--bg2);border-radius:var(--radius);padding:1rem;font-family:var(--font-mono,monospace);font-size:11px;color:var(--text2);line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:280px;overflow-y:auto" id="email-script-code-display"></div>
+  <button onclick="copyEmailScriptCode()" id="email-script-copy-btn" style="margin-top:10px;width:100%;padding:10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--text)">Copy script code</button>
+</div></div>
+
+<!-- MAP PIN PROFILE MODAL -->
+<div class="modal-bg" id="map-pin-modal"><div class="modal">
+  <div class="modal-handle"></div>
+  <button class="close-btn" onclick="closeModal('map-pin-modal')">×</button>
+  <div id="map-pin-content"></div>
+</div></div>
+
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+// ── State ──────────────────────────────────────────────────────────
+let state={games:[],players:[],contacts:[],events:[],notifications:[],groups:[],sentMessages:[],reactions:[]};
+let account={email:'',pin:''};
+let profile={name:'',email:'',cell:'',zip:'',discoverable:false,photoUrl:'',allowEmail:true,allowPush:true};
+let emailScriptUrl=''; // user's own Gmail Apps Script URL
+let chartType='bar';
+let currentView='dashboard';
+let currentEvTab='feed';
+let pendingReferral=null;
+let zipCache={};  // zip -> {lat,lng}
+const SYNC_URL=(typeof APP_SYNC_URL!=='undefined')?APP_SYNC_URL:'';
+
+// ── Storage ────────────────────────────────────────────────────────
+function loadLocal(){
+  try{const s=localStorage.getItem('pb_tracker');if(s)state=JSON.parse(s);}catch(e){}
+  try{const a=localStorage.getItem('pb_account');if(a)account=JSON.parse(a);}catch(e){}
+  try{const p=localStorage.getItem('pb_profile');if(p)profile=JSON.parse(p);}catch(e){}
+  if(!state.contacts)state.contacts=[];
+  if(!state.events)state.events=[];
+  if(!state.notifications)state.notifications=[];
+  if(!state.groups)state.groups=[];
+  if(!state.sentMessages)state.sentMessages=[];
+  if(!state.reactions)state.reactions=[];
+  if(profile.discoverable===undefined)profile.discoverable=false;
+  if(profile.allowEmail===undefined)profile.allowEmail=true;
+  if(profile.allowPush===undefined)profile.allowPush=true;
+  try{const eu=localStorage.getItem('pb_email_script_url');if(eu)emailScriptUrl=eu;}catch(e){}
+}
+function saveLocal(){
+  localStorage.setItem('pb_tracker',JSON.stringify(state));
+  localStorage.setItem('pb_account',JSON.stringify(account));
+  localStorage.setItem('pb_profile',JSON.stringify(profile));
+}
+
+// ── Sync ───────────────────────────────────────────────────────────
+async function syncFromSheet(){
+  if(!SYNC_URL||!account.email||!account.pin)return;
+  setSyncStatus('spin','Syncing...');
+  try{
+    const url=`${SYNC_URL}?email=${encodeURIComponent(account.email)}&pin=${encodeURIComponent(account.pin)}`;
+    const res=await fetch(url,{method:'GET',mode:'cors'});
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    if(data.status==='error')throw new Error(data.message);
+    if(data.games&&data.players){
+      const gMap={};state.games.forEach(g=>gMap[g.id]=g);data.games.forEach(g=>gMap[g.id]=g);
+      const pMap={};state.players.forEach(p=>pMap[p.id]=p);data.players.forEach(p=>pMap[p.id]=p);
+      const cMap={};(state.contacts||[]).forEach(c=>cMap[c.id]=c);(data.contacts||[]).forEach(c=>cMap[c.id]=c);
+      const evMap={};(state.events||[]).filter(e=>e.ownerEmail===account.email).forEach(e=>evMap[e.id]=e);(data.events||[]).forEach(e=>evMap[e.id]=e);
+      const nMap={};(state.notifications||[]).forEach(n=>nMap[n.id]=n);(data.notifications||[]).forEach(n=>nMap[n.id]=n);
+      const grpMap={};(state.groups||[]).forEach(g=>grpMap[g.id]=g);(data.groups||[]).forEach(g=>grpMap[g.id]=g);
+      const smMap={};(state.sentMessages||[]).forEach(m=>smMap[m.id]=m);(data.sentMessages||[]).forEach(m=>smMap[m.id]=m);
+      const rxMap={};(state.reactions||[]).forEach(r=>rxMap[r.id]=r);(data.reactions||[]).forEach(r=>rxMap[r.id]=r);
+      state.games=Object.values(gMap).sort((a,b)=>new Date(b.date)-new Date(a.date));
+      state.players=Object.values(pMap);
+      state.contacts=Object.values(cMap);
+      state.events=Object.values(evMap);
+      state.notifications=Object.values(nMap);
+      state.groups=Object.values(grpMap);
+      state.sentMessages=Object.values(smMap);
+      state.reactions=Object.values(rxMap);
+      saveLocal();render();
+    }
+    setSyncStatus('green','Synced · '+account.email);
+  }catch(e){setSyncStatus('amber','Offline — saved locally');}
+}
+async function syncToSheet(){
+  if(!SYNC_URL||!account.email||!account.pin)return;
+  try{
+    await fetch(SYNC_URL,{method:'POST',mode:'no-cors',
+      body:JSON.stringify({email:account.email,pin:account.pin,games:state.games,players:state.players,contacts:state.contacts,events:state.events,notifications:state.notifications,groups:state.groups,sentMessages:state.sentMessages,reactions:state.reactions,profile:{name:profile.name,email:profile.email,cell:profile.cell,zip:profile.zip,discoverable:profile.discoverable,photoUrl:profile.photoUrl||'',allowEmail:profile.allowEmail,allowPush:profile.allowPush}}),
+      headers:{'Content-Type':'application/json'}});
+    setSyncStatus('green','Synced · '+account.email);
+  }catch(e){setSyncStatus('amber','Offline — saved locally');}
+}
+function setSyncStatus(cls,msg){document.getElementById('sync-dot').className='dot '+cls;document.getElementById('sync-msg').textContent=msg;}
+function save(){saveLocal();syncToSheet();}
+
+// ── Utils ──────────────────────────────────────────────────────────
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function playerName(id){const p=state.players.find(x=>x.id===id);return p?p.name:'?';}
+function ini(name){return(name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();}
+function sCell(label,val){return`<div style="background:var(--bg2);border-radius:var(--radius);padding:10px 6px;text-align:center"><div style="font-size:11px;color:var(--text2);margin-bottom:3px">${label}</div><div style="font-size:18px;font-weight:600">${val}</div></div>`;}
+
+function switchView(v,btn){
+  currentView=v;
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');btn.classList.add('active');
+  document.getElementById('fab-btn').classList.toggle('visible',v==='games'||v==='players'||v==='contacts'||v==='events');
+  if(v==='activity')setTimeout(drawChart,60);
+  if(v==='events')renderEvents();
+  if(v==='findplayers'){document.getElementById('fp-list').innerHTML='<div class="empty">Tap Search to find players.</div>';}
+  if(v==='messaging')renderMessaging();
+  if(v==='map'){renderPBMap();initMapClickHandler();if(!mapPins.length)loadMapPins();}
+}
+function fabAction(){
+  if(currentView==='games')openGameModal();
+  else if(currentView==='players')openPlayerModal();
+  else if(currentView==='contacts')openProfileModal();
+  else if(currentView==='events')openEventModal();
+}
+
+// ── Contact Card (per-link sharing with field selection) ───────────
+function buildContactCardUrl(shareEmail, shareCell, shareZip){
+  const base=window.location.href.split('?')[0];
+  const params=new URLSearchParams();
+  params.set('cmd','addcontact');
+  if(profile.name) params.set('n', profile.name);
+  if(shareEmail && profile.email) params.set('e', profile.email);
+  if(shareCell  && profile.cell)  params.set('c', profile.cell);
+  if(shareZip   && profile.zip)   params.set('z', profile.zip);
+  return `${base}?${params.toString()}`;
+}
+
+function renderContactCardPanel(){
+  const el=document.getElementById('contact-card-panel');
+  if(!el) return;
+  if(!profile.name){
+    el.innerHTML=`
+      <div style="font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:12px">
+        Set up your profile first, then generate a contact card link to share.
+      </div>
+      <button onclick="openProfileModal()" style="width:100%;padding:12px;border:0.5px solid var(--info);border-radius:var(--radius);background:transparent;font-size:14px;font-weight:500;color:var(--info);cursor:pointer">Set up my profile</button>`;
+    return;
+  }
+  const hasEmail=!!profile.email, hasCell=!!profile.cell, hasZip=!!profile.zip;
+  el.innerHTML=`
+    <div style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.6">
+      Tap each field to include or exclude it from your link.
+    </div>
+    <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:0 1rem;margin-bottom:16px">
+      <div class="cc-check-row">
+        <div><div class="cc-check-label">Name</div><div class="cc-check-sub">${profile.name}</div></div>
+        <span style="font-size:11px;padding:3px 10px;border-radius:20px;background:var(--success-bg);color:var(--success);font-weight:500">Always on</span>
+      </div>
+      ${hasEmail?`<div class="cc-check-row">
+        <div><div class="cc-check-label">Email</div><div class="cc-check-sub">${profile.email}</div></div>
+        <button id="cc-email-btn" onclick="toggleCCField('email')" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--info);background:var(--info);color:#fff;font-size:12px;font-weight:600;cursor:pointer;min-width:60px">On</button>
+      </div>`:''}
+      ${hasCell?`<div class="cc-check-row">
+        <div><div class="cc-check-label">Cell</div><div class="cc-check-sub">${profile.cell}</div></div>
+        <button id="cc-cell-btn" onclick="toggleCCField('cell')" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--info);background:var(--info);color:#fff;font-size:12px;font-weight:600;cursor:pointer;min-width:60px">On</button>
+      </div>`:''}
+      ${hasZip?`<div class="cc-check-row">
+        <div><div class="cc-check-label">Zip</div><div class="cc-check-sub">${profile.zip}</div></div>
+        <button id="cc-zip-btn" onclick="toggleCCField('zip')" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--info);background:var(--info);color:#fff;font-size:12px;font-weight:600;cursor:pointer;min-width:60px">On</button>
+      </div>`:''}
+    </div>
+    <div class="section-title" style="margin-bottom:8px">Preview — what the recipient will see</div>
+    <div class="cc-preview" id="cc-preview"></div>
+    <div class="url-box" id="cc-url-box" style="font-size:11px;margin-top:8px"></div>
+    <button class="copy-btn" id="cc-copy-btn" onclick="copyUrl('cc-url-box','cc-copy-btn')" style="margin-top:6px">Copy contact card link</button>
+    <div style="font-size:13px;color:var(--text2);text-align:center;margin:8px 0 4px">Or scan</div>
+    <div class="qrwrap" id="cc-qr-wrap"></div>`;
+  if(!hasEmail && !hasCell && !hasZip){
+    el.innerHTML+=`<div class="note">Your profile only has a name. Add email, cell, or zip in My Profile to share more.</div>`;
+  }
+  // Init state: all on
+  window._ccState={email:true,cell:true,zip:true};
+  refreshContactCard();
+}
+
+function toggleCCField(field){
+  if(!window._ccState) window._ccState={email:true,cell:true,zip:true};
+  window._ccState[field]=!window._ccState[field];
+  const btn=document.getElementById(`cc-${field}-btn`);
+  if(btn){
+    const on=window._ccState[field];
+    btn.textContent=on?'On':'Off';
+    btn.style.background=on?'var(--info)':'transparent';
+    btn.style.color=on?'#fff':'var(--text2)';
+    btn.style.borderColor=on?'var(--info)':'var(--border2)';
+  }
+  refreshContactCard();
+}
+
+function refreshContactCard(){
+  if(!window._ccState) window._ccState={email:true,cell:true,zip:true};
+  const shareEmail=window._ccState.email&&!!profile.email;
+  const shareCell =window._ccState.cell &&!!profile.cell;
+  const shareZip  =window._ccState.zip  &&!!profile.zip;
+  // Update preview
+  const prev=document.getElementById('cc-preview');
+  if(prev){
+    prev.innerHTML=`
+      <div class="cc-preview-name">${profile.name}</div>
+      ${shareEmail?`<div class="cc-preview-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>${profile.email}</div>`:''}
+      ${shareCell?`<div class="cc-preview-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.29 6.29l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${profile.cell}</div>`:''}
+      ${shareZip?`<div class="cc-preview-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Zip: ${profile.zip}</div>`:''}
+      ${!shareEmail&&!shareCell&&!shareZip?`<div style="font-size:12px;color:var(--text3)">Name only — tap fields above to include more info</div>`:''}`;
+  }
+  // Update URL and QR
+  const url=buildContactCardUrl(shareEmail,shareCell,shareZip);
+  const urlBox=document.getElementById('cc-url-box');
+  if(urlBox) urlBox.textContent=url;
+  const qrWrap=document.getElementById('cc-qr-wrap');
+  if(qrWrap){qrWrap.innerHTML='';makeQR(qrWrap,url,160);}
+}
+
+// ── Incoming contact card (?cmd=addcontact) ─────────────────────────
+function checkIncomingContactCard(){
+  const params=new URLSearchParams(window.location.search);
+  if(params.get('cmd')!=='addcontact') return false;
+  const incoming={
+    name: params.get('n')||'',
+    email:params.get('e')||'',
+    cell: params.get('c')||'',
+    zip:  params.get('z')||''
+  };
+  if(!incoming.name) return false;
+  window.history.replaceState({},'',window.location.pathname);
+  showIncomingContactCard(incoming);
+  return true;
+}
+
+function showIncomingContactCard(c){
+  const modal=document.getElementById('incoming-contact-modal');
+  document.getElementById('incoming-contact-content').innerHTML=`
+    <div class="incoming-card">
+      <div class="incoming-avatar">${ini(c.name)}</div>
+      <div style="font-size:22px;font-weight:700;margin-bottom:6px">${c.name}</div>
+      <div style="font-size:14px;color:var(--text2);margin-bottom:20px">wants to be in your contacts</div>
+      <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:0 1rem;margin-bottom:20px;text-align:left">
+        <div class="cdr"><span class="cdl">Name</span><span class="cdv">${c.name}</span></div>
+        ${c.email?`<div class="cdr"><span class="cdl">Email</span><span class="cdv">${c.email}</span></div>`:''}
+        ${c.cell?`<div class="cdr"><span class="cdl">Cell</span><span class="cdv">${c.cell}</span></div>`:''}
+        ${c.zip?`<div class="cdr"><span class="cdl">Zip</span><span class="cdv">${c.zip}</span></div>`:''}
+      </div>
+      <button onclick="acceptIncomingContact()" style="width:100%;padding:14px;background:var(--info);border:none;border-radius:var(--radius);color:#fff;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:10px">Add to my contacts</button>
+      <button onclick="closeModal('incoming-contact-modal')" style="width:100%;padding:12px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--text2)">Decline</button>
+    </div>`;
+  // Store for acceptIncomingContact
+  modal._pending=c;
+  modal.classList.add('open');
+}
+
+function acceptIncomingContact(){
+  const modal=document.getElementById('incoming-contact-modal');
+  const c=modal._pending;
+  if(!c) return;
+  const alreadyExists=state.contacts.find(x=>(c.email&&x.email===c.email)||(x.name===c.name));
+  if(!alreadyExists){
+    state.contacts.push({id:uid(),name:c.name,email:c.email||'',cell:c.cell||'',zip:c.zip||'',addedAt:new Date().toISOString()});
+  }
+  if(!state.players.find(p=>p.name===c.name)){
+    state.players.push({id:uid(),name:c.name,serve:null,dink:null,ath:null,sport:null,notes:`Contact · ${c.email||''}`});
+  }
+  modal._pending=null;
+  save();render();closeModal('incoming-contact-modal');
+  switchView('contacts',document.getElementById('nav-contacts'));
+}
+
+// ── Referral ───────────────────────────────────────────────────────
+function buildRefUrl(){
+  const base=window.location.href.split('?')[0];
+  const payload=btoa(unescape(encodeURIComponent(JSON.stringify({name:profile.name,email:profile.email,cell:profile.cell,zip:profile.zip}))));
+  return `${base}?ref=${payload}`;
+}
+function parseRefFromUrl(){
+  try{const p=new URLSearchParams(window.location.search).get('ref');return p?JSON.parse(decodeURIComponent(escape(atob(p)))):null;}catch(e){return null;}
+}
+function checkReferral(){
+  const ref=parseRefFromUrl();
+  if(!ref||!ref.name)return;
+  pendingReferral=ref;
+  window.history.replaceState({},'',window.location.pathname);
+  const banner=document.getElementById('ref-banner');
+  banner.innerHTML=`<div class="ref-banner">
+    <div style="font-size:16px;font-weight:600;margin-bottom:4px">${ref.name} wants to connect!</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:10px">They shared their contact info via Pickleball Tracker.</div>
+    ${ref.email?`<div style="font-size:13px;color:var(--text2);margin-bottom:2px">${ref.email}</div>`:''}
+    ${ref.cell?`<div style="font-size:13px;color:var(--text2);margin-bottom:2px">${ref.cell}</div>`:''}
+    ${ref.zip?`<div style="font-size:13px;color:var(--text2);margin-bottom:10px">Zip: ${ref.zip}</div>`:''}
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button onclick="showRefReview()" style="flex:1;padding:10px;background:var(--info);border:none;border-radius:var(--radius);color:#fff;font-size:14px;font-weight:600;cursor:pointer">Review & add</button>
+      <button onclick="document.getElementById('ref-banner').style.display='none'" style="padding:10px 14px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--text2)">Dismiss</button>
+    </div>
+  </div>`;
+  banner.style.display='block';
+}
+function showRefReview(){
+  if(!pendingReferral)return;
+  const r=pendingReferral;
+  document.getElementById('ref-review-title').textContent=`Add ${r.name}?`;
+  document.getElementById('ref-review-body').innerHTML=`
+    <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:0 1rem;margin-bottom:12px">
+      <div class="cdr"><span class="cdl">Name</span><span class="cdv">${r.name||'—'}</span></div>
+      <div class="cdr"><span class="cdl">Email</span><span class="cdv">${r.email||'—'}</span></div>
+      <div class="cdr"><span class="cdl">Cell</span><span class="cdv">${r.cell||'—'}</span></div>
+      <div class="cdr"><span class="cdl">Zip</span><span class="cdv">${r.zip||'—'}</span></div>
+    </div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:4px">They'll be saved to your contacts and player directory.</div>`;
+  document.getElementById('ref-review-modal').classList.add('open');
+}
+function acceptReferral(){
+  if(!pendingReferral)return;
+  const r=pendingReferral;
+  if(!state.contacts.find(c=>c.email&&c.email===r.email&&r.email)){
+    state.contacts.push({id:uid(),name:r.name,email:r.email||'',cell:r.cell||'',zip:r.zip||'',addedAt:new Date().toISOString()});
+  }
+  if(!state.players.find(p=>p.name===r.name)){
+    state.players.push({id:uid(),name:r.name,serve:null,dink:null,ath:null,sport:null,notes:`Contact · ${r.email||''}`});
+  }
+  pendingReferral=null;
+  document.getElementById('ref-banner').style.display='none';
+  save();render();closeModal('ref-review-modal');
+  switchView('contacts',document.getElementById('nav-contacts'));
+}
+
+// ── Profile ────────────────────────────────────────────────────────
+function avatarHtml(name, photoUrl, size, extraStyle){
+  // Returns HTML string for an avatar — photo if available, initials otherwise
+  size=size||40;
+  const s=extraStyle||'';
+  if(photoUrl){
+    return`<img src="${photoUrl}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;border:1.5px solid var(--border2);flex-shrink:0;${s}" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><div class="avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.35)}px;display:none;flex-shrink:0;${s}">${ini(name)}</div>`;
+  }
+  return`<div class="avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size*0.35)}px;flex-shrink:0;${s}">${ini(name)}</div>`;
+}
+
+function openProfileModal(){
+  document.getElementById('prof-name').value=profile.name||'';
+  document.getElementById('prof-email').value=profile.email||'';
+  document.getElementById('prof-cell').value=profile.cell||'';
+  document.getElementById('prof-zip').value=profile.zip||'';
+  document.getElementById('prof-discoverable').checked=!!profile.discoverable;
+  document.getElementById('prof-allow-email').checked=profile.allowEmail!==false;
+  document.getElementById('prof-allow-push').checked=profile.allowPush!==false;
+  updateDiscoverablePreview();
+  const ring=document.getElementById('prof-avatar-display');
+  if(ring) ring.innerHTML=avatarHtml(profile.name||'Me', profile.photoUrl, 80);
+  const statusEl=document.getElementById('prof-photo-status');
+  statusEl.textContent='';
+  statusEl.style.color='var(--text2)';
+  document.getElementById('profile-modal').classList.add('open');
+}
+
+function updateDiscoverablePreview(){
+  const on=document.getElementById('prof-discoverable').checked;
+  document.getElementById('disc-preview').textContent=on
+    ?'Your name and zip code will appear in Find Players searches. Others can send you a connection request.'
+    :'You are hidden from Find Players. Only people with your referral or contact card link can add you.';
+}
+
+function saveProfile(){
+  profile={
+    name:document.getElementById('prof-name').value.trim(),
+    email:document.getElementById('prof-email').value.trim(),
+    cell:document.getElementById('prof-cell').value.trim(),
+    zip:document.getElementById('prof-zip').value.trim(),
+    discoverable:document.getElementById('prof-discoverable').checked,
+    allowEmail:document.getElementById('prof-allow-email').checked,
+    allowPush:document.getElementById('prof-allow-push').checked,
+    photoUrl:profile.photoUrl||''
+  };
+  saveLocal();closeModal('profile-modal');renderRefPanel();renderContactCardPanel();
+}
+
+// ── Photo upload ───────────────────────────────────────────────────
+function triggerPhotoUpload(){
+  document.getElementById('prof-photo-input').click();
+}
+
+async function handlePhotoSelected(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const status=document.getElementById('prof-photo-status');
+  const ring=document.getElementById('prof-photo-ring');
+  status.textContent='Compressing...';
+  status.style.color='var(--text2)';
+  ring.classList.add('photo-uploading');
+  try{
+    const compressed=await compressImage(file, 200, 0.82);
+
+    // Always save compressed data URL locally first — this ensures the
+    // photo persists even if the cloud upload fails or isn't configured
+    profile.photoUrl=compressed;
+    saveLocal();
+
+    // Update avatar preview immediately
+    document.getElementById('prof-avatar-display').innerHTML=
+      `<img src="${compressed}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--border2)">`;
+
+    if(!SYNC_URL||!account.email||!account.pin){
+      status.textContent='Photo saved locally';
+      status.style.color='var(--success)';
+      ring.classList.remove('photo-uploading');
+      event.target.value='';
+      return;
+    }
+
+    // Attempt cloud upload to get a stable Drive URL
+    status.textContent='Uploading to cloud...';
+    try{
+      const b64=compressed.split(',')[1];
+      const mimeType=compressed.split(';')[0].split(':')[1]||'image/jpeg';
+      const res=await fetch(SYNC_URL,{
+        method:'POST', mode:'cors',
+        body:JSON.stringify({email:account.email,pin:account.pin,action:'uploadPhoto',imageBase64:b64,mimeType}),
+        headers:{'Content-Type':'application/json'}
+      });
+      const data=await res.json();
+      if(data.status==='ok'&&data.photoUrl){
+        // Cloud upload succeeded — replace local data URL with Drive URL
+        profile.photoUrl=data.photoUrl;
+        saveLocal();
+        status.textContent='Photo saved!';
+        status.style.color='var(--success)';
+      } else {
+        // Cloud returned error — keep local copy, show soft warning
+        status.textContent='Saved locally (cloud upload failed — will retry on next sync)';
+        status.style.color='var(--text2)';
+      }
+    }catch(uploadErr){
+      // Network error — local copy already saved, that's fine
+      status.textContent='Saved locally (no cloud connection)';
+      status.style.color='var(--text2)';
+    }
+    setTimeout(()=>status.textContent='',4000);
+  }catch(err){
+    status.textContent='Could not process image — '+err.message;
+    status.style.color='var(--danger)';
+  }
+  ring.classList.remove('photo-uploading');
+  event.target.value='';
+}
+
+function compressImage(file, maxSize, quality){
+  return new Promise(function(resolve,reject){
+    const reader=new FileReader();
+    reader.onload=function(e){
+      const img=new Image();
+      img.onload=function(){
+        const canvas=document.createElement('canvas');
+        let w=img.width, h=img.height;
+        // Scale so longest side = maxSize
+        if(w>h){if(w>maxSize){h=Math.round(h*maxSize/w);w=maxSize;}}
+        else{if(h>maxSize){w=Math.round(w*maxSize/h);h=maxSize;}}
+        canvas.width=w; canvas.height=h;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg',quality||0.82));
+      };
+      img.onerror=reject;
+      img.src=e.target.result;
+    };
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── Share ──────────────────────────────────────────────────────────
+function openShare(){
+  const appUrl=window.location.href.split('?')[0];
+  document.getElementById('share-url-box').textContent=appUrl;
+  const wrap=document.getElementById('qr-wrap');wrap.innerHTML='';
+  makeQR(wrap,appUrl,160);
+  renderRefPanel();
+  renderContactCardPanel();
+  document.getElementById('share-modal').classList.add('open');
+}
+function switchShareTab(tab,btn){
+  document.querySelectorAll('.share-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.share-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');document.getElementById('share-panel-'+tab).classList.add('active');
+}
+function renderRefPanel(){
+  const el=document.getElementById('ref-profile-check');if(!el)return;
+  if(!profile.name){
+    el.innerHTML=`<div style="font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:12px">Fill in your profile so others can save your contact info when they open your link.</div>
+    <button onclick="openProfileModal()" style="width:100%;padding:12px;border:0.5px solid var(--info);border-radius:var(--radius);background:transparent;font-size:14px;font-weight:500;color:var(--info);cursor:pointer">Set up my profile</button>`;
+    return;
+  }
+  const refUrl=buildRefUrl();
+  el.innerHTML=`
+    <div style="font-size:13px;color:var(--text2);margin-bottom:8px">When someone opens this link they'll be prompted to add you as a contact.</div>
+    <div style="background:var(--bg2);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:500">${profile.name}</div>
+      ${profile.email?`<div style="font-size:12px;color:var(--text2)">${profile.email}</div>`:''}
+      ${profile.cell?`<div style="font-size:12px;color:var(--text2)">${profile.cell}</div>`:''}
+      ${profile.zip?`<div style="font-size:12px;color:var(--text2)">Zip: ${profile.zip}</div>`:''}
+      <button onclick="openProfileModal()" style="margin-top:8px;padding:5px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:12px;cursor:pointer;color:var(--text2)">Edit profile</button>
+    </div>
+    <div class="url-box" id="ref-url-box" style="font-size:11px">${refUrl}</div>
+    <button class="copy-btn" id="ref-copy-btn" onclick="copyUrl('ref-url-box','ref-copy-btn')">Copy referral link</button>
+    <div style="font-size:13px;color:var(--text2);text-align:center;margin-bottom:4px">Or scan</div>
+    <div class="qrwrap" id="ref-qr-wrap"></div>`;
+  makeQR(document.getElementById('ref-qr-wrap'),refUrl,160);
+}
+function makeQR(container,url,size){
+  if(typeof QRCode==='undefined')return;
+  try{const d=document.createElement('div');container.appendChild(d);new QRCode(d,{text:url,width:size,height:size,colorDark:'#111111',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});}catch(e){}
+}
+function copyUrl(boxId,btnId){
+  const url=document.getElementById(boxId).textContent;
+  const btn=document.getElementById(btnId);
+  const orig=btn.textContent;
+  navigator.clipboard.writeText(url).then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent=orig,2500);}).catch(()=>{});
+}
+
+// ── Contacts ───────────────────────────────────────────────────────
+function getHeadToHead(contactName){
+  // Find matching player by name
+  const player=state.players.find(p=>p.name===contactName);
+  if(!player) return null;
+  const pid=player.id;
+
+  const asPartner=state.games.filter(g=>g.partner===pid);
+  const asOpp=state.games.filter(g=>g.opp1===pid||g.opp2===pid);
+
+  // Partner stats
+  const partnerWins=asPartner.filter(g=>g.scoreUs>g.scoreThem).length;
+  const partnerLosses=asPartner.length-partnerWins;
+  const partnerScoreUs=asPartner.reduce((s,g)=>s+g.scoreUs,0);
+  const partnerScoreThem=asPartner.reduce((s,g)=>s+g.scoreThem,0);
+
+  // Opponent stats — their wins = our losses
+  const oppTheirWins=asOpp.filter(g=>g.scoreUs<g.scoreThem).length; // they beat us
+  const oppTheirLosses=asOpp.length-oppTheirWins;
+  const oppScoreUs=asOpp.reduce((s,g)=>s+g.scoreUs,0);
+  const oppScoreThem=asOpp.reduce((s,g)=>s+g.scoreThem,0);
+
+  const allGames=[...asPartner,...asOpp].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const last=allGames[0]?new Date(allGames[0].date):null;
+
+  return{player,asPartner,asOpp,partnerWins,partnerLosses,partnerScoreUs,partnerScoreThem,
+    oppTheirWins,oppTheirLosses,oppScoreUs,oppScoreThem,allGames,last};
+}
+
+function showContactDetail(id){
+  const c=state.contacts.find(x=>x.id===id);if(!c)return;
+  const h2h=getHeadToHead(c.name);
+  const lastStr=h2h&&h2h.last?h2h.last.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'Never played';
+
+  // Build head-to-head section
+  let h2hHtml='';
+  if(h2h&&h2h.allGames.length){
+    // Summary stats grid
+    const totalTogether=h2h.asPartner.length+h2h.asOpp.length;
+    h2hHtml=`
+    <div class="h2h-section">
+      <div class="section-title" style="margin-bottom:10px">Playing history</div>
+      <div class="h2h-stat-grid">
+        <div class="h2h-stat">
+          <div class="h2h-stat-val">${totalTogether}</div>
+          <div class="h2h-stat-lbl">Total games</div>
+        </div>
+        <div class="h2h-stat">
+          <div class="h2h-stat-val" style="color:var(--success)">${h2h.partnerWins}–${h2h.partnerLosses}</div>
+          <div class="h2h-stat-lbl">As partners</div>
+        </div>
+        <div class="h2h-stat">
+          <div class="h2h-stat-val" style="color:var(--danger)">${h2h.oppTheirLosses}–${h2h.oppTheirWins}</div>
+          <div class="h2h-stat-lbl">You vs them</div>
+        </div>
+      </div>`;
+
+    // Score averages if enough games
+    if(h2h.asPartner.length>0){
+      const avgUs=(h2h.partnerScoreUs/h2h.asPartner.length).toFixed(1);
+      const avgThem=(h2h.partnerScoreThem/h2h.asPartner.length).toFixed(1);
+      h2hHtml+=`<div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 12px;background:var(--bg2);border-radius:var(--radius)">
+        As partners — avg score: <strong>${avgUs}</strong> vs <strong>${avgThem}</strong>
+      </div>`;
+    }
+    if(h2h.asOpp.length>0){
+      const avgUs2=(h2h.oppScoreUs/h2h.asOpp.length).toFixed(1);
+      const avgThem2=(h2h.oppScoreThem/h2h.asOpp.length).toFixed(1);
+      h2hHtml+=`<div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 12px;background:var(--bg2);border-radius:var(--radius)">
+        Head-to-head — avg score: you <strong>${avgUs2}</strong> vs them <strong>${avgThem2}</strong>
+      </div>`;
+    }
+
+    // Recent games list
+    const recent=h2h.allGames.slice(0,6);
+    h2hHtml+=`<div style="margin-bottom:4px">
+      ${recent.map(g=>{
+        const isPartner=g.partner===h2h.player.id;
+        const won=g.scoreUs>g.scoreThem;
+        const d=new Date(g.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        const role=isPartner?'Partner':'Opponent';
+        const resultColor=isPartner?(won?'var(--success)':'var(--danger)'):(won?'var(--success)':'var(--danger)');
+        const result=isPartner?(won?'W':'L'):(won?'W':'L');
+        return`<div class="h2h-game-row">
+          <div>
+            <span style="font-size:11px;padding:1px 6px;border-radius:var(--radius);background:var(--bg2);color:var(--text2);margin-right:6px">${role}</span>
+            <span style="font-size:12px;color:var(--text2)">${d}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="h2h-score">${g.scoreUs}–${g.scoreThem}</span>
+            <span style="font-size:12px;font-weight:700;color:${resultColor}">${result}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+    h2hHtml+='</div>';
+  }
+
+  document.getElementById('contact-detail-content').innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem">
+      ${avatarHtml(c.name,c.photoUrl||'',56)}
+      <div>
+        <div style="font-size:18px;font-weight:600">${c.name}</div>
+        ${h2h?`<div style="font-size:12px;color:var(--text2)">Last played: ${lastStr}</div>`:''}
+      </div>
+    </div>
+    <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:0 1rem;margin-bottom:1rem">
+      <div class="cdr"><span class="cdl">Email</span><span class="cdv">${c.email||'—'}</span></div>
+      <div class="cdr"><span class="cdl">Cell</span><span class="cdv">${c.cell||'—'}</span></div>
+      <div class="cdr"><span class="cdl">Zip</span><span class="cdv">${c.zip||'—'}</span></div>
+    </div>
+    ${h2hHtml}
+    <div style="margin-top:12px">
+      <button onclick="downloadVCard({name:'${c.name.replace(/'/g,"\\'")}',email:'${(c.email||'').replace(/'/g,"\\'")}',cell:'${(c.cell||'').replace(/'/g,"\\'")}',zip:'${(c.zip||'').replace(/'/g,"\\'")}',note:'Pickleball contact'})" style="width:100%;padding:12px;border:0.5px solid var(--info);border-radius:var(--radius);background:var(--info-bg);color:var(--info);font-size:14px;font-weight:500;cursor:pointer;margin-bottom:8px">
+        Add to iPhone Contacts
+      </button>
+      <div style="display:flex;gap:8px">
+        ${c.cell?`<a href="tel:${c.cell}" style="flex:1;padding:12px;border:0.5px solid var(--border2);border-radius:var(--radius);font-size:14px;color:var(--text);text-align:center;text-decoration:none">Call</a>`:''}
+        ${c.email?`<a href="mailto:${c.email}" style="flex:1;padding:12px;border:0.5px solid var(--border2);border-radius:var(--radius);font-size:14px;color:var(--text);text-align:center;text-decoration:none">Email</a>`:''}
+        <button onclick="deleteContact('${id}')" style="padding:12px 14px;border:0.5px solid var(--danger);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--danger)">Delete</button>
+      </div>
+    </div>`;
+  document.getElementById('contact-detail-modal').classList.add('open');
+}
+function downloadVCard(data){
+  // data: {name, email, cell, zip, photoUrl, note}
+  // Split name into first/last best-effort
+  const parts=(data.name||'').trim().split(/\s+/);
+  const last=parts.length>1?parts.pop():'';
+  const first=parts.join(' ');
+
+  // Build vCard 3.0 — iOS Contacts understands this format natively
+  const lines=[
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `FN:${data.name||''}`,
+    `N:${last};${first};;;`,
+  ];
+
+  if(data.cell){
+    // Normalize: strip non-digits for the value, keep display form in label
+    lines.push(`TEL;TYPE=CELL,VOICE:${data.cell}`);
+  }
+  if(data.email){
+    lines.push(`EMAIL;TYPE=INTERNET:${data.email}`);
+  }
+  if(data.zip){
+    // vCard ADR: PO Box; Extended; Street; City; State; ZIP; Country
+    lines.push(`ADR;TYPE=HOME:;;;; ;${data.zip};`);
+  }
+  if(data.note){
+    // Fold long lines per RFC 6350 (not strictly required but tidy)
+    lines.push(`NOTE:${data.note.replace(/\n/g,'\\n')}`);
+  }
+  // Source tag so iOS shows "Added from Pickleball Tracker"
+  lines.push('PRODID:-//Pickleball Tracker//EN');
+  lines.push('END:VCARD');
+
+  const vcf=lines.join('\r\n');
+  const blob=new Blob([vcf],{type:'text/vcard;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+
+  // Use a hidden <a> with download attribute — iOS Safari intercepts
+  // text/vcard blobs and hands them straight to Contacts.app
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=(data.name||'contact').replace(/\s+/g,'_')+'.vcf';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
+}
+
+function deleteContact(id){
+  if(!confirm('Remove this contact?'))return;
+  state.contacts=state.contacts.filter(c=>c.id!==id);save();render();closeModal('contact-detail-modal');
+}
+
+// ── Games ──────────────────────────────────────────────────────────
+function openGameModal(id){
+  const now=new Date();const pad=n=>String(n).padStart(2,'0');
+  const dtLocal=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  ['g-partner','g-opp1','g-opp2'].forEach(sid=>{
+    const sel=document.getElementById(sid);
+    sel.innerHTML=sid==='g-partner'?'<option value="">— none —</option>':'<option value="">— select —</option>';
+    state.players.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;sel.appendChild(o);});
+  });
+  if(id){
+    const g=state.games.find(x=>x.id===id);
+    if(g){
+      document.getElementById('g-id').value=g.id;document.getElementById('g-date').value=g.date?g.date.slice(0,16):dtLocal;
+      document.getElementById('g-format').value=g.format||'doubles';document.getElementById('g-score-us').value=g.scoreUs;
+      document.getElementById('g-score-them').value=g.scoreThem;document.getElementById('g-venue').value=g.venue||'';
+      document.getElementById('g-partner').value=g.partner||'';document.getElementById('g-opp1').value=g.opp1||'';
+      document.getElementById('g-opp2').value=g.opp2||'';document.getElementById('g-notes').value=g.notes||'';
+      document.getElementById('game-modal-title').textContent='Edit game';
+    }
+  } else {
+    document.getElementById('g-id').value='';document.getElementById('g-date').value=dtLocal;
+    document.getElementById('g-format').value='doubles';
+    ['g-score-us','g-score-them','g-venue','g-notes'].forEach(f=>document.getElementById(f).value='');
+    document.getElementById('game-modal-title').textContent='Log a game';
+  }
+  document.getElementById('game-modal').classList.add('open');
+}
+function saveGame(){
+  const id=document.getElementById('g-id').value;
+  const g={id:id||uid(),date:document.getElementById('g-date').value||new Date().toISOString(),format:document.getElementById('g-format').value||'doubles',scoreUs:parseInt(document.getElementById('g-score-us').value)||0,scoreThem:parseInt(document.getElementById('g-score-them').value)||0,venue:document.getElementById('g-venue').value.trim(),partner:document.getElementById('g-partner').value,opp1:document.getElementById('g-opp1').value,opp2:document.getElementById('g-opp2').value,notes:document.getElementById('g-notes').value};
+  if(id){const idx=state.games.findIndex(x=>x.id===id);if(idx>=0)state.games[idx]=g;else state.games.unshift(g);}
+  else state.games.unshift(g);
+  save();render();closeModal('game-modal');
+}
+function deleteGame(id){if(!confirm('Delete this game?'))return;state.games=state.games.filter(g=>g.id!==id);save();render();}
+function filteredGames(){
+  const fmt=document.getElementById('filter-format')?.value||'';
+  const res=document.getElementById('filter-result')?.value||'';
+  const venue=(document.getElementById('filter-venue')?.value||'').toLowerCase();
+  return state.games.filter(g=>{
+    if(fmt&&g.format!==fmt)return false;if(res==='win'&&g.scoreUs<=g.scoreThem)return false;
+    if(res==='loss'&&g.scoreUs>=g.scoreThem)return false;if(venue&&!(g.venue||'').toLowerCase().includes(venue))return false;return true;
+  });
+}
+function renderGames(){const games=filteredGames();document.getElementById('all-games-list').innerHTML=games.length?games.map(g=>gameHtml(g,true)).join(''):'<div class="empty">No games match filters.</div>';}
+function gameHtml(g,actions){
+  const win=g.scoreUs>g.scoreThem;
+  const partner=g.partner?playerName(g.partner):'solo';
+  const opps=[g.opp1,g.opp2].filter(Boolean).map(playerName).join(' & ')||'unknown';
+  const d=new Date(g.date);
+  const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const timeStr=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  return`<div class="game-row"><div style="flex:1">
+    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
+      <span class="game-score">${g.scoreUs} – ${g.scoreThem}</span>
+      <span class="badge ${win?'win':'loss'}">${win?'Win':'Loss'}</span>
+      <span class="fmt-badge">${g.format==='singles'?'Singles':'Doubles'}</span>
+    </div>
+    <div class="game-meta">vs ${opps}${g.format!=='singles'?' · w/ '+partner:''}</div>
+    ${g.venue?`<div class="game-meta">${g.venue}</div>`:''}
+    <div class="game-meta">${dateStr} · ${timeStr}</div>
+    ${actions?`<div class="game-actions"><button class="game-act-btn" onclick="openGameModal('${g.id}')">Edit</button><button class="game-act-btn del" onclick="deleteGame('${g.id}')">Delete</button></div>`:''}
+  </div></div>`;
+}
+function printGames(){
+  const games=filteredGames();const wins=games.filter(g=>g.scoreUs>g.scoreThem).length;
+  const wr=games.length?Math.round(wins/games.length*100)+'%':'—';
+  const rows=games.map(g=>{const d=new Date(g.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});return`<tr><td>${d}</td><td>${g.scoreUs}–${g.scoreThem}</td><td>${g.scoreUs>g.scoreThem?'Win':'Loss'}</td><td>${g.format}</td><td>${g.venue||'—'}</td><td>${g.partner?playerName(g.partner):'—'}</td><td>${g.opp1?playerName(g.opp1):'—'}</td><td>${g.opp2?playerName(g.opp2):'—'}</td><td>${g.notes||'—'}</td></tr>`;}).join('');
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Pickleball History</title><style>body{font-family:Arial,sans-serif;font-size:12px;padding:20px}table{width:100%;border-collapse:collapse}th{background:#f0f0f0;text-align:left;padding:6px 8px;font-size:11px;text-transform:uppercase;border-bottom:1px solid #ddd}td{padding:6px 8px;border-bottom:0.5px solid #eee}tr:nth-child(even)td{background:#fafafa}</style></head><body><h1 style="font-size:18px;margin-bottom:4px">Pickleball Game History</h1><p style="color:#555;font-size:13px;margin-bottom:16px">${games.length} games · Win rate: ${wr} · ${new Date().toLocaleDateString()}</p><table><thead><tr><th>Date</th><th>Score</th><th>Result</th><th>Format</th><th>Venue</th><th>Partner</th><th>Opp 1</th><th>Opp 2</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+  w.document.close();w.focus();setTimeout(()=>w.print(),400);
+}
+
+// ── Quick-add player ────────────────────────────────────────────────
+function openQuickAddPlayer(ret){
+  document.getElementById('qp-return-to').value=ret;
+  ['qp-name','qp-serve','qp-dink','qp-ath','qp-sport','qp-notes'].forEach(f=>document.getElementById(f).value='');
+  document.getElementById('quick-add-player-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('qp-name').focus(),120);
+}
+function saveQuickPlayer(){
+  const name=document.getElementById('qp-name').value.trim();if(!name){document.getElementById('qp-name').focus();return;}
+  const p={id:uid(),name,serve:parseInt(document.getElementById('qp-serve').value)||null,dink:parseInt(document.getElementById('qp-dink').value)||null,ath:parseInt(document.getElementById('qp-ath').value)||null,sport:parseInt(document.getElementById('qp-sport').value)||null,notes:document.getElementById('qp-notes').value};
+  state.players.push(p);save();
+  const ret=document.getElementById('qp-return-to').value;
+  ['g-partner','g-opp1','g-opp2'].forEach(sid=>{
+    const sel=document.getElementById(sid);const cur=sel.value;
+    sel.innerHTML=sid==='g-partner'?'<option value="">— none —</option>':'<option value="">— select —</option>';
+    state.players.forEach(pl=>{const o=document.createElement('option');o.value=pl.id;o.textContent=pl.name;sel.appendChild(o);});
+    sel.value=sid===ret?p.id:cur;
+  });
+  closeModal('quick-add-player-modal');
+}
+
+// ── Players ────────────────────────────────────────────────────────
+function openPlayerModal(id){
+  document.getElementById('p-id').value=id||'';
+  if(id){const p=state.players.find(x=>x.id===id);if(p){document.getElementById('p-name').value=p.name;document.getElementById('p-serve').value=p.serve||'';document.getElementById('p-dink').value=p.dink||'';document.getElementById('p-ath').value=p.ath||'';document.getElementById('p-sport').value=p.sport||'';document.getElementById('p-notes').value=p.notes||'';document.getElementById('player-modal-title').textContent='Edit player';}}
+  else{['p-name','p-serve','p-dink','p-ath','p-sport','p-notes'].forEach(f=>document.getElementById(f).value='');document.getElementById('player-modal-title').textContent='Add player';}
+  document.getElementById('player-modal').classList.add('open');
+}
+function savePlayer(){
+  const id=document.getElementById('p-id').value;
+  const p={id:id||uid(),name:document.getElementById('p-name').value||'Unknown',serve:parseInt(document.getElementById('p-serve').value)||null,dink:parseInt(document.getElementById('p-dink').value)||null,ath:parseInt(document.getElementById('p-ath').value)||null,sport:parseInt(document.getElementById('p-sport').value)||null,notes:document.getElementById('p-notes').value};
+  if(id){const idx=state.players.findIndex(x=>x.id===id);if(idx>=0)state.players[idx]=p;else state.players.push(p);}else state.players.push(p);
+  save();render();closeModal('player-modal');
+}
+function deletePlayer(id){if(!confirm('Remove this player?'))return;state.players=state.players.filter(p=>p.id!==id);save();render();closeModal('player-detail-modal');}
+function playerStats(id){
+  const asPartner=state.games.filter(g=>g.partner===id);
+  const asOpp=state.games.filter(g=>g.opp1===id||g.opp2===id);
+  const all=[...asPartner,...asOpp].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  return{asPartner:asPartner.length,asOpp:asOpp.length,partnerWins:asPartner.filter(g=>g.scoreUs>g.scoreThem).length,last:all[0]?new Date(all[0].date):null,total:all.length};
+}
+function showPlayerDetail(id){
+  const p=state.players.find(x=>x.id===id);if(!p)return;
+  const stats=playerStats(id);
+  const lastStr=stats.last?stats.last.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'Never';
+  const rbar=(val,label)=>val?`<div class="rbar-wrap"><div class="rbar-label"><span style="color:var(--text2)">${label}</span><span style="font-weight:600">${val}/10</span></div><div class="rbar-track"><div class="rbar-fill" style="width:${val*10}%"></div></div></div>`:`<div class="rbar-wrap"><div class="rbar-label"><span style="color:var(--text2)">${label}</span><span style="color:var(--text3)">—</span></div></div>`;
+  const linkedContact=state.contacts.find(c=>c.name===p.name);
+  const photo=(linkedContact&&linkedContact.photoUrl)||p.photoUrl||'';
+  document.getElementById('player-detail-content').innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem">
+      ${avatarHtml(p.name,photo,56)}
+      <div><div style="font-size:18px;font-weight:600">${p.name}</div><div style="font-size:13px;color:var(--text2)">Last played: ${lastStr}</div></div>
+    </div>
+    ${linkedContact?`<div style="font-size:13px;color:var(--info);padding:8px 12px;background:var(--info-bg);border-radius:var(--radius);margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center"><span>Also a contact</span><button onclick="closeModal('player-detail-modal');showContactDetail('${linkedContact.id}')" style="border:none;background:transparent;font-size:13px;color:var(--info);cursor:pointer;font-weight:500">View ›</button></div>`:''}
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:1.25rem">
+      ${sCell('Total',stats.total)}${sCell('Partner',stats.asPartner)}${sCell('W w/ you',stats.partnerWins)}${sCell('Vs you',stats.asOpp)}
+    </div>
+    <div style="margin-bottom:1.25rem">${rbar(p.serve,'Serve')}${rbar(p.dink,'Dinking')}${rbar(p.ath,'Athleticism')}${rbar(p.sport,'Sportsmanship')}</div>
+    ${p.notes?`<div style="font-size:14px;color:var(--text2);background:var(--bg2);padding:12px;border-radius:var(--radius);margin-bottom:1.25rem;line-height:1.6">${p.notes}</div>`:''}
+    <div style="margin-bottom:0">
+      <button onclick="downloadVCard({name:'${p.name.replace(/'/g,"\\'")}',email:'${((linkedContact&&linkedContact.email)||'').replace(/'/g,"\\'")}',cell:'${((linkedContact&&linkedContact.cell)||'').replace(/'/g,"\\'")}',zip:'${((linkedContact&&linkedContact.zip)||'').replace(/'/g,"\\'")}',note:'Pickleball player'})" style="width:100%;padding:12px;border:0.5px solid var(--info);border-radius:var(--radius);background:var(--info-bg);color:var(--info);font-size:14px;font-weight:500;cursor:pointer;margin-bottom:8px">
+        Add to iPhone Contacts
+      </button>
+      <div style="display:flex;gap:8px">
+        <button onclick="closeModal('player-detail-modal');openPlayerModal('${id}')" style="flex:1;padding:12px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--text)">Edit</button>
+        <button onclick="deletePlayer('${id}')" style="padding:12px 18px;border:0.5px solid var(--danger);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--danger)">Delete</button>
+      </div>
+    </div>`;
+  document.getElementById('player-detail-modal').classList.add('open');
+}
+
+// ── Chart ──────────────────────────────────────────────────────────
+function setChartType(t){chartType=t;document.getElementById('chart-bar-btn').classList.toggle('active',t==='bar');document.getElementById('chart-line-btn').classList.toggle('active',t==='line');drawChart();}
+function getChartData(){
+  const days=parseInt(document.getElementById('chart-range').value)||0;
+  const now=new Date();now.setHours(23,59,59,999);
+  const cutoff=days>0?new Date(now.getTime()-days*86400000):new Date(0);
+  const filtered=state.games.filter(g=>new Date(g.date)>=cutoff);
+  const buckets={};
+  filtered.forEach(g=>{const d=new Date(g.date);const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;if(!buckets[key])buckets[key]={wins:0,losses:0};if(g.scoreUs>g.scoreThem)buckets[key].wins++;else buckets[key].losses++;});
+  const keys=Object.keys(buckets).sort();
+  return{keys,wins:keys.map(k=>buckets[k].wins),losses:keys.map(k=>buckets[k].losses),total:filtered.length,totalWins:filtered.filter(g=>g.scoreUs>g.scoreThem).length};
+}
+function calcStreak(){const s=[...state.games].sort((a,b)=>new Date(b.date)-new Date(a.date));let n=0;for(const g of s){if(g.scoreUs>g.scoreThem)n++;else break;}return n;}
+function drawChart(){
+  const canvas=document.getElementById('activity-chart');if(!canvas)return;
+  const ctx=canvas.getContext('2d');const W=canvas.parentElement.clientWidth||340,H=200;
+  canvas.width=W;canvas.height=H;ctx.clearRect(0,0,W,H);
+  const {keys,wins,losses,total,totalWins}=getChartData();
+  const streak=calcStreak();const wr=total?Math.round(totalWins/total*100)+'%':'—';
+  document.getElementById('activity-summary').innerHTML=`${sCell('Games',total)}${sCell('Wins',totalWins)}${sCell('Win rate',wr)}${sCell('Streak',streak)}`;
+  if(!keys.length){ctx.fillStyle='rgba(128,128,128,0.6)';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('No games in this range',W/2,H/2);return;}
+  const pad={top:16,right:12,bottom:40,left:28};const cW=W-pad.left-pad.right,cH=H-pad.top-pad.bottom;
+  const isDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const textColor=isDark?'rgba(255,255,255,0.5)':'rgba(0,0,0,0.4)';
+  const gridColor=isDark?'rgba(255,255,255,0.07)':'rgba(0,0,0,0.06)';
+  if(chartType==='bar'){
+    const maxVal=Math.max(...keys.map((_,i)=>wins[i]+losses[i]),1);
+    const barW=Math.max(4,Math.floor(cW/keys.length*0.65));const gap=cW/keys.length;
+    for(let i=0;i<=4;i++){const y=pad.top+cH*(1-i/4);ctx.strokeStyle=gridColor;ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(pad.left+cW,y);ctx.stroke();ctx.fillStyle=textColor;ctx.font='10px sans-serif';ctx.textAlign='right';ctx.fillText(Math.round(maxVal*i/4),pad.left-3,y+3);}
+    keys.forEach((k,i)=>{const x=pad.left+i*gap+gap/2-barW/2;const lH=losses[i]+wins[i]?Math.round(cH*losses[i]/maxVal):0;const wH=losses[i]+wins[i]?Math.round(cH*wins[i]/maxVal):0;ctx.fillStyle='#f87171';ctx.fillRect(x,pad.top+cH-lH,barW,lH);ctx.fillStyle='#22c55e';ctx.fillRect(x,pad.top+cH-lH-wH,barW,wH);if(keys.length<=10||i===0||i===keys.length-1||i%Math.ceil(keys.length/7)===0){const p=k.split('-');ctx.fillStyle=textColor;ctx.font='10px sans-serif';ctx.textAlign='center';ctx.fillText(p[1]+'/'+p[2],x+barW/2,pad.top+cH+13);}});
+  } else {
+    let cumWins=0;const wPts=[];keys.forEach((_,i)=>{cumWins+=wins[i];wPts.push(cumWins);});
+    const maxW=Math.max(...wPts,1);
+    for(let i=0;i<=4;i++){const y=pad.top+cH*(1-i/4);ctx.strokeStyle=gridColor;ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(pad.left+cW,y);ctx.stroke();ctx.fillStyle=textColor;ctx.font='10px sans-serif';ctx.textAlign='right';ctx.fillText(Math.round(maxW*i/4),pad.left-3,y+3);}
+    const sX=keys.length>1?cW/(keys.length-1):cW;const tX=i=>pad.left+(keys.length>1?i*sX:cW/2);const tY=v=>pad.top+cH-Math.round(cH*v/maxW);
+    ctx.strokeStyle='#22c55e';ctx.lineWidth=2;ctx.lineJoin='round';ctx.beginPath();wPts.forEach((v,i)=>{i===0?ctx.moveTo(tX(i),tY(v)):ctx.lineTo(tX(i),tY(v));});ctx.stroke();
+    wPts.forEach((v,i)=>{ctx.fillStyle='#22c55e';ctx.beginPath();ctx.arc(tX(i),tY(v),3,0,Math.PI*2);ctx.fill();});
+    keys.forEach((k,i)=>{if(keys.length<=10||i===0||i===keys.length-1||i%Math.ceil(keys.length/7)===0){const p=k.split('-');ctx.fillStyle=textColor;ctx.font='10px sans-serif';ctx.textAlign='center';ctx.fillText(p[1]+'/'+p[2],tX(i),pad.top+cH+13);}});
+  }
+  canvas.ontouchstart=canvas.onmousemove=function(e){
+    const rect=canvas.getBoundingClientRect();const cx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+    const {keys,wins,losses}=getChartData();if(!keys.length)return;
+    const gap=cW/keys.length;const idx=Math.min(keys.length-1,Math.max(0,Math.floor((cx-pad.left)/gap)));
+    const tip=document.getElementById('chart-tooltip');
+    tip.style.display='block';tip.style.left=Math.min(cx+10,W-140)+'px';tip.style.top='8px';
+    const p=keys[idx].split('-');tip.innerHTML=`<strong>${p[1]}/${p[2]}/${p[0]}</strong><br>Wins: ${wins[idx]} &nbsp; Losses: ${losses[idx]}`;
+  };
+  canvas.onmouseleave=()=>document.getElementById('chart-tooltip').style.display='none';
+}
+
+// ── Events ─────────────────────────────────────────────────────────
+const EV_TYPE_LABELS={openPlay:'Open play',tournament:'Tournament',club:'Club',publicCourts:'Public courts'};
+
+function openEventModal(id){
+  const now=new Date();const pad=n=>String(n).padStart(2,'0');
+  const dtLocal=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  if(id){
+    const ev=(state.events||[]).find(e=>e.id===id);
+    if(ev){
+      document.getElementById('ev-id').value=ev.id;
+      document.getElementById('ev-title').value=ev.title||'';
+      document.getElementById('ev-date').value=ev.date?ev.date.slice(0,16):dtLocal;
+      document.getElementById('ev-type').value=ev.type||'openPlay';
+      document.getElementById('ev-location').value=ev.location||'';
+      document.getElementById('ev-zip').value=ev.zip||'';
+      document.getElementById('ev-desc').value=ev.desc||'';
+      document.getElementById('ev-minrating').value=ev.minRating||'';
+      document.querySelector(`input[name="ev-vis"][value="${ev.visibility||'anyone'}"]`).checked=true;
+      document.getElementById('event-modal-title').textContent='Edit event';
+    }
+  } else {
+    document.getElementById('ev-id').value='';
+    document.getElementById('ev-title').value='';
+    document.getElementById('ev-date').value=dtLocal;
+    document.getElementById('ev-type').value='openPlay';
+    document.getElementById('ev-location').value='';
+    document.getElementById('ev-zip').value=profile.zip||'';
+    document.getElementById('ev-desc').value='';
+    document.getElementById('ev-minrating').value='';
+    document.getElementById('ev-vis-anyone').checked=true;
+    document.getElementById('event-modal-title').textContent='Add event';
+  }
+  document.getElementById('event-modal').classList.add('open');
+}
+
+function saveEvent(){
+  if(!account.email){alert('Please set up your account in Settings first.');return;}
+  const id=document.getElementById('ev-id').value;
+  const ev={
+    id:id||uid(),
+    ownerEmail:account.email,
+    ownerName:profile.name||account.email,
+    title:document.getElementById('ev-title').value.trim()||'Untitled event',
+    date:document.getElementById('ev-date').value||new Date().toISOString(),
+    type:document.getElementById('ev-type').value,
+    location:document.getElementById('ev-location').value.trim(),
+    zip:document.getElementById('ev-zip').value.trim(),
+    desc:document.getElementById('ev-desc').value.trim(),
+    minRating:parseFloat(document.getElementById('ev-minrating').value)||0,
+    visibility:document.querySelector('input[name="ev-vis"]:checked').value,
+    createdAt:new Date().toISOString()
+  };
+  if(!state.events)state.events=[];
+  if(id){const idx=state.events.findIndex(e=>e.id===id);if(idx>=0)state.events[idx]=ev;else state.events.unshift(ev);}
+  else state.events.unshift(ev);
+  save();renderEvents();closeModal('event-modal');
+}
+
+function deleteEvent(id){
+  if(!confirm('Delete this event?'))return;
+  state.events=state.events.filter(e=>e.id!==id);
+  save();renderEvents();closeModal('event-detail-modal');
+}
+
+function switchEvTab(tab,btn){
+  currentEvTab=tab;
+  document.querySelectorAll('.ev-subtab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('ev-feed-filters').style.display=tab==='feed'?'block':'none';
+  document.getElementById('ev-feed-list').style.display=tab==='feed'?'block':'none';
+  document.getElementById('ev-mine-panel').style.display=tab==='mine'?'block':'none';
+  renderEvents();
+}
+
+// ── Zip → lat/lng via zippopotam.us (free, no key) ─────────────────
+async function zipToLatLng(zip){
+  if(!zip)return null;
+  if(zipCache[zip])return zipCache[zip];
+  try{
+    const r=await fetch(`https://api.zippopotam.us/us/${zip}`);
+    if(!r.ok)return null;
+    const d=await r.json();
+    const loc={lat:parseFloat(d.places[0].latitude),lng:parseFloat(d.places[0].longitude)};
+    zipCache[zip]=loc;return loc;
+  }catch(e){return null;}
+}
+
+function haversineKm(lat1,lng1,lat2,lng2){
+  const R=6371;const dLat=(lat2-lat1)*Math.PI/180;const dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function avgRating(ownerEmail){
+  // Look up the owner's player record if they're in our player list
+  const p=state.players.find(pl=>pl.name&&state.contacts.find(c=>c.email===ownerEmail&&c.name===pl.name));
+  if(!p)return null;
+  const vals=[p.serve,p.dink,p.ath,p.sport].filter(Boolean);
+  return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+}
+
+async function renderEvents(){
+  const contactEmails=new Set((state.contacts||[]).map(c=>c.email).filter(Boolean));
+  const allEvents=(state.events||[]);
+  const upcoming=document.getElementById('ef-upcoming')?.checked;
+  const filterType=document.getElementById('ef-type')?.value||'';
+  const filterWho=document.getElementById('ef-who')?.value||'all';
+  const filterDistMi=parseFloat(document.getElementById('ef-dist')?.value)||0;
+  const filterRating=parseFloat(document.getElementById('ef-rating')?.value)||0;
+  const now=new Date();
+
+  if(currentEvTab==='mine'){
+    const mine=allEvents.filter(e=>e.ownerEmail===account.email)
+      .sort((a,b)=>new Date(a.date)-new Date(b.date));
+    document.getElementById('ev-mine-list').innerHTML=mine.length
+      ?mine.map(e=>evCardHtml(e,true)).join('')
+      :'<div class="empty">No events yet — tap + to add one.</div>';
+    return;
+  }
+
+  // Feed: events from others that are visible to me
+  let feed=allEvents.filter(e=>{
+    if(e.ownerEmail===account.email)return false; // my own shown in Mine tab
+    if(e.visibility==='contacts'&&!contactEmails.has(e.ownerEmail))return false;
+    if(filterWho==='contacts'&&!contactEmails.has(e.ownerEmail))return false;
+    if(filterType&&e.type!==filterType)return false;
+    if(upcoming&&new Date(e.date)<now)return false;
+    return true;
+  });
+
+  // Rating filter
+  if(filterRating>0){
+    feed=feed.filter(e=>{const r=avgRating(e.ownerEmail);return r===null||r>=filterRating;});
+  }
+
+  // Distance filter — async, needs zip lookup
+  if(filterDistMi>0&&profile.zip){
+    const myLoc=await zipToLatLng(profile.zip);
+    if(myLoc){
+      const results=await Promise.all(feed.map(async e=>{
+        if(!e.zip)return{e,ok:true};
+        const loc=await zipToLatLng(e.zip);
+        if(!loc)return{e,ok:true};
+        const km=haversineKm(myLoc.lat,myLoc.lng,loc.lat,loc.lng);
+        return{e,ok:km*0.621371<=filterDistMi};
+      }));
+      feed=results.filter(r=>r.ok).map(r=>r.e);
+    }
+  }
+
+  feed.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  document.getElementById('ev-feed-list').innerHTML=feed.length
+    ?feed.map(e=>evCardHtml(e,false)).join('')
+    :'<div class="empty">No events match your filters.</div>';
+}
+
+function evTypePill(type){
+  const label=EV_TYPE_LABELS[type]||type;
+  return`<span class="ev-type-pill ev-type-${type}">${label}</span>`;
+}
+
+// Reaction types
+const REACTIONS=[
+  {key:'going',emoji:'✅',label:'Going'},
+  {key:'maybe',emoji:'🤔',label:'Maybe'},
+  {key:'interested',emoji:'👀',label:'Interested'}
+];
+
+function getEventReactions(evId){
+  // Returns {going:[emails], maybe:[emails], interested:[emails]}
+  const all=(state.reactions||[]).filter(r=>r.eventId===evId);
+  const map={going:[],maybe:[],interested:[]};
+  all.forEach(r=>{if(map[r.type])map[r.type].push(r.userEmail);});
+  return map;
+}
+
+function toggleReaction(evId, type){
+  if(!account.email){alert('Set up your account to react.');return;}
+  if(!state.reactions)state.reactions=[];
+  const existing=state.reactions.find(r=>r.eventId===evId&&r.userEmail===account.email);
+  if(existing){
+    if(existing.type===type){
+      // Remove reaction
+      state.reactions=state.reactions.filter(r=>!(r.eventId===evId&&r.userEmail===account.email));
+    } else {
+      existing.type=type; // Change reaction type
+    }
+  } else {
+    state.reactions.push({id:uid(),eventId:evId,userEmail:account.email,type,reactedAt:new Date().toISOString()});
+  }
+  save();
+  // Re-render just the reactions area in the open modal
+  const rxEl=document.getElementById('event-reactions-'+evId);
+  if(rxEl) rxEl.outerHTML=renderReactionBar(evId);
+  renderEvents(); // refresh cards
+}
+
+function renderReactionBar(evId){
+  const rxMap=getEventReactions(evId);
+  const myRx=(state.reactions||[]).find(r=>r.eventId===evId&&r.userEmail===account.email);
+  return`<div id="event-reactions-${evId}" class="reaction-bar">
+    ${REACTIONS.map(r=>{
+      const count=rxMap[r.key].length;
+      const isActive=myRx&&myRx.type===r.key;
+      return`<button class="reaction-btn ${isActive?'active':''}" onclick="toggleReaction('${evId}','${r.key}')">
+        <span>${r.emoji}</span>
+        <span>${r.label}</span>
+        ${count>0?`<span class="reaction-count">${count}</span>`:''}
+      </button>`;
+    }).join('')}
+  </div>`;
+}
+
+function evCardHtml(ev,isMine){
+  const d=new Date(ev.date);
+  const dateStr=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  const timeStr=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  const isPast=d<new Date();
+  const rxMap=getEventReactions(ev.id);
+  const totalRx=rxMap.going.length+rxMap.maybe.length+rxMap.interested.length;
+  const myRx=(state.reactions||[]).find(r=>r.eventId===ev.id&&r.userEmail===account.email);
+  const rxSummary=totalRx>0?`<div class="ev-meta" style="margin-top:4px">${
+    [rxMap.going.length>0?`✅ ${rxMap.going.length}`:'',rxMap.maybe.length>0?`🤔 ${rxMap.maybe.length}`:'',rxMap.interested.length>0?`👀 ${rxMap.interested.length}`:'']
+    .filter(Boolean).join(' · ')
+  }${myRx?' · <span style="color:var(--info)">You: '+REACTIONS.find(r=>r.key===myRx.type)?.label+'</span>':''}</div>`:'';
+  return`<div class="ev-card" onclick="showEventDetail('${ev.id}')">
+    <div>${evTypePill(ev.type)}${isMine?'<span class="ev-mine-badge">Mine</span>':''}${isPast?'<span class="ev-mine-badge" style="background:var(--bg2);color:var(--text3);margin-left:4px">Past</span>':''}</div>
+    <div class="ev-title">${ev.title}</div>
+    <div class="ev-meta">${dateStr} · ${timeStr}</div>
+    ${ev.location?`<div class="ev-meta">${ev.location}${ev.zip?' · '+ev.zip:''}</div>`:''}
+    ${!isMine?`<div class="ev-meta" style="margin-top:3px">By ${ev.ownerName||ev.ownerEmail}</div>`:''}
+    ${ev.minRating>0?`<div class="ev-meta">Min rating: ${ev.minRating}</div>`:''}
+    ${ev.visibility==='contacts'?`<div class="ev-meta" style="color:var(--info)">Contacts only</div>`:''}
+    ${rxSummary}
+  </div>`;
+}
+
+function showEventDetail(id){
+  const ev=(state.events||[]).find(e=>e.id===id);if(!ev)return;
+  const isMine=ev.ownerEmail===account.email;
+  const d=new Date(ev.date);
+  const dateStr=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  const timeStr=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  const rxMap=getEventReactions(id);
+  document.getElementById('event-detail-content').innerHTML=`
+    <div style="margin-bottom:1.25rem">
+      ${evTypePill(ev.type)}
+      <div style="font-size:20px;font-weight:600;margin-top:6px;margin-bottom:4px">${ev.title}</div>
+      <div style="font-size:13px;color:var(--text2)">${isMine?'Your event':`Posted by ${ev.ownerName||ev.ownerEmail}`}</div>
+    </div>
+    <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:0 1rem;margin-bottom:1rem">
+      <div class="cdr"><span class="cdl">Date</span><span class="cdv">${dateStr}</span></div>
+      <div class="cdr"><span class="cdl">Time</span><span class="cdv">${timeStr}</span></div>
+      ${ev.location?`<div class="cdr"><span class="cdl">Location</span><span class="cdv">${ev.location}</span></div>`:''}
+      ${ev.zip?`<div class="cdr"><span class="cdl">Zip</span><span class="cdv">${ev.zip}</span></div>`:''}
+      ${ev.minRating>0?`<div class="cdr"><span class="cdl">Min rating</span><span class="cdv">${ev.minRating}</span></div>`:''}
+      <div class="cdr"><span class="cdl">Visible to</span><span class="cdv">${ev.visibility==='contacts'?'My contacts only':'Anyone'}</span></div>
+    </div>
+    ${ev.desc?`<div style="font-size:14px;line-height:1.7;color:var(--text2);background:var(--bg2);padding:12px;border-radius:var(--radius);margin-bottom:1rem">${ev.desc}</div>`:''}
+    <div style="margin-bottom:1rem">
+      <div class="section-title" style="margin-bottom:8px">Reactions${rxMap.going.length+rxMap.maybe.length+rxMap.interested.length>0?' ('+( rxMap.going.length+rxMap.maybe.length+rxMap.interested.length)+')':''}</div>
+      ${renderReactionBar(id)}
+    </div>
+    ${isMine?`<div style="display:flex;gap:8px;margin-top:8px">
+      <button onclick="closeModal('event-detail-modal');openEventModal('${id}')" style="flex:1;padding:12px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--text)">Edit</button>
+      <button onclick="deleteEvent('${id}')" style="padding:12px 18px;border:0.5px solid var(--danger);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--danger)">Delete</button>
+    </div>`:''}`;
+  document.getElementById('event-detail-modal').classList.add('open');
+}
+
+// ── Account & Settings ──────────────────────────────────────────────
+function saveAccount(source){
+  const emailEl=document.getElementById(source==='settings'?'settings-email':'setup-email');
+  const pinEl=document.getElementById(source==='settings'?'settings-pin':'setup-pin');
+  const errEl=document.getElementById(source==='settings'?'settings-error':'setup-error');
+  const email=emailEl.value.trim().toLowerCase();const pin=pinEl.value.trim();
+  if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){errEl.textContent='Please enter a valid email address.';return;}
+  if(!pin||pin.length<4||pin.length>6||!/^\d+$/.test(pin)){errEl.textContent='PIN must be 4–6 digits.';return;}
+  errEl.textContent='';account={email,pin};saveLocal();closeModal(source==='settings'?'settings-modal':'account-modal');syncFromSheet();
+}
+function showSettings(){
+  document.getElementById('settings-email').value=account.email||'';
+  document.getElementById('settings-pin').value='';document.getElementById('settings-error').textContent='';
+  document.getElementById('sync-url-display').textContent=SYNC_URL||'(not configured — contact developer)';
+  document.getElementById('settings-email-script-url').value=emailScriptUrl||'';
+  const info=document.getElementById('settings-account-info');
+  info.innerHTML=account.email
+    ?`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:var(--radius)"><div class="dot green"></div><div><div style="font-size:14px;font-weight:500">${account.email}</div><div style="font-size:12px;color:var(--text2)">Syncing to shared sheet</div></div></div>`
+    :`<div style="font-size:13px;color:var(--text2);padding:8px 0">No account — data is local only.</div>`;
+  document.getElementById('settings-modal').classList.add('open');
+}
+
+function saveEmailScriptUrl(){
+  emailScriptUrl=document.getElementById('settings-email-script-url').value.trim();
+  localStorage.setItem('pb_email_script_url',emailScriptUrl);
+  const btn=document.querySelector('#settings-modal button[onclick="saveEmailScriptUrl()"]');
+  if(btn){const orig=btn.textContent;btn.textContent='Saved!';setTimeout(()=>btn.textContent=orig,2000);}
+}
+
+const USER_EMAIL_SCRIPT_CODE=`// ─────────────────────────────────────────────────────────────────
+// Pickleball Tracker — User Email Script
+// Install in YOUR OWN Google Sheet so messages send from your Gmail.
+//
+// Setup: Extensions → Apps Script → paste this → Save → Deploy
+//   Type: Web app | Execute as: Me | Access: Anyone
+//   Authorize Gmail access when prompted.
+// ─────────────────────────────────────────────────────────────────
+
+function doPost(e) {
+  try {
+    var payload = JSON.parse(e.postData.contents);
+    var secret  = payload.secret || "";
+    var subject = payload.subject || "(no subject)";
+    var body    = payload.body    || "";
+    var recipients = payload.recipients || []; // array of {name, email}
+
+    if (!recipients.length) return ok("No recipients.");
+
+    var fromName = payload.fromName || "Pickleball Tracker";
+    var sent = 0;
+
+    recipients.forEach(function(r) {
+      if (!r.email) return;
+      try {
+        GmailApp.sendEmail(r.email, subject, body, {
+          name: fromName,
+          replyTo: payload.replyTo || Session.getActiveUser().getEmail()
+        });
+        sent++;
+      } catch(ex) {
+        Logger.log("Failed to send to " + r.email + ": " + ex);
+      }
+    });
+
+    return ContentService
+      .createTextOutput(JSON.stringify({status:"ok", sent:sent}))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch(ex) {
+    return ContentService
+      .createTextOutput(JSON.stringify({status:"error", message:ex.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e) {
+  return ContentService
+    .createTextOutput(JSON.stringify({status:"ok", message:"Pickleball Tracker email script active."}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function ok(msg) {
+  return ContentService
+    .createTextOutput(JSON.stringify({status:"ok", message:msg}))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+
+function showEmailScriptInstructions(){
+  document.getElementById('email-script-code-display').textContent=USER_EMAIL_SCRIPT_CODE;
+  closeModal('settings-modal');
+  document.getElementById('email-script-modal').classList.add('open');
+}
+
+function copyEmailScriptCode(){
+  const btn=document.getElementById('email-script-copy-btn');
+  navigator.clipboard.writeText(USER_EMAIL_SCRIPT_CODE).then(()=>{
+    btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy script code',2500);
+  }).catch(()=>{btn.textContent='Select text above and copy manually';});
+}
+
+// ── Find Players ───────────────────────────────────────────────────
+let _discoverableCache = [];  // fetched from sheet, not stored in state
+
+async function loadDiscoverablePlayers(){
+  if(!SYNC_URL){
+    document.getElementById('fp-list').innerHTML='<div class="empty">Sync not configured — cannot search.</div>';
+    return;
+  }
+  document.getElementById('fp-list').innerHTML='<div class="empty">Searching...</div>';
+  try{
+    const url=`${SYNC_URL}?email=${encodeURIComponent(account.email)}&pin=${encodeURIComponent(account.pin)}&action=profiles`;
+    const res=await fetch(url,{method:'GET',mode:'cors'});
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    if(data.status==='error')throw new Error(data.message);
+    _discoverableCache=data.profiles||[];
+    renderFindPlayers();
+  }catch(e){
+    document.getElementById('fp-list').innerHTML=`<div class="empty">Could not load players: ${e.message}</div>`;
+  }
+}
+
+async function renderFindPlayers(){
+  const distMi=parseFloat(document.getElementById('fp-dist').value)||0;
+  const contactsOnly=document.getElementById('fp-contacts-only').checked;
+  const search=(document.getElementById('fp-search').value||'').toLowerCase().trim();
+  const contactEmails=new Set((state.contacts||[]).map(c=>c.email).filter(Boolean));
+  const pendingSent=new Set((state.notifications||[]).filter(n=>n.type==='connection_request'&&n.direction==='sent').map(n=>n.toEmail));
+
+  let results=_discoverableCache.filter(p=>{
+    if(p.email===account.email) return false; // hide self
+    if(contactsOnly&&!contactEmails.has(p.email)) return false;
+    if(search&&!p.name.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  if(distMi>0&&profile.zip){
+    const myLoc=await zipToLatLng(profile.zip);
+    if(myLoc){
+      const withDist=await Promise.all(results.map(async p=>{
+        if(!p.zip)return{p,ok:true,dist:null};
+        const loc=await zipToLatLng(p.zip);
+        if(!loc)return{p,ok:true,dist:null};
+        const km=haversineKm(myLoc.lat,myLoc.lng,loc.lat,loc.lng);
+        const mi=km*0.621371;
+        return{p,ok:mi<=distMi,dist:Math.round(mi)};
+      }));
+      results=withDist.filter(r=>r.ok).map(r=>({...r.p,_dist:r.dist}));
+    }
+  }
+
+  if(!results.length){
+    document.getElementById('fp-list').innerHTML='<div class="empty">No players match your filters.</div>';
+    return;
+  }
+
+  document.getElementById('fp-list').innerHTML=results.map(p=>{
+    const isContact=contactEmails.has(p.email);
+    const hasSent=pendingSent.has(p.email);
+    const distStr=p._dist!=null?`${p._dist} mi away`:'';
+    return`<div class="fp-card">
+      ${avatarHtml(p.name,p.photoUrl||'',44)}
+      <div class="fp-info">
+        <div class="fp-name">${p.name}</div>
+        <div class="fp-meta">${[distStr,isContact?'In your contacts':''].filter(Boolean).join(' · ')||'Discoverable player'}</div>
+      </div>
+      <div class="fp-actions">
+        ${isContact
+          ?`<span class="fp-connected-badge">Connected</span>`
+          :hasSent
+            ?`<button class="fp-connect-btn" disabled>Requested</button>`
+            :`<button class="fp-connect-btn" onclick="sendConnectionRequest('${p.email}','${p.name.replace(/'/g,"\\'")}')">Connect</button>`
+        }
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Connection Requests ────────────────────────────────────────────
+async function sendConnectionRequest(toEmail, toName){
+  if(!account.email){alert('Set up your account first.');return;}
+  if(!profile.name){alert('Add your name in My Profile first.');return;}
+
+  const existing=(state.notifications||[]).find(n=>
+    n.type==='connection_request'&&n.direction==='sent'&&n.toEmail===toEmail);
+  if(existing){alert('You already sent a request to this person.');return;}
+
+  const notif={
+    id:uid(),
+    type:'connection_request',
+    direction:'sent',
+    toEmail,
+    toName,
+    fromEmail:account.email,
+    fromName:profile.name,
+    fromCell:profile.cell||'',
+    fromZip:profile.zip||'',
+    fromPhotoUrl:profile.photoUrl||'',
+    sentAt:new Date().toISOString(),
+    status:'pending'
+  };
+
+  // Also write the incoming notification for the recipient via the sheet
+  const incomingNotif={
+    id:uid(),
+    type:'connection_request',
+    direction:'incoming',
+    toEmail,        // recipient
+    fromEmail:account.email,
+    fromName:profile.name,
+    fromCell:profile.cell||'',
+    fromZip:profile.zip||'',
+    fromPhotoUrl:profile.photoUrl||'',
+    sentAt:new Date().toISOString(),
+    status:'pending'
+  };
+
+  if(!state.notifications)state.notifications=[];
+  state.notifications.push(notif);
+  save();
+
+  // Push the incoming notification directly to the sheet for the recipient
+  if(SYNC_URL){
+    try{
+      await fetch(SYNC_URL,{method:'POST',mode:'no-cors',
+        body:JSON.stringify({
+          email:account.email,pin:account.pin,
+          pushNotification:incomingNotif
+        }),
+        headers:{'Content-Type':'application/json'}});
+    }catch(e){}
+  }
+
+  renderFindPlayers();
+}
+
+async function respondToRequest(notifId, accept){
+  const notif=(state.notifications||[]).find(n=>n.id===notifId);
+  if(!notif)return;
+
+  notif.status=accept?'accepted':'declined';
+  notif.respondedAt=new Date().toISOString();
+
+  if(accept){
+    // Add them to contacts
+    if(!state.contacts.find(c=>c.email===notif.fromEmail)){
+      state.contacts.push({
+        id:uid(),name:notif.fromName,email:notif.fromEmail,
+        cell:notif.fromCell||'',zip:notif.fromZip||'',
+        addedAt:new Date().toISOString()
+      });
+    }
+    if(!state.players.find(p=>p.name===notif.fromName)){
+      state.players.push({id:uid(),name:notif.fromName,serve:null,dink:null,ath:null,sport:null,notes:`Contact · ${notif.fromEmail}`});
+    }
+
+    // Send them a mutual "accepted" notification so they know
+    if(SYNC_URL){
+      try{
+        const mutual={
+          id:uid(),type:'connection_accepted',direction:'incoming',
+          toEmail:notif.fromEmail,
+          fromEmail:account.email,fromName:profile.name,
+          fromCell:profile.cell||'',fromZip:profile.zip||'',
+          fromPhotoUrl:profile.photoUrl||'',
+          sentAt:new Date().toISOString(),status:'new'
+        };
+        await fetch(SYNC_URL,{method:'POST',mode:'no-cors',
+          body:JSON.stringify({email:account.email,pin:account.pin,pushNotification:mutual}),
+          headers:{'Content-Type':'application/json'}});
+      }catch(e){}
+    }
+  }
+
+  save();render();
+}
+
+// ── Notifications render ───────────────────────────────────────────
+function renderNotifications(){
+  const all=(state.notifications||[]);
+  const incoming=all.filter(n=>n.direction==='incoming'&&n.status==='pending');
+  const accepted=all.filter(n=>n.direction==='incoming'&&n.type==='connection_accepted'&&n.status==='new');
+  const pending=[...incoming,...accepted];
+
+  const section=document.getElementById('notif-section');
+  const badge=document.getElementById('notif-count');
+  const list=document.getElementById('notif-list');
+
+  if(!pending.length){section.style.display='none';return;}
+  section.style.display='block';
+  badge.textContent=pending.length;
+
+  list.innerHTML=pending.map(n=>{
+    const photo=n.fromPhotoUrl||'';
+    if(n.type==='connection_request'){
+      return`<div class="notif-card pending">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          ${avatarHtml(n.fromName,photo,36)}
+          <div>
+            <div style="font-size:14px;font-weight:600">${n.fromName}</div>
+            <div style="font-size:12px;color:var(--text2)">Wants to connect · ${new Date(n.sentAt).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
+            ${n.fromCell?`<div style="font-size:12px;color:var(--text2)">${n.fromCell}</div>`:''}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="respondToRequest('${n.id}',true)" style="flex:1;padding:10px;background:var(--info);border:none;border-radius:var(--radius);color:#fff;font-size:14px;font-weight:500;cursor:pointer">Accept</button>
+          <button onclick="respondToRequest('${n.id}',false)" style="flex:1;padding:10px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--text2)">Decline</button>
+        </div>
+      </div>`;
+    } else {
+      // connection_accepted
+      return`<div class="notif-card" style="border-left:3px solid var(--success)">
+        <div style="display:flex;align-items:center;gap:10px">
+          ${avatarHtml(n.fromName,photo,36)}
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600">${n.fromName} accepted your request</div>
+            <div style="font-size:12px;color:var(--text2)">You're now connected · ${new Date(n.sentAt).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
+          </div>
+          <button onclick="dismissNotif('${n.id}')" style="border:none;background:transparent;font-size:18px;cursor:pointer;color:var(--text3);padding:4px">×</button>
+        </div>
+      </div>`;
+    }
+  }).join('');
+}
+
+function dismissNotif(id){
+  const n=(state.notifications||[]).find(x=>x.id===id);
+  if(n)n.status='dismissed';
+
+  // If it's an accepted request and they're not yet a contact, add them
+  if(n&&n.type==='connection_accepted'){
+    if(!state.contacts.find(c=>c.email===n.fromEmail)){
+      state.contacts.push({id:uid(),name:n.fromName,email:n.fromEmail,cell:n.fromCell||'',zip:n.fromZip||'',addedAt:new Date().toISOString()});
+    }
+    if(!state.players.find(p=>p.name===n.fromName)){
+      state.players.push({id:uid(),name:n.fromName,serve:null,dink:null,ath:null,sport:null,notes:`Contact · ${n.fromEmail}`});
+    }
+  }
+  save();render();
+}
+
+// ── Groups ─────────────────────────────────────────────────────────
+function openGroupModal(id){
+  document.getElementById('grp-id').value=id||'';
+  if(id){
+    const g=(state.groups||[]).find(x=>x.id===id);
+    if(g){
+      document.getElementById('grp-name').value=g.name||'';
+      document.getElementById('group-modal-title').textContent='Edit group';
+      renderGroupMemberPicker(g.memberIds||[]);
+    }
+  } else {
+    document.getElementById('grp-name').value='';
+    document.getElementById('group-modal-title').textContent='New group';
+    renderGroupMemberPicker([]);
+  }
+  document.getElementById('group-modal').classList.add('open');
+}
+
+function renderGroupMemberPicker(selectedIds){
+  const list=document.getElementById('grp-member-list');
+  if(!(state.contacts||[]).length){
+    list.innerHTML='<div class="empty" style="padding:1rem">No contacts yet.</div>';return;
+  }
+  list.innerHTML=state.contacts.map(c=>{
+    const checked=selectedIds.includes(c.id);
+    return`<label style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:0.5px solid var(--border);cursor:pointer">
+      <input type="checkbox" name="grp-member" value="${c.id}" ${checked?'checked':''} style="width:auto;padding:0;border:none;accent-color:var(--info);width:18px;height:18px">
+      ${avatarHtml(c.name,c.photoUrl||'',32)}
+      <div style="margin-left:4px"><div style="font-size:14px;font-weight:500">${c.name}</div><div style="font-size:12px;color:var(--text2)">${c.email||c.cell||''}</div></div>
+    </label>`;
+  }).join('');
+}
+
+function saveGroup(){
+  const id=document.getElementById('grp-id').value;
+  const name=document.getElementById('grp-name').value.trim();
+  if(!name)return;
+  const memberIds=Array.from(document.querySelectorAll('input[name="grp-member"]:checked')).map(el=>el.value);
+  const grp={id:id||uid(),name,memberIds,createdAt:new Date().toISOString()};
+  if(!state.groups)state.groups=[];
+  if(id){const idx=state.groups.findIndex(x=>x.id===id);if(idx>=0)state.groups[idx]=grp;else state.groups.push(grp);}
+  else state.groups.push(grp);
+  save();renderMessaging();closeModal('group-modal');
+}
+
+function deleteGroup(id){
+  if(!confirm('Delete this group?'))return;
+  state.groups=(state.groups||[]).filter(g=>g.id!==id);
+  save();renderMessaging();
+}
+
+// ── Messaging ──────────────────────────────────────────────────────
+let msgRecipients=[]; // [{type:'contact'|'group', id, label, email?, memberIds?}]
+
+function switchMsgTab(tab,btn){
+  document.querySelectorAll('.ev-subtab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('msg-compose-panel').style.display=tab==='compose'?'block':'none';
+  document.getElementById('msg-groups-panel').style.display=tab==='groups'?'block':'none';
+  document.getElementById('msg-sent-panel').style.display=tab==='sent'?'block':'none';
+  if(tab==='groups') renderGroupsList();
+  if(tab==='sent') renderSentList();
+}
+
+function renderMessaging(){
+  renderGroupsList();
+  renderSentList();
+  renderRecipientChips();
+}
+
+function renderGroupsList(){
+  const el=document.getElementById('groups-list');
+  if(!el)return;
+  const groups=state.groups||[];
+  if(!groups.length){el.innerHTML='<div class="empty">No groups yet.</div>';return;}
+  el.innerHTML=groups.map(g=>{
+    const members=g.memberIds.map(id=>{const c=(state.contacts||[]).find(x=>x.id===id);return c?c.name:'?';}).join(', ');
+    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:0.5px solid var(--border)">
+      <div>
+        <div style="font-size:15px;font-weight:600">${g.name}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">${g.memberIds.length} member${g.memberIds.length!==1?'s':''} · ${members||'none'}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="openGroupModal('${g.id}')" style="padding:6px 12px;border:0.5px solid var(--border2);border-radius:var(--radius);background:transparent;font-size:12px;cursor:pointer;color:var(--text2)">Edit</button>
+        <button onclick="deleteGroup('${g.id}')" style="padding:6px 10px;border:0.5px solid var(--danger);border-radius:var(--radius);background:transparent;font-size:12px;cursor:pointer;color:var(--danger)">×</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderSentList(){
+  const el=document.getElementById('sent-list');
+  if(!el)return;
+  const msgs=(state.sentMessages||[]).slice().reverse();
+  if(!msgs.length){el.innerHTML='<div class="empty">No sent messages yet.</div>';return;}
+  el.innerHTML=msgs.map(m=>{
+    const d=new Date(m.sentAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+    const toStr=m.recipients.map(r=>r.label).join(', ');
+    const via=[m.emailSent?'email':'',m.pushSent?'push':''].filter(Boolean).join(' + ')||'none';
+    return`<div class="sent-msg-card">
+      <div class="sent-msg-to">To: ${toStr}</div>
+      <div class="sent-msg-subj">${m.subject||'(no subject)'}</div>
+      <div class="sent-msg-body">${m.body}</div>
+      <div class="sent-msg-meta">${d} · via ${via}</div>
+    </div>`;
+  }).join('');
+}
+
+// Recipient picker
+function focusRecipientInput(){document.getElementById('recipient-input').focus();}
+
+function showRecipientPicker(){
+  filterRecipientPicker();
+  document.getElementById('recipient-picker').style.display='block';
+}
+
+function filterRecipientPicker(){
+  const q=(document.getElementById('recipient-input').value||'').toLowerCase();
+  const picker=document.getElementById('recipient-picker');
+  const contacts=(state.contacts||[]).filter(c=>!msgRecipients.find(r=>r.type==='contact'&&r.id===c.id));
+  const groups=(state.groups||[]).filter(g=>!msgRecipients.find(r=>r.type==='group'&&r.id===g.id));
+  const filteredC=contacts.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q));
+  const filteredG=groups.filter(g=>!q||g.name.toLowerCase().includes(q));
+  if(!filteredC.length&&!filteredG.length){picker.innerHTML='<div style="padding:12px;font-size:13px;color:var(--text2)">No matches.</div>';return;}
+  picker.innerHTML=
+    filteredG.map(g=>`<div class="msg-picker-item" onclick="addGroupRecipient('${g.id}')">
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--success-bg);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--success);flex-shrink:0">G</div>
+      <div><div class="msg-picker-label">${g.name}</div><div class="msg-picker-sub">Group · ${g.memberIds.length} members</div></div>
+    </div>`).join('')+
+    filteredC.map(c=>`<div class="msg-picker-item" onclick="addContactRecipient('${c.id}')">
+      ${avatarHtml(c.name,c.photoUrl||'',32)}
+      <div><div class="msg-picker-label">${c.name}</div><div class="msg-picker-sub">${c.email||c.cell||'No email'}</div></div>
+    </div>`).join('');
+}
+
+function addContactRecipient(id){
+  const c=(state.contacts||[]).find(x=>x.id===id);if(!c)return;
+  msgRecipients.push({type:'contact',id,label:c.name,email:c.email||''});
+  document.getElementById('recipient-input').value='';
+  document.getElementById('recipient-picker').style.display='none';
+  renderRecipientChips();
+}
+
+function addGroupRecipient(id){
+  const g=(state.groups||[]).find(x=>x.id===id);if(!g)return;
+  msgRecipients.push({type:'group',id,label:g.name,memberIds:g.memberIds});
+  document.getElementById('recipient-input').value='';
+  document.getElementById('recipient-picker').style.display='none';
+  renderRecipientChips();
+}
+
+function removeRecipient(idx){
+  msgRecipients.splice(idx,1);
+  renderRecipientChips();
+}
+
+function renderRecipientChips(){
+  const box=document.getElementById('recipient-chips');
+  if(!box)return;
+  box.innerHTML=msgRecipients.map((r,i)=>
+    `<span class="msg-chip ${r.type==='group'?'group-chip':''}">
+      ${r.label}
+      <button onclick="removeRecipient(${i})">×</button>
+    </span>`
+  ).join('');
+}
+
+function toggleDelivery(type){
+  const opt=document.getElementById(`del-${type}-opt`);
+  const checked=document.getElementById(`del-${type}`).checked;
+  opt.classList.toggle('selected',checked);
+  document.getElementById('msg-push-note').style.display=
+    document.getElementById('del-push').checked?'block':'none';
+}
+
+// Expand group recipients to individual contacts
+function expandRecipients(){
+  const all=[];
+  msgRecipients.forEach(r=>{
+    if(r.type==='contact'){
+      const c=(state.contacts||[]).find(x=>x.id===r.id);
+      if(c) all.push({name:c.name,email:c.email||'',contactId:c.id,label:r.label});
+    } else {
+      (r.memberIds||[]).forEach(mid=>{
+        const c=(state.contacts||[]).find(x=>x.id===mid);
+        if(c&&!all.find(x=>x.email===c.email)) all.push({name:c.name,email:c.email||'',contactId:c.id,label:c.name});
+      });
+    }
+  });
+  return all;
+}
+
+async function sendMessage(){
+  const subject=document.getElementById('msg-subject').value.trim();
+  const body=document.getElementById('msg-body').value.trim();
+  const doEmail=document.getElementById('del-email').checked;
+  const doPush=document.getElementById('del-push').checked;
+  const statusEl=document.getElementById('msg-send-status');
+
+  if(!msgRecipients.length){statusEl.textContent='Add at least one recipient.';statusEl.style.color='var(--danger)';return;}
+  if(!body){statusEl.textContent='Please enter a message.';statusEl.style.color='var(--danger)';return;}
+  if(!doEmail&&!doPush){statusEl.textContent='Select at least one delivery method.';statusEl.style.color='var(--danger)';return;}
+
+  const expanded=expandRecipients();
+  if(!expanded.length){statusEl.textContent='No valid recipients with email addresses.';statusEl.style.color='var(--danger)';return;}
+
+  statusEl.textContent='Sending...';statusEl.style.color='var(--text2)';
+
+  let emailSent=false, pushSent=false;
+
+  // ── Email ──────────────────────────────────────────────────────
+  if(doEmail){
+    const emailRecips=expanded.filter(r=>r.email);
+    if(emailRecips.length){
+      const url=emailScriptUrl||SYNC_URL;
+      if(!url){statusEl.textContent='No email script configured. Add yours in Settings.';statusEl.style.color='var(--danger)';return;}
+      try{
+        const isUserScript=!!emailScriptUrl;
+        const payload=isUserScript
+          ?{subject,body,recipients:emailRecips,fromName:profile.name||'Pickleball Tracker',replyTo:profile.email||''}
+          :{email:account.email,pin:account.pin,action:'sendEmail',subject,body,recipients:emailRecips,fromName:profile.name||'Pickleball Tracker'};
+        const res=await fetch(url,{method:'POST',mode:'cors',body:JSON.stringify(payload),headers:{'Content-Type':'application/json'}});
+        const data=await res.json();
+        if(data.status==='ok') emailSent=true;
+        else throw new Error(data.message||'Email failed');
+      }catch(err){
+        statusEl.textContent='Email error: '+err.message;statusEl.style.color='var(--danger)';
+      }
+    }
+  }
+
+  // ── Push ───────────────────────────────────────────────────────
+  if(doPush&&SYNC_URL){
+    try{
+      const res=await fetch(SYNC_URL,{method:'POST',mode:'cors',
+        body:JSON.stringify({email:account.email,pin:account.pin,action:'sendPush',
+          subject,body,recipients:expanded.map(r=>r.email),fromName:profile.name||'Pickleball Tracker'}),
+        headers:{'Content-Type':'application/json'}});
+      const data=await res.json();
+      if(data.status==='ok') pushSent=true;
+    }catch(e){}
+  }
+
+  // ── Save to sent log ───────────────────────────────────────────
+  const msg={id:uid(),subject,body,recipients:msgRecipients.map(r=>({label:r.label,type:r.type})),emailSent,pushSent,sentAt:new Date().toISOString()};
+  if(!state.sentMessages)state.sentMessages=[];
+  state.sentMessages.push(msg);
+  save();
+
+  const viaStr=[emailSent?'email':'',pushSent?'push':''].filter(Boolean).join(' + ')||'no delivery (check settings)';
+  statusEl.textContent=`Sent to ${expanded.length} recipient${expanded.length!==1?'s':''} via ${viaStr}.`;
+  statusEl.style.color='var(--success)';
+
+  // Reset form
+  setTimeout(()=>{
+    document.getElementById('msg-subject').value='';
+    document.getElementById('msg-body').value='';
+    msgRecipients=[];
+    renderRecipientChips();
+    statusEl.textContent='';
+  },3000);
+}
+
+// Close recipient picker when clicking outside
+document.addEventListener('click',function(e){
+  const picker=document.getElementById('recipient-picker');
+  const box=document.getElementById('recipient-box');
+  if(picker&&box&&!box.contains(e.target)&&!picker.contains(e.target)){
+    picker.style.display='none';
+  }
+});
+
+// ── Player Map ─────────────────────────────────────────────────────
+// mapPins: loaded from sheet. Each pin: {id,userEmail,name,photoUrl,email,cell,zip,lat,lng,pinColor}
+let mapPins=[];
+let mapFiltered=[];
+let mapPlacing=false;
+let mapPickingRef=false;
+let mapRefPt=null;
+const MAP_MPU=3.11; // miles per SVG unit (~2800mi / 900 units)
+
+async function loadMapPins(){
+  if(!SYNC_URL) return;
+  try{
+    const url=`${SYNC_URL}?email=${encodeURIComponent(account.email)}&pin=${encodeURIComponent(account.pin)}&action=mapPins`;
+    const res=await fetch(url,{method:'GET',mode:'cors'});
+    if(!res.ok) return;
+    const data=await res.json();
+    if(data.status==='ok'&&data.pins){
+      mapPins=data.pins;
+      mapFiltered=[...mapPins];
+      renderPBMap();
+    }
+  }catch(e){}
+}
+
+async function saveMyMapPin(lat,lng){
+  if(!account.email||!account.pin){alert('Set up your account first.');return;}
+  if(!profile.name){alert('Add your name in My Profile first.');return;}
+  const pin={
+    id:'map_'+account.email,
+    userEmail:account.email,
+    name:profile.name,
+    photoUrl:profile.photoUrl||'',
+    email:profile.email||'',
+    cell:profile.cell||'',
+    zip:profile.zip||'',
+    lat:Math.round(lat),
+    lng:Math.round(lng),
+    pinColor:'#2563eb'
+  };
+  // Upsert locally
+  const idx=mapPins.findIndex(p=>p.userEmail===account.email);
+  if(idx>=0) mapPins[idx]=pin; else mapPins.push(pin);
+  mapFiltered=[...mapPins];
+  renderPBMap();
+  // Reset button
+  const btn=document.getElementById('map-place-btn');
+  if(btn){btn.textContent='📍 Place My Pin';btn.disabled=false;btn.style.opacity='1';}
+  // Push to sheet
+  if(SYNC_URL){
+    try{
+      await fetch(SYNC_URL,{method:'POST',mode:'cors',
+        body:JSON.stringify({email:account.email,pin:account.pin,action:'saveMapPin',mapPin:pin}),
+        headers:{'Content-Type':'application/json'}});
+    }catch(e){}
+  }
+  mapToast('Your pin placed!');
+}
+
+async function removeMyMapPin(){
+  if(!confirm('Remove your pin from the map?')) return;
+  mapPins=mapPins.filter(p=>p.userEmail!==account.email);
+  mapFiltered=[...mapPins];
+  renderPBMap();
+  if(SYNC_URL){
+    try{
+      await fetch(SYNC_URL,{method:'POST',mode:'cors',
+        body:JSON.stringify({email:account.email,pin:account.pin,action:'removeMapPin'}),
+        headers:{'Content-Type':'application/json'}});
+    }catch(e){}
+  }
+}
+
+function renderPBMap(){
+  const layer=document.getElementById('pb-pins-layer');
+  if(!layer) return;
+  layer.innerHTML='';
+  const vis=new Set(mapFiltered.map(p=>p.userEmail));
+
+  mapPins.forEach(pin=>{
+    if(!vis.has(pin.userEmail)) return;
+    const isMine=pin.userEmail===account.email;
+    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.classList.add('pb-pin-group');
+    g.setAttribute('transform',`translate(${pin.lng},${pin.lat})`);
+    g.addEventListener('click',e=>{e.stopPropagation();if(!mapPlacing&&!mapPickingRef)showMapPinProfile(pin);});
+
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.classList.add('pb-pin-circle');
+    c.setAttribute('cx',0);c.setAttribute('cy',0);c.setAttribute('r',16);
+    c.setAttribute('fill',isMine?'#2563eb':(pin.pinColor||'#6b7280'));
+    g.appendChild(c);
+
+    // Dashed ring for own pin
+    if(isMine){
+      const ring=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      ring.classList.add('pb-mine-ring');
+      ring.setAttribute('cx',0);ring.setAttribute('cy',0);ring.setAttribute('r',21);
+      g.appendChild(ring);
+    }
+
+    if(pin.photoUrl){
+      const cid=`pbcp${pin.userEmail.replace(/\W/g,'')}`;
+      const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
+      const cp=document.createElementNS('http://www.w3.org/2000/svg','clipPath');
+      cp.setAttribute('id',cid);
+      const cc=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      cc.setAttribute('cx',0);cc.setAttribute('cy',0);cc.setAttribute('r',14);
+      cp.appendChild(cc);defs.appendChild(cp);layer.appendChild(defs);
+      const img=document.createElementNS('http://www.w3.org/2000/svg','image');
+      img.setAttribute('href',pin.photoUrl);
+      img.setAttribute('x',-14);img.setAttribute('y',-14);
+      img.setAttribute('width',28);img.setAttribute('height',28);
+      img.setAttribute('clip-path',`url(#${cid})`);
+      g.appendChild(img);
+    } else {
+      const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.classList.add('pb-pin-label');
+      t.setAttribute('x',0);t.setAttribute('y',0);
+      t.textContent=(pin.name||'?').slice(0,3).toUpperCase();
+      g.appendChild(t);
+    }
+    layer.appendChild(g);
+  });
+
+  const v=mapFiltered.length,tot=mapPins.length;
+  const el=document.getElementById('map-pin-count');
+  if(el) el.textContent=v<tot?`${v} of ${tot} pins`:`${tot} pin${tot!==1?'s':''}`;
+}
+
+function showMapPinProfile(pin){
+  const isMine=pin.userEmail===account.email;
+  document.getElementById('map-pin-content').innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem;padding-top:.5rem">
+      ${avatarHtml(pin.name,pin.photoUrl||'',56)}
+      <div>
+        <div style="font-size:18px;font-weight:600">${pin.name}</div>
+        ${isMine?`<div style="font-size:12px;color:var(--info);margin-top:2px">Your pin</div>`:''}
+      </div>
+    </div>
+    <div style="background:var(--bg2);border-radius:var(--radius-lg);padding:0 1rem;margin-bottom:1rem">
+      ${pin.email?`<div class="cdr"><span class="cdl">Email</span><span class="cdv">${pin.email}</span></div>`:''}
+      ${pin.cell?`<div class="cdr"><span class="cdl">Cell</span><span class="cdv">${pin.cell}</span></div>`:''}
+      ${pin.zip?`<div class="cdr"><span class="cdl">Zip</span><span class="cdv">${pin.zip}</span></div>`:''}
+      ${!pin.email&&!pin.cell&&!pin.zip?`<div style="padding:12px 0;font-size:13px;color:var(--text2)">No contact info provided.</div>`:''}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${!isMine&&pin.email?`<a href="mailto:${pin.email}" style="padding:12px;border:0.5px solid var(--border2);border-radius:var(--radius);font-size:14px;color:var(--text);text-align:center;text-decoration:none">Email</a>`:''}
+      ${!isMine&&pin.cell?`<a href="tel:${pin.cell}" style="padding:12px;border:0.5px solid var(--border2);border-radius:var(--radius);font-size:14px;color:var(--text);text-align:center;text-decoration:none">Call</a>`:''}
+      ${!isMine?`<button onclick="downloadVCard({name:'${pin.name.replace(/'/g,"\\'")}',email:'${(pin.email||'').replace(/'/g,"\\'")}',cell:'${(pin.cell||'').replace(/'/g,"\\'")}',zip:'${(pin.zip||'').replace(/'/g,"\\'")}',note:'Pickleball player'})" style="padding:12px;border:0.5px solid var(--info);border-radius:var(--radius);background:var(--info-bg);color:var(--info);font-size:14px;font-weight:500;cursor:pointer">Add to iPhone Contacts</button>`:''}
+      ${isMine?`<button onclick="closeModal('map-pin-modal');startMapPlace()" style="padding:12px;border:0.5px solid var(--info);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--info)">Move my pin</button>`:''}
+      ${isMine?`<button onclick="closeModal('map-pin-modal');removeMyMapPin()" style="padding:12px;border:0.5px solid var(--danger);border-radius:var(--radius);background:transparent;font-size:14px;cursor:pointer;color:var(--danger)">Remove my pin</button>`:''}
+    </div>`;
+  document.getElementById('map-pin-modal').classList.add('open');
+}
+
+function startMapPlace(){
+  if(!account.email){alert('Set up your account first.');return;}
+  if(!profile.name){alert('Add your name in My Profile first.');return;}
+  mapPlacing=true;
+  const hint=document.getElementById('map-place-hint');
+  hint.style.display='block';
+  document.getElementById('pb-map').style.cursor='crosshair';
+  const btn=document.getElementById('map-place-btn');
+  btn.textContent='Tap the map…';btn.disabled=true;btn.style.opacity='0.6';
+  // Re-enable if user taps away without placing
+  function cleanup(){
+    if(!mapPlacing) return;
+    mapPlacing=false;
+    hint.style.display='none';
+    document.getElementById('pb-map').style.cursor='';
+    btn.textContent='📍 Place My Pin';btn.disabled=false;btn.style.opacity='1';
+  }
+  btn._cleanup=cleanup;
+}
+
+function toggleMapFilter(){
+  const p=document.getElementById('map-filter-panel');
+  p.style.display=p.style.display==='none'?'flex':'none';
+}
+
+function startPickMapRef(){
+  mapPickingRef=true;
+  document.getElementById('map-ref-hint').style.display='block';
+  document.getElementById('pb-map').style.cursor='crosshair';
+  document.getElementById('map-filter-panel').style.display='none';
+}
+
+function applyMapFilter(){
+  const distMi=parseFloat(document.getElementById('mf-dist').value)||0;
+  if(distMi>0&&mapRefPt){
+    mapFiltered=mapPins.filter(p=>{
+      const dx=p.lng-mapRefPt.x,dy=p.lat-mapRefPt.y;
+      return Math.sqrt(dx*dx+dy*dy)*MAP_MPU<=distMi;
+    });
+    const dc=document.getElementById('pb-dist-circle');
+    dc.setAttribute('cx',mapRefPt.x);dc.setAttribute('cy',mapRefPt.y);
+    dc.setAttribute('r',distMi/MAP_MPU);dc.removeAttribute('display');
+  } else {
+    mapFiltered=[...mapPins];
+    document.getElementById('pb-dist-circle').setAttribute('display','none');
+  }
+  renderPBMap();
+  // Update filter button to show active state
+  const fb=document.getElementById('map-filter-btn');
+  const active=mapFiltered.length<mapPins.length;
+  fb.textContent=active?`⚙ Filter (${mapFiltered.length})`:'⚙ Filter';
+  fb.style.color=active?'var(--info)':'var(--text2)';
+}
+
+function clearMapFilter(){
+  document.getElementById('mf-dist').value='';
+  document.getElementById('map-ref-label').textContent='';
+  mapRefPt=null;mapFiltered=[...mapPins];
+  document.getElementById('pb-dist-circle').setAttribute('display','none');
+  document.getElementById('pb-ref-marker').setAttribute('display','none');
+  document.getElementById('map-filter-btn').textContent='⚙ Filter';
+  document.getElementById('map-filter-btn').style.color='var(--text2)';
+  renderPBMap();
+}
+
+// Map click handler — wired up on first map view
+function initMapClickHandler(){
+  const svg=document.getElementById('pb-map');
+  if(svg._pbInited) return;
+  svg._pbInited=true;
+  svg.addEventListener('click',function(e){
+    const rect=svg.getBoundingClientRect();
+    const vb=svg.viewBox.baseVal;
+    const sx=(e.clientX-rect.left)*(vb.width/rect.width);
+    const sy=(e.clientY-rect.top)*(vb.height/rect.height);
+
+    if(mapPickingRef){
+      mapPickingRef=false;
+      svg.style.cursor='';
+      document.getElementById('map-ref-hint').style.display='none';
+      mapRefPt={x:sx,y:sy};
+      const rm=document.getElementById('pb-ref-marker');
+      rm.setAttribute('transform',`translate(${sx},${sy})`);
+      rm.removeAttribute('display');
+      document.getElementById('map-ref-label').textContent='Point set';
+      document.getElementById('map-filter-panel').style.display='flex';
+      return;
+    }
+    if(mapPlacing){
+      mapPlacing=false;
+      svg.style.cursor='';
+      document.getElementById('map-place-hint').style.display='none';
+      const btn=document.getElementById('map-place-btn');
+      if(btn){btn.textContent='📍 Place My Pin';btn.disabled=false;btn.style.opacity='1';}
+      saveMyMapPin(sy,sx);
+    }
+  });
+}
+
+function mapToast(msg){
+  // Reuse existing toast if available, otherwise alert
+  if(typeof toast==='function') toast(msg);
+  else console.log(msg);
+}
+
+// ── PWA & Push ─────────────────────────────────────────────────────
+const VAPID_PUBLIC_KEY=''; // Developer: fill in your VAPID public key here
+let _deferredInstallPrompt=null;
+
+// Catch the beforeinstallprompt event before it fires
+window.addEventListener('beforeinstallprompt',function(e){
+  e.preventDefault();
+  _deferredInstallPrompt=e;
+  // Only show banner if not already dismissed this session
+  if(!sessionStorage.getItem('pwa_banner_dismissed')){
+    document.getElementById('pwa-banner').classList.add('visible');
+  }
+});
+
+// Hide banner if app gets installed
+window.addEventListener('appinstalled',function(){
+  document.getElementById('pwa-banner').classList.remove('visible');
+  _deferredInstallPrompt=null;
+});
+
+function installPWA(){
+  if(!_deferredInstallPrompt) return;
+  _deferredInstallPrompt.prompt();
+  _deferredInstallPrompt.userChoice.then(function(result){
+    if(result.outcome==='accepted'){
+      document.getElementById('pwa-banner').classList.remove('visible');
+    }
+    _deferredInstallPrompt=null;
+  });
+}
+
+function dismissPWABanner(){
+  document.getElementById('pwa-banner').classList.remove('visible');
+  sessionStorage.setItem('pwa_banner_dismissed','1');
+}
+
+function registerServiceWorker(){
+  if(!('serviceWorker' in navigator))return;
+  const swCode=`
+self.addEventListener('push',function(e){
+  const data=e.data?e.data.json():{};
+  self.registration.showNotification(data.title||'Pickleball Tracker',{
+    body:data.body||'',icon:data.icon||'',badge:data.badge||'',data:data
+  });
+});
+self.addEventListener('notificationclick',function(e){
+  e.notification.close();
+  e.waitUntil(clients.matchAll({type:'window'}).then(function(cs){
+    if(cs.length)return cs[0].focus();
+    return clients.openWindow('/');
+  }));
+});`;
+  const blob=new Blob([swCode],{type:'application/javascript'});
+  const swUrl=URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl).then(reg=>{
+    if(profile.allowPush) requestPushPermission(reg);
+  }).catch(()=>{});
+}
+
+async function requestPushPermission(reg){
+  if(!VAPID_PUBLIC_KEY) return;
+  if(Notification.permission==='denied') return;
+  const perm=await Notification.requestPermission();
+  if(perm!=='granted') return;
+  try{
+    const sub=await reg.pushManager.subscribe({
+      userVisibleOnly:true,
+      applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+    if(SYNC_URL&&account.email&&account.pin){
+      fetch(SYNC_URL,{method:'POST',mode:'no-cors',
+        body:JSON.stringify({email:account.email,pin:account.pin,action:'savePushSub',subscription:JSON.stringify(sub)}),
+        headers:{'Content-Type':'application/json'}});
+    }
+  }catch(e){}
+}
+
+function urlBase64ToUint8Array(base64String){
+  const padding='='.repeat((4-base64String.length%4)%4);
+  const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(base64);
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+
+// ── Render ─────────────────────────────────────────────────────────
+function render(){
+  const total=state.games.length;const now=new Date();
+  const month=state.games.filter(g=>{const d=new Date(g.date);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();}).length;
+  const wins=state.games.filter(g=>g.scoreUs>g.scoreThem).length;
+  document.getElementById('stat-total').textContent=total;
+  document.getElementById('stat-month').textContent=month;
+  document.getElementById('stat-wr').textContent=total?Math.round(wins/total*100)+'%':'—';
+  document.getElementById('recent-list').innerHTML=state.games.slice(0,5).map(g=>gameHtml(g,false)).join('')||'<div class="empty">No games yet!</div>';
+  renderGames();
+  renderNotifications();
+  document.getElementById('player-list').innerHTML=state.players.length?state.players.map(p=>{
+    const avg=[p.serve,p.dink,p.ath,p.sport].filter(Boolean);const avgVal=avg.length?(avg.reduce((a,b)=>a+b,0)/avg.length).toFixed(1):null;
+    const stats=playerStats(p.id);
+    const linkedContact=(state.contacts||[]).find(c=>c.name===p.name);
+    const photo=(linkedContact&&linkedContact.photoUrl)||p.photoUrl||'';
+    return`<div class="player-card" onclick="showPlayerDetail('${p.id}')"><div style="display:flex;align-items:center">${avatarHtml(p.name,photo,40)}<div class="player-info" style="margin-left:12px"><div class="player-name">${p.name}</div><div class="player-sub">${stats.total} game${stats.total!==1?'s':''} · ${avgVal?'avg '+avgVal:'no ratings'}</div></div></div><span style="font-size:16px;color:var(--text3)">›</span></div>`;
+  }).join(''):'<div class="empty">No players yet.</div>';
+  document.getElementById('contact-list').innerHTML=(state.contacts||[]).length?(state.contacts||[]).map(c=>`<div class="contact-card" onclick="showContactDetail('${c.id}')"><div style="display:flex;align-items:center">${avatarHtml(c.name,c.photoUrl||'',40,'background:var(--info-bg) !important')}<div class="player-info" style="margin-left:12px"><div class="player-name">${c.name}</div><div class="player-sub">${c.email||''}${c.cell?' · '+c.cell:''}</div></div></div><span style="font-size:16px;color:var(--text3)">›</span></div>`).join(''):'<div class="empty">No contacts yet. Share your referral link to connect!</div>';
+}
+
+// ── Modals & Init ──────────────────────────────────────────────────
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-bg').forEach(m=>{m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');});});
+
+async function init(){
+  loadLocal();render();
+  registerServiceWorker();
+  if(!checkIncomingContactCard()) checkReferral();
+  if(!SYNC_URL){setSyncStatus('gray','Sync not configured');return;}
+  if(!account.email||!account.pin){
+    setSyncStatus('gray','No account — tap Settings to set up sync');
+    setTimeout(()=>document.getElementById('account-modal').classList.add('open'),600);return;
+  }
+  await syncFromSheet();
+}
+init();
+</script>
+</body>
+</html>
