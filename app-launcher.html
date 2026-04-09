@@ -143,15 +143,18 @@
   }
   .card-wrap.collapsed .card:hover{border-color:var(--border-hover)}
   .card-wrap.collapsed .card-body{display:none}
+  .card-body{display:flex;flex-direction:column;gap:0}
+  .card-top:hover{background:rgba(255,255,255,0.03);border-radius:var(--radius-sm);margin:-4px;padding:4px;transition:background 0.15s}
   .card-wrap.collapsed .card::before{opacity:0!important}
 
   /* collapsed title strip */
   .card-strip{
-    display:none;align-items:center;gap:10px;min-width:0;
+    display:none;align-items:center;gap:10px;min-width:0;cursor:pointer;user-select:none;
   }
   .card-wrap.collapsed .card-strip{display:flex}
   .card-wrap.collapsed .card-full{display:none}
   .card-full{display:flex;flex-direction:column;gap:12px}
+  .card-full .app-desc{cursor:default}
 
   .strip-logo{
     width:26px;height:26px;border-radius:6px;object-fit:cover;
@@ -169,7 +172,7 @@
   .strip-version{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;flex-shrink:0}
 
   /* full card internals */
-  .card-top{display:flex;align-items:flex-start;gap:12px}
+  .card-top{display:flex;align-items:flex-start;gap:12px;cursor:pointer;user-select:none}
   .app-logo{width:46px;height:46px;border-radius:11px;object-fit:cover;background:var(--bg3);flex-shrink:0;border:1px solid var(--border)}
   .app-logo-fallback{
     width:46px;height:46px;border-radius:11px;background:var(--bg3);border:1px solid var(--border);
@@ -179,7 +182,10 @@
   .app-meta{flex:1;min-width:0}
   .app-name{font-size:14.5px;font-weight:600;letter-spacing:-0.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
   .app-version{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px}
-  .app-desc{font-size:12.5px;line-height:1.55;color:var(--text2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .app-desc{font-size:12.5px;line-height:1.55;color:var(--text2);white-space:pre-wrap;word-break:break-word;max-height:80px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border-hover) transparent;flex-shrink:0}
+  .app-desc::-webkit-scrollbar{width:4px}
+  .app-desc::-webkit-scrollbar-track{background:transparent}
+  .app-desc::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:4px}
   .card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:auto}
   .cat-badge{
     font-size:11px;font-weight:500;padding:3px 9px;border-radius:20px;
@@ -663,6 +669,12 @@ function buildGrid(apps, gridKey) {
 // ═══════════════════════════════════════════════════════
 // CARD WRAP + CARD BUILDER
 // ═══════════════════════════════════════════════════════
+function toggleCollapse(wrap, title) {
+  wrap.classList.toggle('collapsed');
+  collapseState[title] = wrap.classList.contains('collapsed');
+  saveCollapseState();
+}
+
 function makeCardWrap(app, gridKey) {
   const wrap = document.createElement('div');
   wrap.className = 'card-wrap';
@@ -670,17 +682,13 @@ function makeCardWrap(app, gridKey) {
   wrap.dataset.gridKey = gridKey;
   if (collapseState[app.title]) wrap.classList.add('collapsed');
 
-  // collapse toggle button
+  // Collapse chevron (visual indicator only — clicking the whole header row collapses)
   const collapseBtn = document.createElement('button');
   collapseBtn.className = 'collapse-toggle';
   collapseBtn.title = 'Collapse / expand';
   collapseBtn.innerHTML = `<svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>`;
-  collapseBtn.addEventListener('click', e => {
-    e.preventDefault(); e.stopPropagation();
-    wrap.classList.toggle('collapsed');
-    collapseState[app.title] = wrap.classList.contains('collapsed');
-    saveCollapseState();
-  });
+  // Stop propagation so the header click doesn't double-fire
+  collapseBtn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); toggleCollapse(wrap, app.title); });
 
   // drag handle
   const dragBtn = document.createElement('button');
@@ -689,14 +697,14 @@ function makeCardWrap(app, gridKey) {
   dragBtn.setAttribute('draggable','true');
   dragBtn.innerHTML = `<svg viewBox="0 0 24 24"><circle cx="9" cy="5" r="1.2"/><circle cx="15" cy="5" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="19" r="1.2"/><circle cx="15" cy="19" r="1.2"/></svg>`;
 
-  const card = makeCard(app);
+  const card = makeCard(app, wrap);
   wrap.appendChild(collapseBtn);
   wrap.appendChild(dragBtn);
   wrap.appendChild(card);
   return wrap;
 }
 
-function makeCard(app) {
+function makeCard(app, wrap) {
   const isMaint  = app.maintenance;
   const hasLock  = !isMaint && !!app.password;
   const unlocked = hasLock && !!sessionUnlocks[app.title];
@@ -707,7 +715,7 @@ function makeCard(app) {
     + (hasLock && !unlocked ? ' locked'           : '')
     + (unlocked             ? ' unlocked-session' : '');
 
-  // ── COLLAPSED STRIP (mini view) ──
+  // ── COLLAPSED STRIP (mini view — click anywhere to expand) ──
   const logoSmHtml = app.logo
     ? `<img class="strip-logo" src="${h(app.logo)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">${stripFb(app.title)}`
     : stripFb(app.title);
@@ -715,6 +723,8 @@ function makeCard(app) {
   const strip = document.createElement('div');
   strip.className = 'card-strip';
   strip.innerHTML = `${logoSmHtml}<span class="strip-name">${h(app.title)}</span>${app.version?`<span class="strip-version">v${h(app.version)}</span>`:''}`;
+  // Click on the collapsed strip expands the card
+  strip.addEventListener('click', e => { e.stopPropagation(); toggleCollapse(wrap, app.title); });
 
   // ── FULL CARD CONTENT ──
   const logoHtml = app.logo
@@ -730,35 +740,59 @@ function makeCard(app) {
     footerRight = `<span class="arrow-icon"><svg viewBox="0 0 12 12"><path d="M2 10L10 2M10 2H4M10 2v6"/></svg></span>`;
   }
 
+  // Build header and body as separate DOM nodes so we can attach different click handlers
+  const header = document.createElement('div');
+  header.className = 'card-top';
+  header.innerHTML = `${logoHtml}<div class="app-meta"><div class="app-name">${h(app.title)}</div>${app.version?`<div class="app-version">v${h(app.version)}</div>`:''}</div>`;
+
+  const body = document.createElement('div');
+  body.className = 'card-body';
+  if (app.desc) {
+    const descEl = document.createElement('div');
+    descEl.className = 'app-desc';
+    descEl.textContent = app.desc;   // textContent preserves newlines with white-space:pre-wrap
+    body.appendChild(descEl);
+  }
+
+  const footer = document.createElement('div');
+  footer.className = 'card-footer';
+  footer.innerHTML = `<span class="cat-badge">${h(app.category||'Uncategorized')}</span>${footerRight}`;
+
   const full = document.createElement('div');
   full.className = 'card-full';
-  full.innerHTML = `
-    <div class="card-top">${logoHtml}<div class="app-meta"><div class="app-name">${h(app.title)}</div>${app.version?`<div class="app-version">v${h(app.version)}</div>`:''}</div></div>
-    ${app.desc?`<div class="app-desc">${h(app.desc)}</div>`:''}
-    <div class="card-footer"><span class="cat-badge">${h(app.category||'Uncategorized')}</span>${footerRight}</div>`;
+  full.appendChild(header);
+  full.appendChild(body);
+  full.appendChild(footer);
 
   card.appendChild(strip);
   card.appendChild(full);
 
-  // Click handler — only on the full view (not collapsed strip, which has no link)
+  // ── HEADER click → toggle collapse ──
+  // (works whether card is collapsed or expanded)
+  header.addEventListener('click', e => {
+    if (e.target.closest('.drag-handle')) return;  // ignore drag handle
+    e.stopPropagation();
+    toggleCollapse(wrap, app.title);
+  });
+
+  // ── BODY/FOOTER click → launch app (only when expanded) ──
   if (!isMaint) {
-    const clickHandler = e => {
-      // Don't fire if clicking collapse/drag controls
-      if (e.target.closest('.collapse-toggle,.drag-handle')) return;
-      // Don't fire if card is collapsed
-      if (card.closest('.card-wrap.collapsed')) return;
+    const launchHandler = e => {
+      if (wrap.classList.contains('collapsed')) return;
+      if (e.target.closest('.card-top,.drag-handle,.collapse-toggle,.app-desc')) return;
       e.preventDefault();
-      if (hasLock && !unlocked) {
-        openPwModal(app);
-      } else {
-        launchApp(app.url, app.newTab);
-      }
+      if (hasLock && !unlocked) { openPwModal(app); } else { launchApp(app.url, app.newTab); }
     };
-    card.addEventListener('click', clickHandler);
-    // Keyboard accessibility
+    footer.addEventListener('click', launchHandler);
+
+    // Keyboard: Enter/Space on footer launches, on header collapses
     card.setAttribute('tabindex','0');
-    card.setAttribute('role','button');
-    card.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); clickHandler(e); } });
+    card.setAttribute('role','article');
+    footer.setAttribute('tabindex','0');
+    footer.setAttribute('role','button');
+    footer.setAttribute('aria-label', `Launch ${app.title}`);
+    footer.style.cursor = 'pointer';
+    footer.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' ') { e.preventDefault(); launchHandler(e); } });
   }
 
   return card;
