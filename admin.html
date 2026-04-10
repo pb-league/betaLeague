@@ -173,24 +173,23 @@
               placeholder="Enter league rules here. Each line will be displayed as a separate item on the dashboard."
               style="resize:vertical; font-size:0.88rem; line-height:1.6;"></textarea>
           </div>
-          <div class="form-row">
-            <div class="form-row" style="display:flex">
-          
+          <div class="form-row">     
               <div class="form-group" style="display:inline; gap:6px">
                 <label class="form-label">Sessions</label>
-                <input class="form-control" id="cfg-weeks" type="numeric" min="1" max="10" value="8" style="width:40px;">
+                <input class="form-control" id="cfg-weeks" type="number" min="1" max="10" value="8" style="width:80px;">
               </div>
-              <div class="form-group"></div>
+              <div class="form-group">
               <label class="form-label">Courts</label>
-              <input class="form-control" id="cfg-courts" type="numeric" min="1" max="8" value="3" style="width:40px;">           
-            <div class="form-group"></div>
+              <input class="form-control" id="cfg-courts" type="number" min="1" max="8" value="3" style="width:80px;">           
+            </div>
+            <div class="form-group">
             <label class="form-label">Games/Session</label>
-            <input class="form-control" id="cfg-games" type="numeric" min="1" max="10" value="7" style="width:40px;">
+            <input class="form-control" id="cfg-games" type="number" min="1" max="10" value="7" style="width:80px;">
          </div>
-            <div class="form-group" style="display:flex; gap:6px"></div>
+            <div class="form-group">
           <label class="form-label">Min Participation % <span style="color:var(--muted); font-weight:400; font-size:0.78rem;">(for
-              prize eligibility)</span></label>
-          <input class="form-control" id="cfg-min-participation" type="numeric" min="0" max="100" placeholder="50"
+              prize)</span></label>
+          <input class="form-control" id="cfg-min-participation" type="number" min="0" max="100" placeholder="50"
             style="width:80px;">
           </div>
           <div class="form-group">
@@ -606,9 +605,12 @@
       <section id="page-attendance" class="tab-panel">
         <div class="page-header"><h2>Attendance</h2></div>
         <div class="card">
-          <div id="att-pending-indicator" style="display:none; font-size:0.78rem; color:var(--muted); padding:2px 0 6px;"></div>
           <div id="attendance-grid"></div>
-          <div class="mt-2 text-muted" style="font-size:0.8rem;">Click to cycle: TBD → <span style="color:var(--green);">In</span> → <span style="color:var(--danger);">Out</span>. Spectator-role members never appear in pairings. Changes save automatically.</div>
+          <div class="mt-2 text-muted" style="font-size:0.8rem;">Click to cycle: TBD → <span style="color:var(--green);">In</span> → <span style="color:var(--danger);">Out</span>. Spectator-role members never appear in pairings.</div>
+          <div class="mt-2" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <button class="btn btn-primary" id="btn-save-attendance">Save Attendance</button>
+            <span id="att-dirty-indicator" style="display:none; font-size:0.8rem; color:var(--gold);">Unsaved changes</span>
+          </div>
           <div class="mt-2" style="border-top:1px solid var(--border); padding-top:10px;">
             <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.85rem;">
               <input type="checkbox" id="cfg-lock-player-attendance">

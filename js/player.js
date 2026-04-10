@@ -45,8 +45,10 @@ function gaPage(pageName) {
     config: {}, players: [], attendance: [],
     pairings: [], scores: [], standings: [],
     currentSheetWeek: 1, currentWstandWeek: 1,
-    dataLoaded: false,  // true after phase 2 pairings/scores are loaded
-    saveLocks: {}       // per-week save queue to prevent concurrent writes
+    dataLoaded: false,        // true after phase 2 pairings/scores are loaded
+    saveLocks: {},            // per-week save queue to prevent concurrent writes
+    _scoreEntryLoading: false, // nav fetch in flight — block external re-renders
+    _scoreEntryTouched: false  // user has typed in score entry — block external re-renders
   };
 
   // ── Phase 1: Fast load — config, players, attendance ────────
@@ -188,16 +190,20 @@ function gaPage(pageName) {
           const wk = state.currentScoreEntryWeek || state.currentSheetWeek || 1;
           const fetchId = Date.now();
           state._scoreEntryFetchId = fetchId;
+          state._scoreEntryLoading = true;
+          state._scoreEntryTouched = false;
           API.getScores(wk).then(data => {
             if (state._scoreEntryFetchId !== fetchId) return;
             if (data && data.scores) {
               state.scores = state.scores.filter(s => parseInt(s.week) !== parseInt(wk));
               state.scores.push(...data.scores.filter(s => parseInt(s.week) === parseInt(wk)));
             }
-            renderScoreEntry();
+            state._scoreEntryLoading = false;
+            if (!state._scoreEntryTouched) renderScoreEntry();
           }).catch(() => {
             if (state._scoreEntryFetchId !== fetchId) return;
-            renderScoreEntry();
+            state._scoreEntryLoading = false;
+            if (!state._scoreEntryTouched) renderScoreEntry();
           });
         }
         if (page === 'standings') {
@@ -205,7 +211,7 @@ function gaPage(pageName) {
           API.getScores().then(data => {
             if (data && data.scores) {
               state.scores = data.scores;
-              state.standings = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance);
+              state.standings = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance, state.config.pairingMode);
             }
             renderPlayerStandings();
           }).catch(() => renderPlayerStandings());
@@ -263,7 +269,7 @@ function gaPage(pageName) {
     renderFullAttendance();
     renderPlayerReportSelect();
     renderTournamentBracket();
-    if (canScore) renderScoreEntry();
+    if (canScore && !state._scoreEntryLoading && !state._scoreEntryTouched) renderScoreEntry();
   }
 
   function updatePageHeaders() {
@@ -786,9 +792,15 @@ function gaPage(pageName) {
       return;
     }
 
-    const finalPairings = state.pairings.filter(p =>
-      parseInt(p.week) === week && parseInt(p.round) === totalRounds &&
-      (p.type === 'game' || p.type === 'tourn-game')
+    // Don't show possible outcomes when the last session is a tournament
+    const lastWeekPairings = state.pairings.filter(p => parseInt(p.week) === week);
+    if (lastWeekPairings.some(p => p.type === 'tourn-game')) {
+      card.style.display = 'none';
+      return;
+    }
+
+    const finalPairings = lastWeekPairings.filter(p =>
+      parseInt(p.round) === totalRounds && (p.type === 'game' || p.type === 'tourn-game')
     );
     if (!finalPairings.length) {
       card.style.display = 'none';
@@ -880,6 +892,10 @@ function gaPage(pageName) {
     const isQueueMode = state.config.pairingMode === 'queue-based';
     let html = '';
 
+    // Build rank map for rank-differential and upset indicators
+    const ssRankMap = {};
+    state.standings.forEach(s => { if (s.rank != null) ssRankMap[s.name] = s.rank; });
+
     rounds.forEach(r => {
       const roundGames = weekPairings.filter(p => p.round == r);
       const scored = roundGames.filter(g => {
@@ -943,6 +959,20 @@ function gaPage(pageName) {
         const t2style = entered ? (t2win ? winStyle : loseStyle) : (myTeam === 2 ? 'font-weight:700; color:var(--white);' : '');
         const tieWarning = entered && !t1win && !t2win;
 
+        // Rank differential: Team 1 avg rank minus Team 2 avg rank
+        const t1Names  = [game.p1, game.p2].filter(Boolean);
+        const t2Names  = [game.p3, game.p4].filter(Boolean);
+        const t1Ranks  = t1Names.map(n => ssRankMap[n]).filter(r => r != null);
+        const t2Ranks  = t2Names.map(n => ssRankMap[n]).filter(r => r != null);
+        const t1Avg    = t1Ranks.length ? t1Ranks.reduce((a, b) => a + b, 0) / t1Ranks.length : null;
+        const t2Avg    = t2Ranks.length ? t2Ranks.reduce((a, b) => a + b, 0) / t2Ranks.length : null;
+        const rankDiff = (t1Avg !== null && t2Avg !== null) ? t1Avg - t2Avg : null;
+        const isUpset  = entered && rankDiff !== null && rankDiff !== 0
+          ? (rankDiff < 0 ? t2win : t1win)
+          : false;
+        const diffStr   = rankDiff !== null ? (rankDiff > 0 ? '+' : '') + rankDiff.toFixed(1) : '—';
+        const diffColor = rankDiff === null ? 'var(--muted)' : rankDiff < 0 ? 'var(--green)' : rankDiff > 0 ? 'var(--danger)' : 'var(--muted)';
+
         html += `<div style="background:var(--card-bg); border-radius:7px; padding:6px 10px; margin-bottom:3px;">
           <div style="display:grid; grid-template-columns:auto 1fr auto 1fr; align-items:center; gap:6px;">
             <div style="font-size:0.7rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); padding-right:4px; white-space:nowrap;">${courtName(game.court)}</div>
@@ -961,6 +991,12 @@ function gaPage(pageName) {
             </div>
           </div>
           ${tieWarning ? `<div style="margin-top:3px; font-size:0.68rem; color:var(--danger); text-align:center;">⚠️ Tied score</div>` : ''}
+          ${(t1Avg !== null || t2Avg !== null) ? `<div style="display:grid; grid-template-columns:auto 1fr auto 1fr; gap:6px; font-size:0.68rem; color:var(--muted); margin-top:4px; padding-top:3px; border-top:1px solid rgba(255,255,255,0.06);">
+            <div></div>
+            <div style="text-align:right;" title="Team 1 average rank">${t1Avg !== null ? '#' + t1Avg.toFixed(1) : ''}</div>
+            <div style="text-align:center;" title="Rank difference (Team 1 avg rank − Team 2 avg rank). Negative = Team 1 ranked higher. U = upset."><span style="color:${diffColor}; cursor:help;">Rnk&thinsp;Δ&thinsp;${diffStr}${isUpset ? '&thinsp;<strong style="color:var(--gold);">U</strong>' : ''}</span></div>
+            <div title="Team 2 average rank">${t2Avg !== null ? '#' + t2Avg.toFixed(1) : ''}</div>
+          </div>` : ''}
         </div>`;
       });
 
@@ -1100,6 +1136,7 @@ function gaPage(pageName) {
     document.querySelectorAll('#player-scoresheet-entry summary').forEach(s => { s.tabIndex = -1; });
     document.querySelectorAll('#player-scoresheet-entry .score-input').forEach((input, i) => {
       input.tabIndex = i + 1;
+      input.addEventListener('input', () => { state._scoreEntryTouched = true; }, { once: true });
     });
 
     // Restore collapsed state
@@ -1163,7 +1200,7 @@ function gaPage(pageName) {
             !(parseInt(s.week) === wk && parseInt(s.round) === parseInt(round) && String(s.court) === String(court))
           );
           state.scores.push(newScore);
-          state.standings = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance);
+          state.standings = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance, state.config.pairingMode);
 
           // Show saving indicator on the card
           const indicator = document.createElement('div');
@@ -1228,7 +1265,7 @@ function gaPage(pageName) {
     if (trendTitle)  trendTitle.textContent  = prefix + 'Overall Ranking by Session';
 
     // Season tab
-    const season = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance);
+    const season = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance, state.config.pairingMode);
     document.getElementById('season-standings-table').innerHTML = renderStandingsTable(season, playerName);
 
     // Weekly tab
@@ -1236,9 +1273,9 @@ function gaPage(pageName) {
     const wstandDate = formatDateTime(week, state.config) ? ' — ' + formatDateTime(week, state.config) : '';
     document.getElementById('wstand-label').textContent = `Session ${week}${wstandDate}`;
     const weekStand = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod);
-    const overallThisWeek = Reports.computeStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod, state.attendance);
+    const overallThisWeek = Reports.computeStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod, state.attendance, state.config.pairingMode);
     const overallPrevWeek = week > 1
-      ? Reports.computeStandings(state.scores, state.players, state.pairings, week - 1, state.config.rankingMethod, state.attendance)
+      ? Reports.computeStandings(state.scores, state.players, state.pairings, week - 1, state.config.rankingMethod, state.attendance, state.config.pairingMode)
       : null;
     document.getElementById('weekly-standings-table').innerHTML = renderStandingsTable(weekStand, playerName, overallThisWeek, overallPrevWeek);
 
@@ -1274,9 +1311,9 @@ function gaPage(pageName) {
     const wstandDate = formatDateTime(week, state.config) ? ' — ' + formatDateTime(week, state.config) : '';
     document.getElementById('wstand-label').textContent = `Session ${week}${wstandDate}`;
     const s = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod);
-    const overallThisWeek = Reports.computeStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod, state.attendance);
+    const overallThisWeek = Reports.computeStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod, state.attendance, state.config.pairingMode);
     const overallPrevWeek = week > 1
-      ? Reports.computeStandings(state.scores, state.players, state.pairings, week - 1, state.config.rankingMethod, state.attendance)
+      ? Reports.computeStandings(state.scores, state.players, state.pairings, week - 1, state.config.rankingMethod, state.attendance, state.config.pairingMode)
       : null;
     document.getElementById('weekly-standings-table').innerHTML = renderStandingsTable(s, playerName, overallThisWeek, overallPrevWeek);
   }
@@ -1451,7 +1488,7 @@ function gaPage(pageName) {
           await API.saveScores(week, scores);
           state.scores = state.scores.filter(s => parseInt(s.week) !== week);
           state.scores.push(...scores);
-          state.standings = Reports.computeStandings(state.scores, state.players, state.pairings, null, null, state.attendance);
+          state.standings = Reports.computeStandings(state.scores, state.players, state.pairings, null, null, state.attendance, state.config.pairingMode);
           toast(`Scores for Session ${week} saved!`);
           renderScoreEntry();
         } catch (e) { toast('Save failed: ' + e.message, 'error'); }
@@ -1524,7 +1561,7 @@ function gaPage(pageName) {
         const data = await API.getScores();
         if (data && data.scores) {
           state.scores = data.scores;
-          state.standings = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance);
+          state.standings = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance, state.config.pairingMode);
         }
         renderPlayerStandings();
       } catch (e) { /* silent — stale data still shown */ }
@@ -1669,16 +1706,21 @@ function gaPage(pageName) {
       <div class="card-title" style="font-size:0.8rem; margin-bottom:8px; color:var(--muted);">GAME LOG</div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Ses</th><th>Rd</th><th>Partner</th><th>Opponents</th><th>Score</th><th>Result</th></tr></thead>
-          <tbody>${report.games.length ? report.games.map(g =>
-            `<tr>
+          <thead><tr><th>Ses</th><th>Rd</th><th>Partner</th><th>Opponents</th><th>Score</th>
+            <th title="Rank difference: your team's average rank minus opponents' average rank. Negative means your team was ranked higher. U = upset (lower-ranked team won)." style="cursor:help;">Rnk Δ</th>
+            <th>Result</th></tr></thead>
+          <tbody>${report.games.length ? report.games.map(g => {
+            const diffStr = g.rankDiff !== null ? (g.rankDiff > 0 ? '+' : '') + g.rankDiff.toFixed(1) : '—';
+            const resultLabel = (g.won ? 'W' : 'L') + (g.isUpset ? ' U' : '');
+            return `<tr>
               <td>${g.week}</td><td>${g.round}</td>
               <td class="player-name">${esc(g.partner)}</td>
               <td class="text-muted">${g.opponents.map(o => esc(o)).join(' & ')}</td>
               <td><strong>${g.myScore}</strong> — ${g.oppScore}</td>
-              <td><span class="badge ${g.won ? 'badge-green' : 'badge-red'}">${g.won ? 'W' : 'L'}</span></td>
-            </tr>`
-          ).join('') : '<tr><td colspan="7" class="text-muted">No games recorded yet.</td></tr>'}</tbody>
+              <td style="text-align:center; color:${g.rankDiff === null ? 'var(--muted)' : g.rankDiff < 0 ? 'var(--green)' : g.rankDiff > 0 ? 'var(--danger)' : 'var(--muted)'};">${diffStr}</td>
+              <td><span class="badge ${g.won ? 'badge-green' : 'badge-red'}">${resultLabel}</span></td>
+            </tr>`;
+          }).join('') : '<tr><td colspan="7" class="text-muted">No games recorded yet.</td></tr>'}</tbody>
         </table>
       </div>
     </div>`;
@@ -2151,10 +2193,30 @@ function gaPage(pageName) {
 
     html += `</div></div>`;
 
-    // Champion banner
+    // Champion banner — only show when tournament is truly complete
     const lastRound = lockedRounds[lockedRounds.length - 1];
     const lastGames = weekPairings.filter(g => g.round === lastRound && (g.type === 'game' || g.type === 'tourn-game'));
-    if (lastGames.length === 1) {
+    // Derive elimination status from scored games: count losses per team.
+    // Only 1 team should remain below the elimination threshold.
+    function isTournamentDone() {
+      if (seeds) return seeds.filter(s => !s.eliminated).length === 1;
+      const lossMap = {};
+      const teamKeys = new Set();
+      weekPairings.filter(g => g.type === 'tourn-game' || g.type === 'game').forEach(g => {
+        const k1 = g.p1 + (g.p2 ? '|' + g.p2 : '');
+        const k2 = g.p3 + (g.p4 ? '|' + g.p4 : '');
+        if (g.p1) teamKeys.add(k1);
+        if (g.p3) teamKeys.add(k2);
+        const sc = scores.find(s => parseInt(s.week) === week && parseInt(s.round) === parseInt(g.round) && String(s.court) === String(g.court));
+        if (!sc || sc.score1 === '' || sc.score1 === null) return;
+        const loser = parseInt(sc.score1) > parseInt(sc.score2) ? k2 : k1;
+        lossMap[loser] = (lossMap[loser] || 0) + 1;
+      });
+      const maxLosses = Math.max(0, ...Object.values(lossMap));
+      const threshold = maxLosses >= 2 ? 2 : 1;
+      return [...teamKeys].filter(k => (lossMap[k] || 0) < threshold).length === 1;
+    }
+    if (lastGames.length === 1 && isTournamentDone()) {
       const fg = lastGames[0];
       const fs = scores.find(s => parseInt(s.week) === week && parseInt(s.round) === lastRound && String(s.court) === String(fg.court));
       if (fs && fs.score1 !== '' && fs.score1 !== null && fs.score2 !== '' && fs.score2 !== null) {

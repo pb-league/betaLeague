@@ -147,9 +147,11 @@ const Pairings = (() => {
       } else {
         // Doubles: pick best 4-player group with best team split.
         // For large pools, exhaustive C(n,4) search becomes prohibitively slow.
-        // Use a capped random-sample approach: try up to MAX_COMBOS random groups
-        // so generation stays fast even with 20+ players.
-        const MAX_COMBOS = 300;
+        // Use a capped random-sample approach: try up to MAX_COMBOS random groups.
+        // 2000 is exhaustive up to ~16-player pools (C(16,4)=1820) and near-exhaustive
+        // for larger pools. The outer `tries` count is scaled down for large present
+        // pools (in admin.js) so total generation time stays reasonable.
+        const MAX_COMBOS = 2000;
         const poolLen = pool.length;
         const totalCombos = (poolLen * (poolLen-1) * (poolLen-2) * (poolLen-3)) / 24;
 
