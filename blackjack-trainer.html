@@ -50,45 +50,6 @@
     overflow-x: hidden;
   }
 
-  /* ── HAMBURGER MENU ── */
-  #header-menu {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.25s ease, opacity 0.2s ease;
-    opacity: 0;
-    margin-bottom: 0;
-  }
-  #header-menu.open {
-    max-height: 300px;
-    opacity: 1;
-    margin-bottom: 8px;
-  }
-  #header-menu-inner {
-    display: flex; flex-wrap: wrap; gap: 6px;
-    padding: 8px 12px;
-    background: linear-gradient(135deg, rgba(0,0,0,0.55), rgba(0,0,0,0.4));
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius);
-  }
-  .menu-item {
-    flex: 1; min-width: 120px;
-    background: rgba(255,255,255,0.07);
-    border: 1px solid var(--panel-border);
-    color: var(--gold-light);
-    padding: 8px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 500;
-    transition: all 0.15s;
-    text-align: left;
-    white-space: nowrap;
-  }
-  .menu-item:hover { background: rgba(201,168,76,0.15); border-color: var(--gold); }
-  .menu-item:active { transform: scale(0.97); }
-  #btn-menu.active { background: rgba(201,168,76,0.15); border-color: var(--gold); }
-
   /* ── LAYOUT ── */
   #app { display: flex; flex-direction: column; min-height: 100vh; max-width: 900px; margin: 0 auto; padding: 8px; }
 
@@ -152,12 +113,12 @@
     background: radial-gradient(ellipse, var(--felt-light) 0%, var(--felt) 50%, var(--felt-dark) 100%);
     border: 3px solid var(--gold-dim);
     border-radius: 24px;
-    padding: 8px 10px;
+    padding: 12px;
     position: relative;
     box-shadow: inset 0 0 60px rgba(0,0,0,0.4), 0 0 0 6px rgba(0,0,0,0.3);
-    display: flex; flex-direction: column; gap: 5px;
+    display: flex; flex-direction: column; gap: 8px;
     margin-bottom: 8px;
-    min-height: 300px;
+    min-height: 380px;
   }
   /* Decorative table edge */
   #table::before {
@@ -178,7 +139,7 @@
   }
 
   /* ── CARDS ── */
-  .cards-row { display: flex; flex-wrap: wrap; justify-content: center; min-height: 90px; align-items: flex-start; }
+  .cards-row { display: flex; flex-wrap: wrap; justify-content: center; min-height: 120px; align-items: flex-start; }
   .card {
     width: 80px; height: 114px;
     background: var(--card-bg);
@@ -503,13 +464,12 @@
 
   /* ── RESPONSIVE ── */
   @media (max-width: 480px) {
-    .card { width: 58px; height: 83px; }
-    .card-rank { font-size: 1.1rem; }
-    .card-center { font-size: 1.5rem; }
-    .cards-row { min-height: 75px; }
+    .card { width: 62px; height: 88px; }
+    .card-rank { font-size: 1.25rem; }
+    .card-center { font-size: 1.7rem; }
     .chip { width: 46px; height: 46px; font-size: 0.65rem; }
     .play-btn { font-size: 0.75rem; padding: 9px 6px; }
-    #table { min-height: 260px; }
+    #table { min-height: 320px; }
   }
   /* ── MULTIPLAYER ── */
   #mp-bar {
@@ -822,33 +782,116 @@
   }
   .play-btn.primary .kbd { background: rgba(0,0,0,0.2); border-color: rgba(0,0,0,0.3); }
 
+  /* ── HAMBURGER MENU ── */
+  .header-actions { display: flex; gap: 6px; align-items: center; }
+  #menu-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--panel-border);
+    color: var(--gold-light);
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    transition: all 0.2s;
+    position: relative;
+  }
+  #menu-btn:hover { background: rgba(201,168,76,0.15); border-color: var(--gold); }
+  #menu-dropdown {
+    display: none;
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: min(240px, 80vw);
+    background: linear-gradient(180deg, #082813, #061a0e);
+    border-left: 1px solid var(--panel-border);
+    z-index: 1500;
+    flex-direction: column;
+    padding: 16px 12px;
+    gap: 6px;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.6);
+    overflow-y: auto;
+  }
+  #menu-dropdown.open { display: flex; }
+  #menu-overlay {
+    display: none; position: fixed; inset: 0; z-index: 1499; background: rgba(0,0,0,0.4);
+  }
+  #menu-overlay.open { display: block; }
+  .menu-item {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--panel-border);
+    color: var(--text-light);
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: left;
+    transition: all 0.15s;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .menu-item:hover { background: rgba(201,168,76,0.12); border-color: var(--gold-dim); }
+  .menu-item.active { background: rgba(108,92,231,0.2); border-color: rgba(108,92,231,0.5); color: #a29bfe; }
+  .menu-divider { border: none; border-top: 1px solid var(--panel-border); margin: 6px 0; }
+  .menu-title { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; padding: 4px 4px 2px; }
+
+  /* ── MP SCORE BAR ── */
+  #mp-score-bar {
+    display: none;
+    gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+    padding: 6px 12px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    margin-bottom: 6px;
+    font-size: 0.75rem;
+  }
+  #mp-score-bar.visible { display: flex; }
+  .mp-score-player {
+    display: flex; flex-direction: column; align-items: center; gap: 1px; flex: 1;
+  }
+  .mp-score-name { font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+  .mp-score-bankroll { font-family: 'DM Mono', monospace; font-size: 0.9rem; color: #6fcf97; font-weight: 500; }
+  .mp-score-accuracy { font-family: 'DM Mono', monospace; font-size: 0.78rem; }
+  .mp-score-accuracy.you { color: var(--gold-light); }
+  .mp-score-accuracy.them { color: #a29bfe; }
+  .mp-score-sep { color: var(--text-dim); font-size: 0.8rem; }
+
 </style>
 </head>
 <body>
 
 <div id="app">
+  <!-- Menu overlay (closes menu on outside tap) -->
+  <div id="menu-overlay" onclick="closeMenu()"></div>
+
+  <!-- Slide-out menu -->
+  <div id="menu-dropdown">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <span style="font-family:'Playfair Display',serif;color:var(--gold);font-size:1rem">Menu</span>
+      <button class="icon-btn" onclick="closeMenu()" style="padding:4px 8px">✕</button>
+    </div>
+    <div class="menu-title">Game</div>
+    <button class="menu-item" onclick="closeMenu();openSettings()">⚙ Settings</button>
+    <button class="menu-item" onclick="closeMenu();openStats()">📊 Statistics</button>
+    <button class="menu-item" onclick="closeMenu();openHandHistory()">📈 Hand History</button>
+    <button class="menu-item" onclick="closeMenu();openStrategyTable()">📋 Strategy Chart</button>
+    <hr class="menu-divider">
+    <div class="menu-title">Mode</div>
+    <button class="menu-item" id="menu-train-btn" onclick="closeMenu();toggleTraining()">🎯 Training Mode</button>
+    <button class="menu-item" onclick="closeMenu();openMPLobby()">👥 2-Player</button>
+  </div>
+
   <!-- Header -->
   <header>
     <div style="display:flex;align-items:center;gap:10px">
       <h1>♠ BlackJack Trainer</h1>
-      <span id="training-badge">🎯 Training Mode</span>
+      <span id="training-badge">🎯 Training</span>
     </div>
     <div class="header-actions">
-      <button class="icon-btn" id="btn-train-toggle" onclick="toggleTraining()">🎯 Train</button>
-      <button class="icon-btn" id="btn-menu" onclick="toggleMenu()">☰ Menu</button>
+      <button id="menu-btn" onclick="openMenu()" aria-label="Menu">☰</button>
     </div>
   </header>
-
-  <!-- Slide-down menu -->
-  <div id="header-menu">
-    <div id="header-menu-inner">
-      <button class="menu-item" onclick="openSettings();toggleMenu()">⚙ Settings</button>
-      <button class="menu-item" onclick="openStats();toggleMenu()">📊 Stats</button>
-      <button class="menu-item" onclick="openHandHistory();toggleMenu()">📈 Hands</button>
-      <button class="menu-item" onclick="openStrategyTable();toggleMenu()">📋 Strategy Chart</button>
-      <button class="menu-item" onclick="openMPLobby();toggleMenu()" id="btn-mp">👥 2-Player</button>
-    </div>
-  </div>
 
   <!-- Bankroll Bar -->
   <div id="bankroll-bar">
@@ -879,6 +922,21 @@
     </div>
   </div>
 
+  <!-- MP Score Bar (visible in 2-player mode) -->
+  <div id="mp-score-bar">
+    <div class="mp-score-player">
+      <div class="mp-score-name" id="mpsc-your-name">You</div>
+      <div class="mp-score-bankroll" id="mpsc-your-bankroll">$500</div>
+      <div class="mp-score-accuracy you" id="mpsc-your-acc">– correct</div>
+    </div>
+    <div class="mp-score-sep">vs</div>
+    <div class="mp-score-player">
+      <div class="mp-score-name" id="mpsc-their-name">Opponent</div>
+      <div class="mp-score-bankroll" id="mpsc-their-bankroll">$500</div>
+      <div class="mp-score-accuracy them" id="mpsc-their-acc">– correct</div>
+    </div>
+  </div>
+
   <!-- Multiplayer Bar -->
   <div id="mp-bar">
     <div class="mp-player-slot you">
@@ -887,25 +945,13 @@
         <div class="mp-name" id="mp-your-name">You</div>
         <div class="mp-status" id="mp-your-status">Playing</div>
       </div>
-      <div style="margin-left:6px;text-align:right">
-        <div style="font-family:'DM Mono',monospace;font-size:0.78rem;color:#6fcf97" id="mp-your-bankroll">$–</div>
-        <div style="font-size:0.6rem;color:var(--text-dim)">bankroll</div>
-      </div>
     </div>
-    <div style="display:flex;flex-direction:column;align-items:center;gap:3px">
-      <span class="mp-mode-badge standard" id="mp-mode-badge">Standard</span>
-      <div style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--gold-light)" id="mp-score-display">0 – 0</div>
-      <div style="font-size:0.58rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px">hands won</div>
-    </div>
+    <span class="mp-mode-badge standard" id="mp-mode-badge">Standard</span>
     <div class="mp-player-slot them">
       <div class="mp-avatar them">🂠</div>
       <div>
         <div class="mp-name" id="mp-their-name">Waiting…</div>
         <div class="mp-status" id="mp-their-status">Connecting</div>
-      </div>
-      <div style="margin-left:6px;text-align:right">
-        <div style="font-family:'DM Mono',monospace;font-size:0.78rem;color:#a29bfe" id="mp-their-bankroll">$–</div>
-        <div style="font-size:0.6rem;color:var(--text-dim)">bankroll</div>
       </div>
     </div>
     <button class="icon-btn" style="font-size:0.7rem;padding:4px 8px" onclick="leaveMPGame()">✕ Leave</button>
@@ -952,7 +998,7 @@
   <!-- Main Table -->
   <div id="table">
     <!-- Dealer -->
-    <div class="hand-section" style="gap:3px;padding-top:2px">
+    <div class="hand-section" style="gap:3px">
       <div class="cards-row" id="dealer-cards"></div>
       <div class="hand-value" id="dealer-value"></div>
     </div>
@@ -1027,6 +1073,13 @@
       <button class="play-btn" id="btn-double" onclick="playerDouble()" disabled>Double <span class="kbd">D</span></button>
       <button class="play-btn" id="btn-split" onclick="playerSplit()" disabled>Split <span class="kbd">P</span></button>
       <button class="play-btn danger" id="btn-surrender" onclick="playerSurrender()" disabled>Surrender <span class="kbd">R</span></button>
+    </div>
+    <!-- Tips checkbox -->
+    <div style="display:flex;justify-content:center;margin-top:2px">
+      <label class="repeat-bet-label" id="tips-label">
+        <input type="checkbox" id="chk-tips" onchange="toggleTips(this.checked)">
+        <span>Show strategy tip when wrong</span>
+      </label>
     </div>
   </div>
 </div>
@@ -1208,17 +1261,6 @@
 <div class="modal-overlay" id="settings-modal">
   <div class="modal">
     <h2>Game Settings</h2>
-
-    <!-- Quick-access buttons -->
-    <div style="display:flex;gap:8px;margin-bottom:16px">
-      <button class="modal-btn secondary" style="flex:1;font-size:0.8rem" onclick="closeSettings();openStrategyTable()">📋 View Strategy Chart</button>
-    </div>
-    <!-- Tips toggle -->
-    <div class="form-group" style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(0,0,0,0.25);border:1px solid var(--panel-border);border-radius:6px">
-      <label style="text-transform:none;font-size:0.82rem;color:var(--text-light);letter-spacing:0;cursor:pointer" for="chk-tips">Show strategy tip when wrong</label>
-      <input type="checkbox" id="chk-tips" onchange="toggleTips(this.checked)" style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer">
-    </div>
-
     <div class="form-group">
       <label>Number of Decks</label>
       <select id="set-decks">
@@ -1509,11 +1551,7 @@ function handIsSoft(cards) {
     total += v;
     if (c.rank === 'A') aces++;
   }
-  // Reduce aces exactly as handTotal does
-  let reducedAces = aces;
-  while (total > 21 && reducedAces > 0) { total -= 10; reducedAces--; }
-  // Soft if at least one ace is still counting as 11 (i.e. reducedAces < original aces or total used an ace at 11)
-  return reducedAces > 0 && total <= 21;
+  return aces > 0 && total <= 21 && (total - 10) >= 0;
 }
 
 function createDeck(numDecks) {
@@ -1614,11 +1652,8 @@ const MP = {
   shareLink: null,
   _nextHandTimer: null,
   paused: false,
-  myHandsWon: 0,
-  theirHandsWon: 0,
-  theirBankroll: undefined,
-  pendingDealerUp: null,
-  pendingDealerHole: null,
+  myHandsCorrect: 0, myHandsTotal: 0,
+  theirHandsCorrect: 0, theirHandsTotal: 0,
 };
 
 function saveGame() {
@@ -1784,7 +1819,7 @@ function addBet(amount) {
 }
 
 function clearBet() {
-  if (G.phase === 'playing' || G.phase === 'waiting') return;
+  if (G.phase !== 'betting') return;
   G.currentBet = 0;
   document.getElementById('bet-display').textContent = '$0';
   document.getElementById('display-bet').textContent = '$0';
@@ -1797,9 +1832,9 @@ function clearBet() {
 function dealHand() {
   // In training mode, Deal button works from any non-playing state (no separate newHand step)
   if (G.phase === 'playing') return; // already playing, ignore
-  if (G.phase === 'done' || G.phase === 'betting' || G.phase === 'waiting') {
+  if (G.phase === 'done' || G.phase === 'betting') {
     // Reset hand state inline without going through newHand's UI dance
-    if (G.phase === 'done' || G.phase === 'waiting') {
+    if (G.phase === 'done') {
       G.playerHands = [{ cards: [], bet: 0, done: false }];
       G.dealerHand = { cards: [] };
       G.activeHandIdx = 0;
@@ -1809,21 +1844,10 @@ function dealHand() {
       // Reset multi-hand container back to single row
       const container = document.getElementById('player-hands-container');
       container.innerHTML = '<div class="cards-row" id="player-cards"></div>';
+      document.getElementById('strategy-hint').classList.remove('visible');
       document.getElementById('opponent-area').classList.remove('visible');
       document.getElementById('mp-comparison').classList.remove('visible');
-      // Reset bet unless repeat-bet is on
-      if (!G.trainingMode) {
-        if (G.repeatBet && G.lastBet > 0) {
-          G.currentBet = Math.min(G.lastBet, getBankroll(), G.settings.maxBet);
-        } else {
-          G.currentBet = 0;
-        }
-        document.getElementById('bet-display').textContent = '$' + (G.currentBet || 0);
-        document.getElementById('display-bet').textContent = '$' + (G.currentBet || 0);
-      }
     }
-    // Always clear strategy hint when dealing a new hand
-    document.getElementById('strategy-hint').classList.remove('visible');
   }
 
   if (!G.trainingMode && G.currentBet < G.settings.minBet) {
@@ -1835,16 +1859,6 @@ function dealHand() {
   if (MP.active && MP.role === 'guest' && MP.mode === 'competition') {
     setFeedback('Waiting for host to deal…', 'info');
     mpSend({ type: 'new-hand-ready' });
-    return;
-  }
-
-  // In MP standard mode, if we have pending dealer cards use those instead of dealing normally
-  if (MP.active && MP.mode === 'standard' && MP.pendingDealerUp) {
-    const dealerUp   = MP.pendingDealerUp;
-    const dealerHole = MP.pendingDealerHole;
-    MP.pendingDealerUp   = null;
-    MP.pendingDealerHole = null;
-    applyStandardHandWithDealer(dealerUp, dealerHole);
     return;
   }
 
@@ -2103,12 +2117,21 @@ function actionName(a) {
   return names[a] || a;
 }
 
+function mpDrawCard() {
+  // In competition mode: host draws from shoe and broadcasts; guest receives via message.
+  // In all other cases: draw normally from own shoe/pool.
+  const card = G.trainingMode ? G.trainingPool.pop() || G.deck.pop() : G.deck.pop();
+  if (MP.active && MP.mode === 'competition') {
+    mpSend({ type: 'draw-card', card });
+  }
+  return card;
+}
+
 function playerHit() {
   if (G.phase !== 'playing') return;
   recordDecision('H');
   const ph = G.playerHands[G.activeHandIdx];
-  const card = G.deck.pop();
-  ph.cards.push(card);
+  ph.cards.push(mpDrawCard());
   renderHands();
   showStrategyHint();
   const total = handTotal(ph.cards);
@@ -2119,6 +2142,7 @@ function playerHit() {
     advanceHand();
   } else {
     updateButtons();
+    setYourTurnFeedback();
   }
 }
 
@@ -2140,8 +2164,7 @@ function playerDouble() {
     G.currentBet += extraBet;
   }
   recordDecision('D');
-  const dcard = G.deck.pop();
-  ph.cards.push(dcard);
+  ph.cards.push(mpDrawCard());
   renderHands();
   ph.done = true;
   advanceHand();
@@ -2173,10 +2196,8 @@ function playerSplit() {
 
   const card2 = ph.cards.pop();
   const newHand = { cards: [card2], bet: ph.bet, done: false };
-  const splitCard1 = G.deck.pop();
-  const splitCard2 = G.deck.pop();
-  ph.cards.push(splitCard1);
-  newHand.cards.push(splitCard2);
+  ph.cards.push(mpDrawCard());
+  newHand.cards.push(mpDrawCard());
 
   G.playerHands.splice(G.activeHandIdx + 1, 0, newHand);
 
@@ -2215,22 +2236,8 @@ function advanceHand() {
     showStrategyHint();
     updateButtons();
   } else {
-    // All local hands done
-    if (MP.active && MP.mode === 'competition') {
-      // Park here — don't run dealerPlay yet. Notify opponent we're done.
-      // dealerPlay will be triggered once both players finish via checkBothDone
-      G.phase = 'waiting';
-      updateButtons();
-      renderHands();
-      // Update stats/save but skip mpOnHandComplete path in finalizeHand;
-      // notify done directly so the opponent is informed
-      updateStatsBar();
-      saveGame();
-      mpOnHandComplete();
-      mpSyncBankroll();
-    } else {
-      dealerPlay();
-    }
+    // All hands done — dealer plays
+    dealerPlay();
   }
 }
 
@@ -2250,11 +2257,11 @@ function dealerPlay() {
   });
 
   if (!allBusted) {
-    // Dealer draws
     let dTotal = handTotal(G.dealerHand.cards);
     let dSoft = handIsSoft(G.dealerHand.cards);
     while (dTotal < 17 || (dTotal === 17 && dSoft && G.settings.dealerStand === 'h17')) {
-      G.dealerHand.cards.push(G.deck.pop());
+      const card = mpDrawCard();
+      G.dealerHand.cards.push(card);
       dTotal = handTotal(G.dealerHand.cards);
       dSoft = handIsSoft(G.dealerHand.cards);
     }
@@ -2322,8 +2329,9 @@ function finalizeHand() {
   updateButtons();
   updateStatsBar();
   saveGame();
+  // NOTE: strategy-hint stays visible so player can review it after the hand
+  // It clears when the next hand is dealt
   mpOnHandComplete();
-  if (MP.active) mpSyncBankroll();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2395,23 +2403,12 @@ function updateButtons() {
   const playing = G.phase === 'playing' && ph && !ph.done;
   const betting = G.phase === 'betting';
 
-  document.getElementById('btn-deal').disabled = playing || G.phase === 'waiting';
+  document.getElementById('btn-deal').disabled = playing;
   // In training mode, finalizeHand sets phase back to 'betting', so button always says 'Deal'
   if (!G.trainingMode) {
-    document.getElementById('btn-deal').textContent = (G.phase === 'done' || G.phase === 'waiting') ? 'Next Hand' : 'Deal';
+    document.getElementById('btn-deal').textContent = G.phase === 'done' ? 'Next Hand' : 'Deal';
   } else {
     document.getElementById('btn-deal').textContent = 'Deal';
-  }
-  // Block Next Hand / Deal until both players have finished the current hand
-  if (MP.active && (G.phase === 'done' || G.phase === 'waiting') && MP.myDone && !MP.theirDone) {
-    document.getElementById('btn-deal').disabled = true;
-    document.getElementById('btn-deal').textContent = '⏳ Waiting…';
-  }
-  // In standard mode, also block the Deal button during betting phase until we have pending dealer cards
-  // (prevents dealing before the host has sent them)
-  if (MP.active && MP.mode === 'standard' && G.phase === 'betting' && !MP.pendingDealerUp && MP.role === 'guest') {
-    document.getElementById('btn-deal').disabled = true;
-    document.getElementById('btn-deal').textContent = '⏳ Waiting…';
   }
 
   document.getElementById('btn-hit').disabled = !playing;
@@ -2428,31 +2425,9 @@ function updateButtons() {
   document.getElementById('btn-surrender').disabled = !playing || ph?.cards?.length !== 2 || G.settings.surrender !== 'yes';
 
   // Chips & bet controls
-  const betInteractive = betting || G.phase === 'done';
   document.querySelectorAll('.chip').forEach(c => c.style.opacity = betting ? '1' : '0.4');
   document.querySelectorAll('.chip').forEach(c => c.style.pointerEvents = betting ? 'auto' : 'none');
-  document.getElementById('btn-clear-bet').style.opacity = betInteractive ? '1' : '0.4';
-  document.getElementById('btn-clear-bet').style.pointerEvents = betInteractive ? 'auto' : 'none';
-}
-
-function toggleMenu() {
-  const menu = document.getElementById('header-menu');
-  const btn  = document.getElementById('btn-menu');
-  const open = menu.classList.toggle('open');
-  btn.classList.toggle('active', open);
-  btn.textContent = open ? '✕ Close' : '☰ Menu';
-  // Close menu when clicking outside
-  if (open) {
-    const close = (e) => {
-      if (!menu.contains(e.target) && e.target !== btn) {
-        menu.classList.remove('open');
-        btn.classList.remove('active');
-        btn.textContent = '☰ Menu';
-        document.removeEventListener('click', close, true);
-      }
-    };
-    setTimeout(() => document.addEventListener('click', close, true), 10);
-  }
+  document.getElementById('btn-clear-bet').style.opacity = betting ? '1' : '0.4';
 }
 
 function setFeedback(msg, type) {
@@ -2494,8 +2469,6 @@ function updateStatsBar() {
     shoeStatEl.style.display = G.trainingMode ? 'none' : '';
     shoeEl.textContent = '–';
   }
-  // Keep MP bankroll bar in sync
-  if (MP.active) updateMPScoreBar();
 }
 
 function newHand() {
@@ -2580,9 +2553,6 @@ function openSettings() {
   const pen = s.penetration || 75;
   document.getElementById('set-penetration').value = pen;
   document.getElementById('penetration-display').textContent = pen + '%';
-  // Sync tips checkbox
-  const chkT = document.getElementById('chk-tips');
-  if (chkT) chkT.checked = G.showTips;
   document.getElementById('settings-modal').classList.add('open');
 }
 
@@ -2661,7 +2631,7 @@ function mpHostToggleTraining() {
   // Toggle training mode locally and broadcast to guest
   G.trainingMode = !G.trainingMode;
   document.getElementById('training-badge').classList.toggle('active', G.trainingMode);
-  document.getElementById('btn-train-toggle').textContent = G.trainingMode ? '🎯 Exit Training' : '🎯 Train';
+  const _mt = document.getElementById('menu-train-btn'); if (_mt) { _mt.textContent = G.trainingMode ? '🎯 Exit Training Mode' : '🎯 Training Mode'; _mt.classList.toggle('active', G.trainingMode); }
 
   // Update the MP train button style
   const btn = document.getElementById('btn-mp-train-toggle');
@@ -2688,11 +2658,27 @@ function mpHostToggleTraining() {
   saveGame();
 }
 
+function openMenu() {
+  document.getElementById('menu-dropdown').classList.add('open');
+  document.getElementById('menu-overlay').classList.add('open');
+  // Sync train button state
+  const menuTrainBtn = document.getElementById('menu-train-btn');
+  if (menuTrainBtn) {
+    menuTrainBtn.classList.toggle('active', G.trainingMode);
+    menuTrainBtn.textContent = G.trainingMode ? '🎯 Exit Training Mode' : '🎯 Training Mode';
+  }
+}
+
+function closeMenu() {
+  document.getElementById('menu-dropdown').classList.remove('open');
+  document.getElementById('menu-overlay').classList.remove('open');
+}
+
 function toggleTraining() {
   G.trainingMode = !G.trainingMode;
   document.getElementById('training-badge').classList.toggle('active', G.trainingMode);
   // Update button label to reflect what pressing it will do
-  document.getElementById('btn-train-toggle').textContent = G.trainingMode ? '🎯 Exit Training' : '🎯 Train';
+  const _mt = document.getElementById('menu-train-btn'); if (_mt) { _mt.textContent = G.trainingMode ? '🎯 Exit Training Mode' : '🎯 Training Mode'; _mt.classList.toggle('active', G.trainingMode); }
   if (G.trainingMode) {
     const mix = G.settings.trainingMixRate || 50;
     setFeedback(`🎯 Training Mode ON — no bankroll impact, ${mix}% missed-hand focus`, 'info');
@@ -2742,30 +2728,18 @@ function applyPauseState(paused, isHost) {
     overlay.style.display = 'flex';
     resumeBtn.style.display = isHost ? 'block' : 'none';
     if (pauseBtn) pauseBtn.textContent = '▶ Resume';
-    // Cancel both next-hand timer and timeout timer while paused
+    // Cancel next-hand timer while paused
     if (MP._nextHandTimer) { clearTimeout(MP._nextHandTimer); MP._nextHandTimer = null; }
-    clearMPTimeout();
   } else {
     overlay.style.display = 'none';
     if (pauseBtn) pauseBtn.textContent = '⏸ Pause';
-    if (MP.active) {
-      // If hand is still in progress, restart the turn timer
-      if (!MP.myDone && MP.timeoutSecs > 0 && G.phase === 'playing') {
-        startMPTimeout();
-      }
-      // If both players already finished while paused, restart the next-hand countdown (host only)
-      if (MP.role === 'host' && MP.myDone && MP.theirDone && !MP._nextHandTimer) {
-        MP._nextHandTimer = setTimeout(() => {
-          MP._nextHandTimer = null;
-          mpStartNewHand();
-        }, 5000);
-      }
-    }
   }
 }
 
 function toggleTips(checked) {
   G.showTips = checked;
+  const lbl = document.getElementById('chk-tips').closest('label');
+  if (lbl) lbl.classList.toggle('active', checked);
   saveGame();
 }
 
@@ -2962,15 +2936,17 @@ G.deck = initShoe.deck; G.shoeSize = initShoe.shoeSize; G.cutCard = initShoe.cut
 G.trainingPool = buildTrainingPool();
 if (G.trainingMode) {
   document.getElementById('training-badge').classList.add('active');
-  document.getElementById('btn-train-toggle').textContent = '🎯 Exit Training';
+  const _mt = document.getElementById('menu-train-btn');
+  if (_mt) { _mt.textContent = '🎯 Exit Training Mode'; _mt.classList.add('active'); }
 }
 // Restore repeat-bet checkbox state
 const chkRepeat = document.getElementById('chk-repeat-bet');
 chkRepeat.checked = G.repeatBet;
 if (G.repeatBet) chkRepeat.closest('label').classList.add('active');
-// Restore tips checkbox state (now in settings modal, just set the value)
+// Restore tips checkbox state
 const chkTips = document.getElementById('chk-tips');
-if (chkTips) chkTips.checked = G.showTips;
+chkTips.checked = G.showTips;
+if (G.showTips) chkTips.closest('label').classList.add('active');
 newHand();
 // Check if page was opened via a multiplayer join link
 checkURLForOffer();
@@ -3381,7 +3357,7 @@ function setupDC(dc, role) {
     if (MP.conn) MP.conn.open = true;
     if (role === 'guest') {
       // Guest announces themselves — host will show a toast
-      mpSend({ type: 'hello', name: MP.myName, bankroll: getBankroll() });
+      mpSend({ type: 'hello', name: MP.myName });
       document.getElementById('mp-guest-status').textContent = '✓ Connected — waiting for host to start…';
     } else {
       // Host: just update UI — toast will fire when hello arrives
@@ -3396,18 +3372,12 @@ function setupDC(dc, role) {
   dc.onclose = () => {
     if (MP.conn) MP.conn.open = false;
     if (MP.active) {
-      const whoLeft = MP.theirName || 'Opponent';
-      appendChatMessage('(disconnected)', 'system', whoLeft);
-      if (MP.role === 'host') {
-        setFeedback(`⚠ ${whoLeft} left the table. Waiting for them to rejoin, or leave the session.`, 'wrong');
-        // Pause the next-hand timer so the game doesn't keep auto-dealing
-        if (MP._nextHandTimer) { clearTimeout(MP._nextHandTimer); MP._nextHandTimer = null; }
-        clearMPTimeout();
-        updateMPPlayerStatus('them', 'timeout', '⚠ Disconnected');
-      } else {
-        setFeedback('⚠ Host disconnected. The session has ended.', 'wrong');
-        mpCleanupAfterDisconnect();
-      }
+      appendChatMessage('(disconnected)', 'system', MP.theirName);
+      const msg = `⚠ ${MP.theirName} has left the table.`;
+      setFeedback(msg, 'wrong');
+      // If host, cancel any pending next-hand timer
+      if (MP._nextHandTimer) { clearTimeout(MP._nextHandTimer); MP._nextHandTimer = null; }
+      mpCleanupAfterDisconnect();
     }
   };
   dc.onerror = () => {
@@ -3430,7 +3400,6 @@ function handleMPMessage(msg) {
     case 'hello':
       // Guest announced themselves — host shows the accept toast
       MP.theirName = msg.name;
-      if (msg.bankroll !== undefined) MP.theirBankroll = msg.bankroll;
       if (MP.role === 'host') {
         showInviteToast(`${msg.name} joined your table. Start the game?`);
       }
@@ -3441,7 +3410,6 @@ function handleMPMessage(msg) {
       MP.theirName = msg.hostName;
       MP.mode = msg.mode;
       MP.timeoutSecs = msg.timeout;
-      if (msg.bankroll !== undefined) MP.theirBankroll = msg.bankroll;
       closeMPLobby();
       startMPSession();
       break;
@@ -3450,8 +3418,7 @@ function handleMPMessage(msg) {
       if (msg.competitionCards) {
         applyCompetitionCards(msg.competitionCards);
       } else if (msg.dealerUp && msg.dealerHole) {
-        // Standard mode: store dealer cards and enter betting phase so player can set their bet
-        mpEnterBettingPhase(msg.dealerUp, msg.dealerHole);
+        applyStandardHandWithDealer(msg.dealerUp, msg.dealerHole);
       } else {
         newHand();
       }
@@ -3462,18 +3429,20 @@ function handleMPMessage(msg) {
       MP.theirCards = msg.cards || [];
       MP.theirValue = msg.value || 0;
       MP.theirDecisions = msg.decisions || [];
-      if (msg.bankroll !== undefined) {
-        MP.theirBankroll = msg.bankroll;
-        updateMPScoreBar();
+      // Tally opponent's hand-level decisions for score bar
+      if (MP.theirDecisions.length) {
+        const correct = MP.theirDecisions.filter(d => d.correct).length;
+        MP.theirHandsCorrect += correct;
+        MP.theirHandsTotal += MP.theirDecisions.length;
       }
       if (msg.trainingStats) {
         MP.theirTrainCorrect = msg.trainingStats.correct;
         MP.theirTrainTotal = msg.trainingStats.total;
         updateMPTrainingStats();
       }
+      updateMPScoreBar();
       updateMPPlayerStatus('them', 'done', '✓ Done');
       clearMPTimeout();
-      updateButtons(); // re-evaluate — may unlock Next Hand button
       checkBothDone();
       break;
 
@@ -3486,6 +3455,17 @@ function handleMPMessage(msg) {
       if (!MP.chatOpen) {
         const dot = document.getElementById('chat-unread-dot');
         if (dot) dot.classList.add('visible');
+      }
+      break;
+
+    case 'draw-card':
+      // Competition mode: opponent drew a card, apply it to our hand too
+      if (MP.mode === 'competition' && msg.card) {
+        const ph = G.playerHands[G.activeHandIdx];
+        if (ph) {
+          ph.cards.push(msg.card);
+          renderHands();
+        }
       }
       break;
 
@@ -3506,7 +3486,8 @@ function handleMPMessage(msg) {
     case 'set-training':
       G.trainingMode = msg.enabled;
       document.getElementById('training-badge').classList.toggle('active', msg.enabled);
-      document.getElementById('btn-train-toggle').textContent = msg.enabled ? '🎯 Exit Training' : '🎯 Train';
+      { const _mt = document.getElementById('menu-train-btn');
+        if (_mt) { _mt.textContent = msg.enabled ? '🎯 Exit Training Mode' : '🎯 Training Mode'; _mt.classList.toggle('active', msg.enabled); } }
       newHand();
       appendChatMessage(
         `(Training mode ${msg.enabled ? 'ON' : 'OFF'} — set by ${MP.theirName})`,
@@ -3522,11 +3503,6 @@ function handleMPMessage(msg) {
     case 'new-hand-ready':
       if (MP.role === 'host') mpStartNewHand();
       break;
-
-    case 'bankroll-update':
-      MP.theirBankroll = msg.bankroll;
-      updateMPScoreBar();
-      break;
   }
 }
 
@@ -3539,8 +3515,8 @@ function showInviteToast(msg) {
 
 function acceptMPInvite() {
   document.getElementById('mp-toast').classList.remove('visible');
-  // Host sends session config + initial bankroll to guest, then starts their own session
-  mpSend({ type: 'start-session', hostName: MP.myName, mode: MP.mode, timeout: MP.timeoutSecs, bankroll: getBankroll() });
+  // Host sends session config to guest, then starts their own session
+  mpSend({ type: 'start-session', hostName: MP.myName, mode: MP.mode, timeout: MP.timeoutSecs });
   closeMPLobby();
   startMPSession();
   setTimeout(() => mpStartNewHand(), 400);
@@ -3558,8 +3534,8 @@ function startMPSession() {
   MP.chatOpen = false;
   MP.myTrainCorrect = 0; MP.myTrainTotal = 0;
   MP.theirTrainCorrect = 0; MP.theirTrainTotal = 0;
-  MP.myHandsWon = 0; MP.theirHandsWon = 0;
-  MP.pendingDealerUp = null; MP.pendingDealerHole = null;
+  MP.myHandsCorrect = 0; MP.myHandsTotal = 0;
+  MP.theirHandsCorrect = 0; MP.theirHandsTotal = 0;
   clearChat();
 
   document.getElementById('mp-bar').classList.add('visible');
@@ -3579,6 +3555,11 @@ function startMPSession() {
 
   updateMPPlayerStatus('you', 'waiting', 'Ready');
   updateMPPlayerStatus('them', 'waiting', 'Connected');
+
+  // Show MP score bar
+  document.getElementById('mp-score-bar').classList.add('visible');
+  document.getElementById('mpsc-your-name').textContent = MP.myName;
+  document.getElementById('mpsc-their-name').textContent = MP.theirName;
   updateMPScoreBar();
 
   // Show training toggle, mode toggle, and pause — host only
@@ -3620,6 +3601,7 @@ function mpCleanupAfterDisconnect() {
   MP.conn = null;
   MP.role = null;
   MP.chatOpen = false;
+  document.getElementById('mp-score-bar').classList.remove('visible');
   document.getElementById('mp-bar').classList.remove('visible');
   document.getElementById('mp-training-stats').classList.remove('visible');
   document.getElementById('opponent-area').classList.remove('visible');
@@ -3661,8 +3643,6 @@ function mpStartNewHand() {
   MP.theirDone = false;
   MP.myDecisions = [];
   MP.theirDecisions = [];
-  MP.pendingDealerUp = null;
-  MP.pendingDealerHole = null;
   document.getElementById('opponent-area').classList.remove('visible');
   document.getElementById('mp-comparison').classList.remove('visible');
   updateMPPlayerStatus('you', 'waiting', 'Dealing…');
@@ -3679,60 +3659,12 @@ function mpStartNewHand() {
     });
     applyCompetitionCards({ player: cards, dealerUp: dealerCard, dealerHole: dealerHole });
   } else {
-    // Standard: deal dealer cards now, but both players bet before receiving their own cards.
-    // Send dealer cards to guest; both sides enter betting phase.
+    // Standard: shared dealer cards, each player gets their own player cards
     const dealerCard = G.deck.pop();
     const dealerHole = G.deck.pop();
     mpSend({ type: 'start-hand', dealerUp: dealerCard, dealerHole: dealerHole });
-    mpEnterBettingPhase(dealerCard, dealerHole);
+    applyStandardHandWithDealer(dealerCard, dealerHole);
   }
-}
-
-// Standard MP mode: store dealer cards and enter betting phase so the player
-// can choose their bet before cards are dealt to them.
-function mpEnterBettingPhase(dealerUp, dealerHole) {
-  MP.pendingDealerUp   = dealerUp;
-  MP.pendingDealerHole = dealerHole;
-
-  // Reset UI to betting state (mirrors what newHand() does)
-  MP.myDone = false; MP.theirDone = false;
-  MP.myDecisions = []; MP.theirDecisions = [];
-
-  G.phase = 'betting';
-  G.playerHands = [{ cards: [], bet: 0, done: false }];
-  G.dealerHand  = { cards: [] };
-  G.activeHandIdx = 0;
-
-  // Show/reset betting controls
-  if (!G.trainingMode) {
-    if (G.repeatBet && G.lastBet > 0) {
-      G.currentBet = Math.min(G.lastBet, getBankroll(), G.settings.maxBet);
-    } else {
-      G.currentBet = 0;
-    }
-    document.getElementById('chips-row-wrap').style.display = '';
-    document.getElementById('bet-controls-row').style.display = '';
-    document.getElementById('bet-display').textContent  = '$' + (G.currentBet || 0);
-    document.getElementById('display-bet').textContent  = '$' + (G.currentBet || 0);
-  } else {
-    G.currentBet = 1;
-  }
-
-  // Clear table display
-  const container = document.getElementById('player-hands-container');
-  container.innerHTML = '<div class="cards-row" id="player-cards"></div>';
-  document.getElementById('dealer-cards').innerHTML = '';
-  document.getElementById('dealer-value').textContent = '';
-  document.getElementById('player-value').textContent = '';
-  document.getElementById('strategy-hint').classList.remove('visible');
-  document.getElementById('opponent-area').classList.remove('visible');
-  document.getElementById('mp-comparison').classList.remove('visible');
-
-  updateMPPlayerStatus('you', 'waiting', 'Place your bet');
-  updateMPPlayerStatus('them', 'waiting', 'Betting…');
-  setFeedback('Place your bet, then Deal', 'neutral');
-  updateButtons();
-  updateStatsBar();
 }
 
 function applyStandardHandWithDealer(dealerUp, dealerHole) {
@@ -3747,12 +3679,7 @@ function applyStandardHandWithDealer(dealerUp, dealerHole) {
   G.activeHandIdx = 0;
   G.decisionsMadeThisHand = 0;
   G.decisionsCorrectThisHand = 0;
-  G.currentBet = bet;
-  G.lastBet = bet;
   setBankroll(getBankroll() - bet);
-  // Reset per-hand decision tracking for both players
-  if (MP.active) { MP.myDecisions = []; MP.theirDecisions = []; }
-  document.getElementById('strategy-hint').classList.remove('visible');
   updateButtons();
   renderHands();
   checkBlackjack();
@@ -3761,7 +3688,7 @@ function applyStandardHandWithDealer(dealerUp, dealerHole) {
     setYourTurnFeedback();
     updateMPPlayerStatus('you', 'thinking', 'Your turn');
     updateMPPlayerStatus('them', 'thinking', 'Thinking…');
-    if (MP.timeoutSecs > 0 && !MP.paused) startMPTimeout();
+    if (MP.timeoutSecs > 0) startMPTimeout();
   }
 }
 
@@ -3774,21 +3701,14 @@ function applyCompetitionCards(cc) {
   G.activeHandIdx = 0;
   G.decisionsMadeThisHand = 0;
   G.decisionsCorrectThisHand = 0;
-  G.currentBet = bet;
-  G.lastBet = bet;
   setBankroll(getBankroll() - bet);
-  // Reset per-hand decision tracking for both players
-  if (MP.active) { MP.myDecisions = []; MP.theirDecisions = []; }
-  document.getElementById('strategy-hint').classList.remove('visible');
-  document.getElementById('opponent-area').classList.remove('visible');
-  document.getElementById('mp-comparison').classList.remove('visible');
   updateButtons();
   renderHands();
   checkBlackjack();
   updateStatsBar();
   updateMPPlayerStatus('you', 'thinking', 'Your turn');
   updateMPPlayerStatus('them', 'thinking', 'Thinking…');
-  if (MP.timeoutSecs > 0 && !MP.paused) startMPTimeout();
+  if (MP.timeoutSecs > 0) startMPTimeout();
   if (G.phase === 'playing') {
     setYourTurnFeedback();
   }
@@ -3797,7 +3717,6 @@ function applyCompetitionCards(cc) {
 // Called when local player finishes their hand
 function mpNotifyDone() {
   if (!MP.active) return;
-  if (MP.myDone) return; // already notified this hand — don't double-send
   MP.myDone = true;
   const ph = G.playerHands[0];
   const trainingStats = G.trainingMode ? {
@@ -3810,8 +3729,7 @@ function mpNotifyDone() {
     cards: ph ? ph.cards : [],
     value: ph ? handTotal(ph.cards) : 0,
     decisions: MP.myDecisions,
-    trainingStats: trainingStats,
-    bankroll: getBankroll()
+    trainingStats: trainingStats
   });
 
   updateMPPlayerStatus('you', 'done', '✓ Done');
@@ -3823,42 +3741,33 @@ function mpNotifyDone() {
 
 function checkBothDone() {
   if (MP.myDone && MP.theirDone) {
-    if (MP.mode === 'competition') {
-      // Run dealer locally if we're still waiting (normal hand completion path).
-      // If phase is already 'done' it means checkBlackjack resolved it — skip dealerPlay.
-      if (G.phase === 'waiting') {
-        dealerPlay(); // sets phase to 'done', resolves hands, calls finalizeHand
-      }
-      // Show strategy comparison panel (dealer result already visible from dealerPlay/checkBlackjack)
-      revealOpponent();
-    }
+    if (MP.mode === 'competition') revealOpponent();
     if (G.trainingMode) updateMPTrainingStats();
-    // Only host auto-starts the next hand (guest can also manually deal)
+    updateMPScoreBar();
+    // Only host starts the next hand; don't start timer if paused
     if (MP.role === 'host' && !MP.paused) {
       MP._nextHandTimer = setTimeout(() => {
         MP._nextHandTimer = null;
-        mpStartNewHand();
+        if (!MP.paused) mpStartNewHand(); // check again in case paused during countdown
       }, 5000);
     }
   } else if (MP.myDone && !MP.theirDone) {
     updateMPPlayerStatus('them', 'thinking', 'Still playing…');
-    if (MP.timeoutSecs > 0 && !MP.paused) startMPTimeout();
+    if (MP.timeoutSecs > 0) startMPTimeout();
   }
 }
 
 function revealOpponent() {
-  // In competition mode we only show the strategy comparison, not the opponent's cards
-  // (they played the same hand — the interesting info is who played it better)
-  if (MP.mode !== 'competition') {
-    const area = document.getElementById('opponent-area');
-    const row = document.getElementById('opponent-cards');
-    row.innerHTML = '';
-    (MP.theirCards || []).forEach(c => {
-      if (c) row.appendChild(renderCard(c));
-    });
-    area.classList.add('visible');
-  }
-  // Always show comparison panel
+  // Show opponent's cards
+  const area = document.getElementById('opponent-area');
+  const row = document.getElementById('opponent-cards');
+  row.innerHTML = '';
+  (MP.theirCards || []).forEach(c => {
+    if (c) row.appendChild(renderCard(c));
+  });
+  area.classList.add('visible');
+
+  // Show comparison panel
   showMPComparison();
 }
 
@@ -3867,29 +3776,22 @@ function showMPComparison() {
   const theirCorrect = MP.theirDecisions.filter(d => d.correct).length;
   const myTotal = MP.myDecisions.length;
   const theirTotal = MP.theirDecisions.length;
-  const myPct   = myTotal    ? Math.round(myCorrect    / myTotal    * 100) : null;
+  const myPct   = myTotal   ? Math.round(myCorrect   / myTotal   * 100) : null;
   const theirPct = theirTotal ? Math.round(theirCorrect / theirTotal * 100) : null;
 
-  const myPctStr    = myPct    !== null ? myPct    + '%' : '–';
-  const theirPctStr = theirPct !== null ? theirPct + '%' : '–';
+  const myStr    = myPct   !== null ? myPct   + '%' : '–';
+  const theirStr = theirPct !== null ? theirPct + '%' : '–';
 
-  const youWin  = myPct    !== null && theirPct !== null && myPct    > theirPct;
-  const theyWin = theirPct !== null && myPct    !== null && theirPct > myPct;
-
-  // Update cumulative hand scores
-  if (myPct !== null && theirPct !== null) {
-    if (myPct > theirPct) MP.myHandsWon++;
-    else if (theirPct > myPct) MP.theirHandsWon++;
-  }
-  updateMPScoreBar();
+  const youWin  = myPct !== null && theirPct !== null && myPct > theirPct;
+  const theyWin = myPct !== null && theirPct !== null && theirPct > myPct;
 
   document.getElementById('mp-comparison').innerHTML = `
     <div style="font-size:0.72rem;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Hand Results</div>
     <div class="mp-compare-row">
       <span class="mp-compare-label">Strategy accuracy</span>
       <div class="mp-compare-vals">
-        <span class="mp-compare-val ${youWin?'winner':''}">${MP.myName}: ${myPctStr}</span>
-        <span class="mp-compare-val ${theyWin?'winner':''}">${MP.theirName}: ${theirPctStr}</span>
+        <span class="mp-compare-val ${youWin?'winner':''}">${MP.myName}: ${myStr}</span>
+        <span class="mp-compare-val ${theyWin?'winner':''}">${MP.theirName}: ${theirStr}</span>
       </div>
     </div>
     <div class="mp-compare-row">
@@ -3956,20 +3858,17 @@ function updateMPPlayerStatus(who, state, text) {
 }
 
 function updateMPScoreBar() {
-  const scoreEl = document.getElementById('mp-score-display');
-  const myBrEl  = document.getElementById('mp-your-bankroll');
-  const theirBrEl = document.getElementById('mp-their-bankroll');
-  if (scoreEl) scoreEl.textContent = MP.myHandsWon + ' – ' + MP.theirHandsWon;
-  if (myBrEl)  myBrEl.textContent  = '$' + getBankroll();
-  if (theirBrEl && MP.theirBankroll !== undefined) theirBrEl.textContent = '$' + MP.theirBankroll;
-}
-
-// Call after bankroll changes during MP play
-function mpSyncBankroll() {
   if (!MP.active) return;
-  updateMPScoreBar();
-  // Broadcast our bankroll so opponent's bar stays current
-  mpSend({ type: 'bankroll-update', bankroll: getBankroll() });
+  document.getElementById('mpsc-your-bankroll').textContent = '$' + getBankroll();
+  // Your accuracy across all hands this session
+  const myPct = MP.myHandsTotal ? Math.round(MP.myHandsCorrect / MP.myHandsTotal * 100) + '%' : '–';
+  const theirPct = MP.theirHandsTotal ? Math.round(MP.theirHandsCorrect / MP.theirHandsTotal * 100) + '%' : '–';
+  document.getElementById('mpsc-your-acc').textContent =
+    myPct + (MP.myHandsTotal ? ` (${MP.myHandsCorrect}/${MP.myHandsTotal})` : '');
+  document.getElementById('mpsc-their-acc').textContent =
+    theirPct + (MP.theirHandsTotal ? ` (${MP.theirHandsCorrect}/${MP.theirHandsTotal})` : '');
+  // Their bankroll is unknown — just show status
+  document.getElementById('mpsc-their-bankroll').textContent = MP.theirDone ? '✓ Done' : '…';
 }
 
 function updateMPTrainingStats() {
@@ -4054,10 +3953,13 @@ function escapeHtml(str) {
 function mpRecordDecision(action, correct) {
   if (!MP.active) return;
   MP.myDecisions.push({ action, correct });
+  MP.myHandsTotal++;
+  if (correct) MP.myHandsCorrect++;
   if (G.trainingMode) {
     MP.myTrainTotal++;
     if (correct) MP.myTrainCorrect++;
   }
+  updateMPScoreBar();
 }
 
 // Call when local player's hand is fully resolved

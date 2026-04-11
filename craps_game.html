@@ -3,20 +3,28 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Learn Craps</title>
+<title>Craps Table</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;background:#1a1a2e;color:#eee;min-height:100vh;padding:8px}
 .app{max-width:480px;margin:0 auto;padding:8px}
 .balance-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#242442;border-radius:12px;border:1px solid #3a3a5c;margin-bottom:10px}
+.balance-left{display:flex;flex-direction:column;gap:1px}
 .balance-label{font-size:12px;color:#aaa}
 .balance-amt{font-size:22px;font-weight:600;color:#fff}
+.player-name{font-size:13px;color:#a0a0dd;font-weight:600;margin-bottom:2px}
 .phase-badge{font-size:11px;padding:4px 10px;border-radius:8px;font-weight:600}
 .phase-come-out{background:#1a4a2a;color:#4ade80}
 .phase-point{background:#4a3000;color:#fbbf24}
 .point-marker{display:inline-block;width:22px;height:22px;border-radius:50%;border:2px solid #fff;font-size:10px;font-weight:600;color:#fff;line-height:18px;text-align:center;margin-left:6px}
 .point-on{background:#cc0000}
 .point-off{background:#444;opacity:0.6}
+
+/* Leave table button — only shown when callback URL is set */
+.leave-btn{display:none;width:100%;padding:11px;font-size:14px;font-weight:600;background:#2a1a4a;color:#c0a0ff;border:1px solid #6040aa;border-radius:12px;cursor:pointer;margin-bottom:10px;transition:background 0.15s}
+.leave-btn:hover{background:#3a2a5a}
+.leave-btn.visible{display:block}
+
 .table-wrap{background:#0a6b3a;border-radius:12px;padding:10px;margin-bottom:10px}
 .section-label{color:rgba(255,255,255,0.45);font-size:9px;letter-spacing:0.5px;text-align:center;margin:2px 0 4px}
 .table-top{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:6px}
@@ -76,7 +84,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 .ev-lose{color:#f87171;font-weight:600}
 .ev-info{color:#aaa}
 .ev-roll{color:#fff;font-weight:600}
-/* Full-info modal (bottom sheet) */
+
+/* Bet info modal (bottom sheet) */
 .info-modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;display:none;align-items:flex-end;justify-content:center}
 .info-modal.open{display:flex}
 .info-box{background:#1e1e3a;border-radius:16px 16px 0 0;padding:18px 16px 24px;width:100%;max-width:480px;max-height:78vh;overflow-y:auto;border:1px solid #3a3a5c;border-bottom:none}
@@ -90,7 +99,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 .modal-btn-row{display:flex;gap:8px;margin-top:12px}
 .modal-btn-place{flex:1;padding:11px;border-radius:8px;border:none;background:#1a7a3c;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
 .modal-btn-cancel{flex:1;padding:11px;border-radius:8px;border:1px solid #4a4a7a;background:transparent;cursor:pointer;font-size:14px;color:#ddd}
-/* Toast notification — replaces alert() */
+
+/* Leave table confirmation modal */
+.leave-modal{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
+.leave-modal.open{display:flex}
+.leave-box{background:#1e1e3a;border-radius:16px;padding:24px 20px;width:100%;max-width:360px;border:1px solid #5a4080;text-align:center}
+.leave-box h2{font-size:18px;font-weight:600;color:#fff;margin-bottom:8px}
+.leave-box .leave-summary{font-size:14px;color:#bbb;line-height:1.7;margin-bottom:6px}
+.leave-box .leave-balance{font-size:28px;font-weight:700;margin:12px 0;color:#4ade80}
+.leave-box .leave-balance.lost{color:#f87171}
+.leave-box .leave-pending{font-size:12px;color:#f87171;margin-bottom:14px;min-height:18px}
+.leave-box-btns{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.leave-confirm-btn{padding:12px;border-radius:10px;border:none;background:#1a7a3c;color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+.leave-confirm-btn:hover{background:#15622f}
+.leave-stay-btn{padding:12px;border-radius:10px;border:1px solid #4a4a7a;background:transparent;color:#ddd;font-size:15px;cursor:pointer}
+.leave-stay-btn:hover{background:#2a2a4a}
+
+/* Toast */
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#2d2d50;color:#fff;border:1px solid #6060aa;border-radius:14px;padding:13px 18px;font-size:13px;line-height:1.5;max-width:320px;width:88%;text-align:center;z-index:300;pointer-events:none;opacity:0;transition:opacity 0.25s ease}
 .toast.show{opacity:1}
 .toast-title{font-weight:700;color:#fbbf24;margin-bottom:5px;font-size:14px}
@@ -100,8 +125,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
 <body>
 <div class="app">
 
+<!-- Leave Table button — visible only when callback URL provided -->
+<button class="leave-btn" id="leave-btn" onclick="promptLeave()">&#8592; Leave Table</button>
+
 <div class="balance-bar">
-  <div>
+  <div class="balance-left">
+    <div class="player-name" id="player-name-display" style="display:none"></div>
     <div class="balance-label">Chip balance</div>
     <div class="balance-amt" id="balance-display">$500</div>
   </div>
@@ -122,7 +151,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
     <div class="place-num-box" id="bet-place9"  onclick="startBet('place9')"> <div class="point-dot" id="pd9"></div> <div class="pn">9</div> <div class="po">7:5 pays</div></div>
     <div class="place-num-box" id="bet-place10" onclick="startBet('place10')"><div class="point-dot" id="pd10"></div><div class="pn">10</div><div class="po">9:5 pays</div></div>
   </div>
-
   <div class="grid-2col">
     <div class="pass-area" id="bet-pass" onclick="startBet('pass')">
       <div class="bl">Pass Line</div><div class="bv">Even money · 1:1</div>
@@ -131,7 +159,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
       <div class="bl">Don't Pass Bar 12</div><div class="bv">Even money · 1:1</div>
     </div>
   </div>
-
   <div class="grid-2col">
     <div class="pass-area" style="background:rgba(0,80,80,0.5)" id="bet-come" onclick="startBet('come')">
       <div class="bl">Come</div><div class="bv">Even money · 1:1</div>
@@ -140,25 +167,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
       <div class="bl">Don't Come Bar 12</div><div class="bv">Even money · 1:1</div>
     </div>
   </div>
-
   <div class="field-area" id="bet-field" onclick="startBet('field')">
     <div class="bl">FIELD — 2 · 3 · 4 · 9 · 10 · 11 · 12</div>
     <div class="bv">1:1 &nbsp;(2x on 2 · 3x on 12)</div>
   </div>
-
   <div class="section-label">PROPOSITION BETS</div>
   <div class="prop-grid">
-    <div class="prop-box" id="bet-any7"      onclick="startBet('any7')">     <div class="pb">Any 7</div>      <div class="pp">4:1 pays</div></div>
-    <div class="prop-box" id="bet-anycrap"   onclick="startBet('anycrap')">  <div class="pb">Any Craps</div> <div class="pp">7:1 pays</div></div>
-    <div class="prop-box" id="bet-eleven"    onclick="startBet('eleven')">   <div class="pb">Yo (11)</div>   <div class="pp">15:1 pays</div></div>
-    <div class="prop-box" id="bet-hardway4"  onclick="startBet('hardway4')"> <div class="pb">Hard 4</div>   <div class="pp">7:1 pays</div></div>
-    <div class="prop-box" id="bet-hardway6"  onclick="startBet('hardway6')"> <div class="pb">Hard 6</div>   <div class="pp">9:1 pays</div></div>
-    <div class="prop-box" id="bet-hardway8"  onclick="startBet('hardway8')"> <div class="pb">Hard 8</div>   <div class="pp">9:1 pays</div></div>
-    <div class="prop-box" id="bet-hardway10" onclick="startBet('hardway10')"><div class="pb">Hard 10</div>  <div class="pp">7:1 pays</div></div>
-    <div class="prop-box" id="bet-two"       onclick="startBet('two')">      <div class="pb">Aces (2)</div> <div class="pp">30:1 pays</div></div>
+    <div class="prop-box" id="bet-any7"      onclick="startBet('any7')">     <div class="pb">Any 7</div>        <div class="pp">4:1 pays</div></div>
+    <div class="prop-box" id="bet-anycrap"   onclick="startBet('anycrap')">  <div class="pb">Any Craps</div>   <div class="pp">7:1 pays</div></div>
+    <div class="prop-box" id="bet-eleven"    onclick="startBet('eleven')">   <div class="pb">Yo (11)</div>     <div class="pp">15:1 pays</div></div>
+    <div class="prop-box" id="bet-hardway4"  onclick="startBet('hardway4')"> <div class="pb">Hard 4</div>     <div class="pp">7:1 pays</div></div>
+    <div class="prop-box" id="bet-hardway6"  onclick="startBet('hardway6')"> <div class="pb">Hard 6</div>     <div class="pp">9:1 pays</div></div>
+    <div class="prop-box" id="bet-hardway8"  onclick="startBet('hardway8')"> <div class="pb">Hard 8</div>     <div class="pp">9:1 pays</div></div>
+    <div class="prop-box" id="bet-hardway10" onclick="startBet('hardway10')"><div class="pb">Hard 10</div>    <div class="pp">7:1 pays</div></div>
+    <div class="prop-box" id="bet-two"       onclick="startBet('two')">      <div class="pb">Aces (2)</div>   <div class="pp">30:1 pays</div></div>
     <div class="prop-box" id="bet-twelve"    onclick="startBet('twelve')">   <div class="pb">Boxcars (12)</div><div class="pp">30:1 pays</div></div>
   </div>
-
   <div class="dice-row">
     <div class="die" id="die1">🎲</div>
     <div class="die" id="die2">🎲</div>
@@ -211,44 +235,107 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-siz
   </div>
 </div>
 
-<!-- Toast for phase-restriction notices -->
+<!-- Leave table confirmation modal -->
+<div class="leave-modal" id="leave-modal">
+  <div class="leave-box">
+    <h2>Leave the Craps Table?</h2>
+    <div class="leave-summary" id="leave-summary"></div>
+    <div class="leave-balance" id="leave-balance-display"></div>
+    <div class="leave-pending" id="leave-pending-warn"></div>
+    <div class="leave-box-btns">
+      <button class="leave-confirm-btn" id="leave-confirm-btn" onclick="confirmLeave()">Cash Out &amp; Leave</button>
+      <button class="leave-stay-btn" onclick="closeLeaveModal()">Keep Playing</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
 <div class="toast" id="toast">
   <div class="toast-title" id="toast-title"></div>
   <div class="toast-msg" id="toast-msg"></div>
 </div>
 
 <script>
+/* =====================================================================
+   URL PARAMETER INTEGRATION
+   -----------------------------------------------------------------------
+   Supported query parameters:
+     player    — Player's display name  (e.g. ?player=Alice)
+     balance   — Starting chip balance  (e.g. ?balance=1000)
+     callback  — URL to redirect to when the player leaves.
+                 The final balance and player name are appended as params:
+                 e.g.  https://myapp.com/casino?player=Alice&balance=1250
+
+   Examples:
+     craps_game.html?player=Alice&balance=750&callback=https://myapp.com/casino
+     craps_game.html?balance=200
+     craps_game.html   (standalone mode — no leave button shown)
+
+   postMessage integration (optional, for iframe embedding):
+     When the player confirms leaving, the game also fires:
+       window.parent.postMessage({ type:'craps_cashout', player, balance }, '*')
+     This lets a parent app running the game in an iframe catch the result
+     without any redirect.
+   ===================================================================== */
+
+const params   = new URLSearchParams(window.location.search);
+const PLAYER   = params.get('player') || '';
+const CALLBACK = params.get('callback') || '';
+
 const DICE_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
-let balance = 500, phase = 'comeout', point = null, bets = {}, pendingBet = null, rolling = false;
+let balance  = Math.max(1, parseInt(params.get('balance')) || 500);
+let startingBalance = balance;
+let phase    = 'comeout';
+let point    = null;
+let bets     = {};
+let pendingBet = null;
+let rolling  = false;
 let toastTimer = null;
 
+/* ---- Boot UI ---- */
+if (PLAYER) {
+  const el = document.getElementById('player-name-display');
+  el.textContent = PLAYER;
+  el.style.display = 'block';
+  document.title   = PLAYER + ' — Craps Table';
+}
+if (CALLBACK) {
+  document.getElementById('leave-btn').classList.add('visible');
+}
+
+/* =====================================================================
+   BET DEFINITIONS
+   ===================================================================== */
 const D = {
   pass:      {name:'Pass Line',          desc:'The most fundamental craps bet — you bet WITH the shooter. On the come-out roll, 7 or 11 wins instantly; 2, 3, or 12 (craps) loses instantly. Any other number becomes the "point." You then win if that point is rolled again before a 7.',                                              win:'7 or 11 on come-out; or point rolled before a 7',                  lose:'2, 3, or 12 on come-out; or 7 before the point',                      payout:'1:1',                    he:'1.41%', ec:'op-edge-low',  ph:'comeout'},
   dontpass:  {name:"Don't Pass Bar 12",  desc:"Bet AGAINST the shooter. On the come-out, 2 or 3 wins; 7 or 11 loses; 12 is a push (bar) — you get your bet back. Once a point is set, you win when 7 is rolled before the point. Slightly better odds than Pass Line.",                                                                    win:'2 or 3 on come-out; or 7 before the point',                        lose:'7 or 11 on come-out; or point before 7  (12 = push)',                 payout:'1:1',                    he:'1.36%', ec:'op-edge-low',  ph:'comeout'},
   come:      {name:'Come Bet',           desc:"Works exactly like the Pass Line but placed after a point is already set. The very next roll becomes your personal come-out — 7 or 11 wins immediately, 2/3/12 loses, any other number becomes your Come point. You win if your Come point repeats before a 7.",                               win:'7 or 11 on the very next roll; or your Come point before a 7',     lose:'2, 3, or 12 on the next roll; or 7 before your Come point',           payout:'1:1',                    he:'1.41%', ec:'op-edge-low',  ph:'point'},
   dontcome:  {name:"Don't Come Bar 12",  desc:"Opposite of the Come bet. On the next roll: 2 or 3 wins, 7 or 11 loses, 12 is a push. Once a Don't Come point is set, you win when 7 is rolled before that number.",                                                                                                                           win:"2 or 3 on next roll; or 7 before the Don't Come point",            lose:"7 or 11 on next roll; or Don't Come point before 7  (12 = push)",    payout:'1:1',                    he:'1.36%', ec:'op-edge-low',  ph:'point'},
-  field:     {name:'Field Bet',          desc:'A one-roll bet that settles immediately. Wins on 2, 3, 4, 9, 10, 11, or 12 — which sounds like a lot, but 5, 6, 7, and 8 are statistically more common. The 2x on 2 and 3x on 12 are the hooks. Modest house edge overall.',                                                                  win:'2, 3, 4, 9, 10, 11, or 12',                                        lose:'5, 6, 7, or 8',                                                       payout:'1:1  (2x on 2, 3x on 12)', he:'2.78%', ec:'op-edge-mid',  ph:'both'},
-  place4:    {name:'Place 4',            desc:'Bet that 4 will be rolled before a 7. Stays active each roll until 4 hits (win) or 7 is rolled (seven-out, lose). 4 can be made four ways; 7 can be made six ways — hence the high house edge.',                                                                                               win:'4 rolled before 7',                                                lose:'7 rolled (seven-out)',                                                payout:'9:5',                    he:'6.67%', ec:'op-edge-high', ph:'point'},
-  place5:    {name:'Place 5',            desc:'Bet that 5 will be rolled before a 7. Stays active each roll. 5 can be made four ways; 7 six ways.',                                                                                                                                                                                          win:'5 rolled before 7',                                                lose:'7 rolled (seven-out)',                                                payout:'7:5',                    he:'4.0%',  ec:'op-edge-mid',  ph:'point'},
+  field:     {name:'Field Bet',          desc:'A one-roll bet that settles immediately. Wins on 2, 3, 4, 9, 10, 11, or 12 — which sounds like a lot, but 5, 6, 7, and 8 are statistically more likely combined. The 2x on 2 and 3x on 12 are the hooks.',                                                                                    win:'2, 3, 4, 9, 10, 11, or 12',                                        lose:'5, 6, 7, or 8',                                                       payout:'1:1  (2x on 2, 3x on 12)', he:'2.78%', ec:'op-edge-mid',  ph:'both'},
+  place4:    {name:'Place 4',            desc:'Bet that 4 will be rolled before a 7. Stays active each roll until 4 hits (win) or 7 is rolled (seven-out, lose). 4 can be made four ways; 7 can be made six ways.',                                                                                                                           win:'4 rolled before 7',                                                lose:'7 rolled (seven-out)',                                                payout:'9:5',                    he:'6.67%', ec:'op-edge-high', ph:'point'},
+  place5:    {name:'Place 5',            desc:'Bet that 5 will be rolled before a 7. Stays active each roll.',                                                                                                                                                                                                                                win:'5 rolled before 7',                                                lose:'7 rolled (seven-out)',                                                payout:'7:5',                    he:'4.0%',  ec:'op-edge-mid',  ph:'point'},
   place6:    {name:'Place 6',            desc:'One of the best place bets. 6 is the second most common roll (five ways to make it), second only to 7 (six ways). Low house edge makes this a favourite among experienced players.',                                                                                                           win:'6 rolled before 7',                                                lose:'7 rolled (seven-out)',                                                payout:'7:6',                    he:'1.52%', ec:'op-edge-low',  ph:'point'},
   place8:    {name:'Place 8',            desc:'Mirror of Place 6 — 8 is equally common (five ways to make it). Another solid bet with a low house edge.',                                                                                                                                                                                    win:'8 rolled before 7',                                                lose:'7 rolled (seven-out)',                                                payout:'7:6',                    he:'1.52%', ec:'op-edge-low',  ph:'point'},
-  place9:    {name:'Place 9',            desc:'Bet that 9 will be rolled before a 7. Stays active each roll. 9 can be made four ways; 7 six ways.',                                                                                                                                                                                          win:'9 rolled before 7',                                                lose:'7 rolled (seven-out)',                                                payout:'7:5',                    he:'4.0%',  ec:'op-edge-mid',  ph:'point'},
+  place9:    {name:'Place 9',            desc:'Bet that 9 will be rolled before a 7. Stays active each roll.',                                                                                                                                                                                                                               win:'9 rolled before 7',                                                lose:'7 rolled (seven-out)',                                                payout:'7:5',                    he:'4.0%',  ec:'op-edge-mid',  ph:'point'},
   place10:   {name:'Place 10',           desc:'Bet that 10 will be rolled before a 7. 10 can be made three ways; 7 six ways — giving the house a steep edge.',                                                                                                                                                                               win:'10 rolled before 7',                                               lose:'7 rolled (seven-out)',                                                payout:'9:5',                    he:'6.67%', ec:'op-edge-high', ph:'point'},
-  any7:      {name:'Any Seven',          desc:'One-roll proposition bet — wins only if the very next roll is a 7. Sounds tempting but pays 4:1 while true odds are 5:1. One of the worst bets on the table. Fun, not smart.',                                                                                                                 win:'7 on the next roll only',                                          lose:'Any other number',                                                    payout:'4:1',                    he:'16.67%',ec:'op-edge-high', ph:'both'},
-  anycrap:   {name:'Any Craps',          desc:'One-roll bet that wins if the next roll is 2, 3, or 12 (any craps number). Commonly used to hedge a Pass Line bet on the come-out — but the house edge makes it costly over time.',                                                                                                            win:'2, 3, or 12 on the next roll',                                     lose:'Any other number',                                                    payout:'7:1',                    he:'11.11%',ec:'op-edge-high', ph:'both'},
-  eleven:    {name:'Yo (Eleven)',         desc:'Called "Yo" by dealers so it is not confused with "one." A one-roll bet on 11. The 15:1 payout is exciting but true odds are 17:1 — the house pockets a big edge.',                                                                                                                          win:'11 on the next roll only',                                         lose:'Any other number',                                                    payout:'15:1',                   he:'11.11%',ec:'op-edge-high', ph:'both'},
-  hardway4:  {name:'Hard 4',             desc:'Bet that 4 is rolled the "hard" way — as 2+2 — before a 7 OR before an "easy" 4 (1+3). This is a multi-roll bet that stays up until it wins or is knocked off.',                                                                                                                             win:'2+2 before a 7 or before an easy 4 (1+3)',                        lose:'7 rolled, or 1+3 (easy 4) rolled',                                    payout:'7:1',                    he:'11.11%',ec:'op-edge-high', ph:'both'},
-  hardway6:  {name:'Hard 6',             desc:'Bet that 6 is rolled as 3+3 before a 7 or before an easy 6 (1+5 or 2+4). Stays up until it wins or is knocked off.',                                                                                                                                                                         win:'3+3 before a 7 or an easy 6',                                      lose:'7 rolled, or easy 6 rolled',                                          payout:'9:1',                    he:'9.09%', ec:'op-edge-high', ph:'both'},
-  hardway8:  {name:'Hard 8',             desc:'Bet that 8 is rolled as 4+4 before a 7 or an easy 8 (2+6 or 3+5). Stays up until it wins or is knocked off.',                                                                                                                                                                                win:'4+4 before a 7 or an easy 8',                                      lose:'7 rolled, or easy 8 rolled',                                          payout:'9:1',                    he:'9.09%', ec:'op-edge-high', ph:'both'},
-  hardway10: {name:'Hard 10',            desc:'Bet that 10 is rolled as 5+5 before a 7 or an easy 10 (4+6). Stays up until it wins or is knocked off.',                                                                                                                                                                                     win:'5+5 before a 7 or an easy 10 (4+6)',                               lose:'7 rolled, or easy 10 rolled',                                         payout:'7:1',                    he:'11.11%',ec:'op-edge-high', ph:'both'},
-  two:       {name:'Aces (Snake Eyes)',  desc:'One-roll bet on 1+1 (a total of 2). True odds are 35:1 but it pays only 30:1. The biggest long-shot on the layout — but unforgettable when it hits.',                                                                                                                                         win:'1+1 on the next roll only',                                        lose:'Any other number',                                                    payout:'30:1',                   he:'13.89%',ec:'op-edge-high', ph:'both'},
-  twelve:    {name:'Boxcars (12)',        desc:'One-roll bet on 6+6 (a total of 12). Same math as Aces — 35:1 true odds, 30:1 payout. Another exciting long-shot prop.',                                                                                                                                                                    win:'6+6 on the next roll only',                                        lose:'Any other number',                                                    payout:'30:1',                   he:'13.89%',ec:'op-edge-high', ph:'both'},
+  any7:      {name:'Any Seven',          desc:'One-roll proposition bet — wins only if the very next roll is a 7. Pays 4:1 while true odds are 5:1. One of the worst bets on the table.',                                                                                                                                                    win:'7 on the next roll only',                                          lose:'Any other number',                                                    payout:'4:1',                    he:'16.67%',ec:'op-edge-high', ph:'both'},
+  anycrap:   {name:'Any Craps',          desc:'One-roll bet that wins if the next roll is 2, 3, or 12. Often used to hedge a Pass Line bet on the come-out.',                                                                                                                                                                                win:'2, 3, or 12 on the next roll',                                     lose:'Any other number',                                                    payout:'7:1',                    he:'11.11%',ec:'op-edge-high', ph:'both'},
+  eleven:    {name:'Yo (Eleven)',         desc:'Called "Yo" so dealers don\'t confuse it with "one." A one-roll bet on 11. True odds are 17:1, pays only 15:1.',                                                                                                                                                                             win:'11 on the next roll only',                                         lose:'Any other number',                                                    payout:'15:1',                   he:'11.11%',ec:'op-edge-high', ph:'both'},
+  hardway4:  {name:'Hard 4',             desc:'Bet that 4 is rolled as 2+2 (the "hard" way) before a 7 OR before an "easy" 4 (1+3). Multi-roll bet that stays up until it wins or is knocked off.',                                                                                                                                         win:'2+2 before a 7 or before an easy 4 (1+3)',                        lose:'7 rolled, or 1+3 (easy 4) rolled',                                    payout:'7:1',                    he:'11.11%',ec:'op-edge-high', ph:'both'},
+  hardway6:  {name:'Hard 6',             desc:'Bet that 6 is rolled as 3+3 before a 7 or before an easy 6 (1+5 or 2+4).',                                                                                                                                                                                                                   win:'3+3 before a 7 or an easy 6',                                      lose:'7 rolled, or easy 6 rolled',                                          payout:'9:1',                    he:'9.09%', ec:'op-edge-high', ph:'both'},
+  hardway8:  {name:'Hard 8',             desc:'Bet that 8 is rolled as 4+4 before a 7 or an easy 8 (2+6 or 3+5).',                                                                                                                                                                                                                          win:'4+4 before a 7 or an easy 8',                                      lose:'7 rolled, or easy 8 rolled',                                          payout:'9:1',                    he:'9.09%', ec:'op-edge-high', ph:'both'},
+  hardway10: {name:'Hard 10',            desc:'Bet that 10 is rolled as 5+5 before a 7 or an easy 10 (4+6).',                                                                                                                                                                                                                               win:'5+5 before a 7 or an easy 10 (4+6)',                               lose:'7 rolled, or easy 10 rolled',                                         payout:'7:1',                    he:'11.11%',ec:'op-edge-high', ph:'both'},
+  two:       {name:'Aces (Snake Eyes)',  desc:'One-roll bet on 1+1 (total 2). True odds are 35:1 but pays only 30:1.',                                                                                                                                                                                                                       win:'1+1 on the next roll only',                                        lose:'Any other number',                                                    payout:'30:1',                   he:'13.89%',ec:'op-edge-high', ph:'both'},
+  twelve:    {name:'Boxcars (12)',        desc:'One-roll bet on 6+6 (total 12). Same structure as Aces — 35:1 true odds, 30:1 payout.',                                                                                                                                                                                                     win:'6+6 on the next roll only',                                        lose:'Any other number',                                                    payout:'30:1',                   he:'13.89%',ec:'op-edge-high', ph:'both'},
 };
 
+/* =====================================================================
+   HELPERS
+   ===================================================================== */
 function chipColor(a){return a>=100?'chip-black':a>=50?'chip-purple':a>=25?'chip-green':a>=10?'chip-blue':'chip-red'}
 function setBetAmt(n){document.getElementById('bet-input').value=n}
+function pendingBetTotal(){return Object.values(bets).reduce((s,b)=>s+b.amount,0)}
 
-/* Toast */
 function showToast(title,msg){
   clearTimeout(toastTimer);
   document.getElementById('toast-title').textContent=title;
@@ -258,31 +345,24 @@ function showToast(title,msg){
   toastTimer=setTimeout(()=>t.classList.remove('show'),3800);
 }
 
-/* Modal */
+/* =====================================================================
+   BET MODAL
+   ===================================================================== */
+document.getElementById('info-modal').addEventListener('click',function(e){if(e.target===this)closeModal()});
 function openModal(){document.getElementById('info-modal').classList.add('open')}
 function closeModal(){document.getElementById('info-modal').classList.remove('open');pendingBet=null}
 
-// Close modal when tapping backdrop
-document.getElementById('info-modal').addEventListener('click',function(e){if(e.target===this)closeModal()});
-
 function startBet(key){
   if(rolling)return;
-  const def=D[key];
-  if(!def)return;
-
-  // Phase restriction — show toast only, no modal
+  const def=D[key];if(!def)return;
   if(def.ph==='point'&&phase==='comeout'){
-    showToast(def.name+' not available yet',
-      'This bet requires a point to be set first. Place a Pass Line bet and roll to establish the point, then you can place this bet.');
+    showToast(def.name+' — not available yet','This bet requires a point to be set first. Place a Pass Line bet and roll to establish the point, then you can place this bet.');
     return;
   }
   if((key==='pass'||key==='dontpass')&&phase==='point'){
-    showToast(def.name+' — come-out only',
-      'This bet can only be placed before a point is set. During the point phase, try a Come bet instead — it works the same way.');
+    showToast(def.name+' — come-out only','This bet can only be placed before a point is set. During the point phase, try a Come bet instead — it works the same way.');
     return;
   }
-
-  // Show info + confirm modal
   pendingBet=key;
   document.getElementById('modal-title').textContent=def.name;
   document.getElementById('modal-desc').textContent=def.desc;
@@ -313,6 +393,62 @@ function removeBet(key){
   updateUI();
 }
 
+/* =====================================================================
+   LEAVE TABLE
+   ===================================================================== */
+function promptLeave(){
+  if(rolling)return;
+
+  const pending = pendingBetTotal();
+  const net     = balance - startingBalance;
+  const nameStr = PLAYER ? PLAYER+"'s" : 'Your';
+
+  document.getElementById('leave-summary').innerHTML =
+    nameStr+' session: started with <strong>$'+startingBalance+'</strong>.';
+
+  const balEl = document.getElementById('leave-balance-display');
+  balEl.textContent = '$'+balance;
+  balEl.className   = 'leave-balance' + (net < 0 ? ' lost' : '');
+
+  const pendWarn = document.getElementById('leave-pending-warn');
+  if(pending > 0){
+    pendWarn.textContent = 'Note: $'+pending+' in active bets will be forfeited when you leave.';
+  } else {
+    pendWarn.textContent = '';
+  }
+
+  document.getElementById('leave-modal').classList.add('open');
+}
+
+function closeLeaveModal(){
+  document.getElementById('leave-modal').classList.remove('open');
+}
+
+function confirmLeave(){
+  // Forfeit any live bets — only count cash in hand
+  const finalBalance = balance; // bets already deducted from balance when placed
+
+  // postMessage for iframe parent
+  try {
+    window.parent.postMessage({
+      type    : 'craps_cashout',
+      player  : PLAYER,
+      balance : finalBalance
+    }, '*');
+  } catch(e){}
+
+  // Redirect callback
+  if(CALLBACK){
+    const url = new URL(CALLBACK);
+    url.searchParams.set('balance', finalBalance);
+    if(PLAYER) url.searchParams.set('player', PLAYER);
+    window.location.href = url.toString();
+  }
+}
+
+/* =====================================================================
+   MAIN UI UPDATE
+   ===================================================================== */
 function updateUI(){
   document.getElementById('balance-display').textContent='$'+balance;
   const bl=document.getElementById('bets-list');
@@ -351,6 +487,9 @@ function logEvent(msg,cls){
   log.insertBefore(p,log.firstChild);
 }
 
+/* =====================================================================
+   DICE ROLL
+   ===================================================================== */
 function rollDice(){
   if(rolling)return;
   rolling=true;
@@ -369,6 +508,9 @@ function rollDice(){
   },500);
 }
 
+/* =====================================================================
+   RESOLVE ROLL
+   ===================================================================== */
 function resolveRoll(d1,d2,total){
   const wins=[],losses=[],pushes=[];
   const isCraps=[2,3,12].includes(total),isNatural=[7,11].includes(total);
@@ -425,7 +567,6 @@ function resolveRoll(d1,d2,total){
     }
   }
 
-  // Field (one-roll)
   if(bets.field){
     if([2,3,4,9,10,11,12].includes(total)){
       const r=total===2?'Field wins! 2 pays double (2x)!':total===12?'Field wins! 12 pays triple (3x)!':total+' is in the Field — Field wins!';
@@ -433,14 +574,12 @@ function resolveRoll(d1,d2,total){
     }else losses.push({key:'field',r:total+' (5, 6, 7, or 8) is not in the Field — loses.'});
   }
 
-  // Props
   if(bets.any7)    total===7  ?wins.push({key:'any7',    r:'Any 7! Pays 4:1!'}):losses.push({key:'any7',    r:total+' — Any 7 loses.'});
   if(bets.anycrap) isCraps    ?wins.push({key:'anycrap', r:total+' — Any Craps wins 7:1!'}):losses.push({key:'anycrap', r:total+' — Any Craps loses.'});
   if(bets.eleven)  total===11 ?wins.push({key:'eleven',  r:'Yo 11! Pays 15:1!'}):losses.push({key:'eleven',  r:total+' — Yo loses.'});
   if(bets.two)     total===2  ?wins.push({key:'two',     r:'Snake Eyes! 1+1! Pays 30:1!'}):losses.push({key:'two',     r:total+' — Aces loses.'});
   if(bets.twelve)  total===12 ?wins.push({key:'twelve',  r:'Boxcars! 6+6! Pays 30:1!'}):losses.push({key:'twelve',  r:total+' — Boxcars loses.'});
 
-  // Hardways
   const hw={hardway4:[4,2,2],hardway6:[6,3,3],hardway8:[8,4,4],hardway10:[10,5,5]};
   Object.entries(hw).forEach(([k,[n,e]])=>{
     if(!bets[k]||total===7)return;
@@ -448,7 +587,6 @@ function resolveRoll(d1,d2,total){
     else if(total===n)losses.push({key:k,r:'Easy '+n+' ('+d1+'+'+d2+') — Hard '+n+' loses.'});
   });
 
-  // Settle
   wins.forEach(({key,r})=>{
     const def=D[key],bet=bets[key];if(!bet)return;
     const parts=def.payout.replace(/\s.*$/,'').split(':').map(Number);
@@ -474,8 +612,14 @@ function resolveRoll(d1,d2,total){
   });
 
   if(balance<=0&&!Object.keys(bets).length){
-    balance=500;
-    logEvent('Out of chips! Reloading $500 — keep learning!','ev-info');
+    if(CALLBACK){
+      // In casino app mode, go bust and show leave prompt rather than auto-reload
+      logEvent('Out of chips! Cash out to return to the casino floor.','ev-info');
+      setTimeout(promptLeave, 1200);
+    }else{
+      balance=500;
+      logEvent('Out of chips! Reloading $500 — keep learning!','ev-info');
+    }
   }
   updateUI();
 }

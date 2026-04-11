@@ -78,6 +78,12 @@ table.roulette td.winning-flash{animation:winflash 1.2s ease 3}
 #insideSelectedNums{color:#1a6bb5}
 .sound-row{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px}
 .wheel-center{text-align:center;padding:10px}
+.casino-banner{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#1a3a1a,#2a5a2a);color:#fff;padding:8px 14px;border-radius:10px;margin-bottom:7px;gap:10px;flex-wrap:wrap}
+.casino-banner-name{font-size:15px;font-weight:600;letter-spacing:0.5px}
+.casino-banner-balance{font-size:13px;opacity:0.85}
+.casino-banner-balance span{font-size:16px;font-weight:700;color:#d4af37}
+.btn-cashout{height:32px;padding:0 14px;background:#d4af37;color:#1a1a1a;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:background .12s;flex-shrink:0}
+.btn-cashout:hover{background:#c49d2a}
 
 @media(min-width:640px){
   #app{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;align-items:start}
@@ -98,6 +104,8 @@ table.roulette td.winning-flash{animation:winflash 1.2s ease 3}
 <h2 class="sr-only">American Roulette — two-player casino game with betting table, spin history, and player statistics</h2>
 <div id="app">
 <h1>Roulette</h1>
+
+<div id="casinoBanner" style="display:none;grid-column:1/3"></div>
 
 <div class="section" id="playerSection">
   <div class="section-body" style="padding:10px">
@@ -260,7 +268,52 @@ const BET_INFO={
   low:"1–18. Pays 1:1.",high:"19–36. Pays 1:1."
 };
 
-let PLAYERS=[
+// ── Casino integration: parse URL params ──────────────────────────────
+const _urlParams=new URLSearchParams(window.location.search);
+const CASINO_MODE=_urlParams.has('player')&&_urlParams.has('balance');
+const CASINO_PLAYER_NAME=CASINO_MODE?_urlParams.get('player'):'Player 1';
+const CASINO_BALANCE=CASINO_MODE?Math.max(0,parseInt(_urlParams.get('balance'))||0):1000;
+const CASINO_CALLBACK=CASINO_MODE?(_urlParams.get('callback')||null):null;
+
+function casinoCashOut(){
+  const balance=PLAYERS[0].balance;
+  // Return any pending bets to balance before leaving
+  if(bets.length){
+    bets.forEach(b=>{if(b.player===0)PLAYERS[0].balance+=b.amount;});
+    bets=bets.filter(b=>b.player!==0);
+    updateBalances();
+  }
+  const finalBalance=PLAYERS[0].balance;
+  if(CASINO_CALLBACK){
+    const url=new URL(CASINO_CALLBACK);
+    url.searchParams.set('player',CASINO_PLAYER_NAME);
+    url.searchParams.set('balance',finalBalance);
+    window.location.href=url.toString();
+  } else {
+    showModal(`<h2>Cash Out</h2>
+      <p style="font-size:14px;margin-bottom:12px">Returning <b>${CASINO_PLAYER_NAME}</b> with <b style="color:#1a6b1a">$${finalBalance}</b> to the casino.</p>
+      <p style="font-size:12px;color:var(--color-text-secondary,#666)">No callback URL was provided. In a live integration, the player would be redirected back to the casino lobby with their balance.</p>
+      <div class="modal-btns"><button class="btn btn-green" onclick="closeModal()">OK</button></div>`);
+  }
+}
+
+function updateCasinoBanner(){
+  if(!CASINO_MODE)return;
+  const b=document.getElementById('casinoBanner');
+  b.innerHTML=`<div class="casino-banner">
+    <div>
+      <div class="casino-banner-name">🎰 ${CASINO_PLAYER_NAME}</div>
+      <div class="casino-banner-balance">Balance: <span id="casinoBalDisplay">$${PLAYERS[0].balance}</span></div>
+    </div>
+    <button class="btn-cashout" onclick="casinoCashOut()">Cash Out &amp; Return ↩</button>
+  </div>`;
+  b.style.display='block';
+}
+// ─────────────────────────────────────────────────────────────────────
+
+let PLAYERS=CASINO_MODE?[
+  {name:CASINO_PLAYER_NAME,color:"#e05a00",chipBg:"#e05a00",balance:CASINO_BALANCE,stats:{spins:0,wins:0,totalWagered:0,totalWon:0,biggestWin:0}}
+]:[
   {name:"Player 1",color:"#e05a00",chipBg:"#e05a00",balance:1000,stats:{spins:0,wins:0,totalWagered:0,totalWon:0,biggestWin:0}},
   {name:"Player 2",color:"#1a6bb5",chipBg:"#1a6bb5",balance:1000,stats:{spins:0,wins:0,totalWagered:0,totalWon:0,biggestWin:0}}
 ];
@@ -293,6 +346,12 @@ function playWin(){[523,659,784,1047].forEach((f,i)=>playTone(f,'sine',0.3,0.25,
 function playLoss(){playTone(220,'sawtooth',0.4,0.2,0);playTone(180,'sawtooth',0.5,0.15,0.2);}
 
 function renderPlayers(){
+  if(CASINO_MODE){
+    // In casino mode: hide the player section entirely (banner shows balance)
+    document.getElementById('playerSection').style.display='none';
+    updateCasinoBanner();
+    return;
+  }
   document.getElementById('playersRow').innerHTML=PLAYERS.map((p,i)=>`
     <div class="player-card${i===currentPlayer?' active':''}" id="pc${i}" onclick="selectPlayer(${i})" style="border-color:${p.color}">
       <div style="display:flex;align-items:center;justify-content:space-between">
@@ -326,7 +385,10 @@ function reloadChips(i,amt){PLAYERS[i].balance+=amt;updateBalances();renderPlaye
 function resetBalance(i){PLAYERS[i].balance=1000;updateBalances();renderPlayers();closeModal();}
 function showModal(html){document.getElementById('modalContainer').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`;}
 function closeModal(){document.getElementById('modalContainer').innerHTML='';}
-function updateBalances(){PLAYERS.forEach((p,i)=>{const el=document.getElementById('bal'+i);if(el)el.textContent='$'+p.balance;});}
+function updateBalances(){
+  PLAYERS.forEach((p,i)=>{const el=document.getElementById('bal'+i);if(el)el.textContent='$'+p.balance;});
+  if(CASINO_MODE){const el=document.getElementById('casinoBalDisplay');if(el)el.textContent='$'+PLAYERS[0].balance;}
+}
 
 function setPreset(v){
   currentPreset=v;
@@ -654,6 +716,16 @@ window.addEventListener('load',()=>{
   renderPlayers();buildTable();renderStats();renderHistory();
   const canvas=document.getElementById('wheel');
   drawScene(canvas.getContext('2d'),0,0,canvas.width,false);
+  if(CASINO_MODE){
+    updateCasinoBanner();
+    // Hide training mode toggle and 2-player help references
+    const helpBox=document.getElementById('helpBox');
+    if(helpBox){
+      // Rewrite help to strip multi-player instructions
+      helpBox.querySelector('b') && (helpBox.innerHTML=helpBox.innerHTML.replace(/Select a player,\s*/,''));
+    }
+    document.getElementById('h1title') && (document.getElementById('h1title').textContent='Roulette — '+CASINO_PLAYER_NAME);
+  }
 });
 </script>
 </body>
