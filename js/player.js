@@ -44,6 +44,7 @@ function gaPage(pageName) {
   let state = {
     config: {}, players: [], attendance: [],
     pairings: [], scores: [], standings: [],
+    challenges: [],           // all active challenges for this league
     currentSheetWeek: 1, currentWstandWeek: 1,
     dataLoaded: false,        // true after phase 2 pairings/scores are loaded
     saveLocks: {},            // per-week save queue to prevent concurrent writes
@@ -56,9 +57,10 @@ function gaPage(pageName) {
   showLoading(true);
   try {
     const early = await API.getEarlyData();
-    state.config = sanitizeConfig(early.config     || {});
+    state.config     = sanitizeConfig(early.config || {});
     state.players    = early.players    || [];
     state.attendance = early.attendance || [];
+    state.challenges = early.challenges || [];
   } catch (e) {
     toast('Failed to load data: ' + e.message, 'error');
   } finally {
@@ -269,6 +271,7 @@ function gaPage(pageName) {
     renderFullAttendance();
     renderPlayerReportSelect();
     renderTournamentBracket();
+    renderChallenges();
     if (canScore && !state._scoreEntryLoading && !state._scoreEntryTouched) renderScoreEntry();
   }
 
@@ -1264,20 +1267,46 @@ function gaPage(pageName) {
     if (weeklyTitle) weeklyTitle.textContent = prefix + 'Session Standings';
     if (trendTitle)  trendTitle.textContent  = prefix + 'Overall Ranking by Session';
 
+    const isLadder = (state.config.standingsMethod || 'standard') === 'ladder';
+
+    // Build rankMap once (used for ladder mode to classify wins)
+    const buildRankMap = () => {
+      const std = Reports.computeStandings(state.scores, state.players, state.pairings, null,
+        state.config.rankingMethod, state.attendance, state.config.pairingMode);
+      const rm = {};
+      std.forEach(s => { if (s.rank && s.rank !== '-') rm[s.name] = s.rank; });
+      state.players.forEach(p => { if (rm[p.name] == null && p.initialRank) rm[p.name] = p.initialRank; });
+      return rm;
+    };
+
     // Season tab
-    const season = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance, state.config.pairingMode);
-    document.getElementById('season-standings-table').innerHTML = renderStandingsTable(season, playerName);
+    if (isLadder) {
+      const rankMap = buildRankMap();
+      const season = Reports.computeLadderStandings(state.scores, state.players, state.pairings,
+        null, state.attendance, state.config, rankMap);
+      document.getElementById('season-standings-table').innerHTML = renderLadderStandingsTable(season, playerName);
+    } else {
+      const season = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance, state.config.pairingMode);
+      document.getElementById('season-standings-table').innerHTML = renderStandingsTable(season, playerName);
+    }
 
     // Weekly tab
     const week = state.currentWstandWeek;
     const wstandDate = formatDateTime(week, state.config) ? ' — ' + formatDateTime(week, state.config) : '';
     document.getElementById('wstand-label').textContent = `Session ${week}${wstandDate}`;
-    const weekStand = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod);
-    const overallThisWeek = Reports.computeStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod, state.attendance, state.config.pairingMode);
-    const overallPrevWeek = week > 1
-      ? Reports.computeStandings(state.scores, state.players, state.pairings, week - 1, state.config.rankingMethod, state.attendance, state.config.pairingMode)
-      : null;
-    document.getElementById('weekly-standings-table').innerHTML = renderStandingsTable(weekStand, playerName, overallThisWeek, overallPrevWeek);
+    if (isLadder) {
+      const rankMap = buildRankMap();
+      const weekStand = Reports.computeWeeklyLadderStandings(state.scores, state.players, state.pairings,
+        week, state.attendance, state.config, rankMap);
+      document.getElementById('weekly-standings-table').innerHTML = renderLadderStandingsTable(weekStand, playerName);
+    } else {
+      const weekStand = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod);
+      const overallThisWeek = Reports.computeStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod, state.attendance, state.config.pairingMode);
+      const overallPrevWeek = week > 1
+        ? Reports.computeStandings(state.scores, state.players, state.pairings, week - 1, state.config.rankingMethod, state.attendance, state.config.pairingMode)
+        : null;
+      document.getElementById('weekly-standings-table').innerHTML = renderStandingsTable(weekStand, playerName, overallThisWeek, overallPrevWeek);
+    }
 
     // Default to season tab active
     document.querySelectorAll('#player-standings-tabs .tab-btn').forEach(b => b.classList.remove('active'));
@@ -1310,12 +1339,24 @@ function gaPage(pageName) {
     const week = state.currentWstandWeek;
     const wstandDate = formatDateTime(week, state.config) ? ' — ' + formatDateTime(week, state.config) : '';
     document.getElementById('wstand-label').textContent = `Session ${week}${wstandDate}`;
-    const s = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod);
-    const overallThisWeek = Reports.computeStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod, state.attendance, state.config.pairingMode);
-    const overallPrevWeek = week > 1
-      ? Reports.computeStandings(state.scores, state.players, state.pairings, week - 1, state.config.rankingMethod, state.attendance, state.config.pairingMode)
-      : null;
-    document.getElementById('weekly-standings-table').innerHTML = renderStandingsTable(s, playerName, overallThisWeek, overallPrevWeek);
+    const isLadder = (state.config.standingsMethod || 'standard') === 'ladder';
+    if (isLadder) {
+      const std = Reports.computeStandings(state.scores, state.players, state.pairings, null,
+        state.config.rankingMethod, state.attendance, state.config.pairingMode);
+      const rankMap = {};
+      std.forEach(s => { if (s.rank && s.rank !== '-') rankMap[s.name] = s.rank; });
+      state.players.forEach(p => { if (rankMap[p.name] == null && p.initialRank) rankMap[p.name] = p.initialRank; });
+      const s = Reports.computeWeeklyLadderStandings(state.scores, state.players, state.pairings,
+        week, state.attendance, state.config, rankMap);
+      document.getElementById('weekly-standings-table').innerHTML = renderLadderStandingsTable(s, playerName);
+    } else {
+      const s = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod);
+      const overallThisWeek = Reports.computeStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod, state.attendance, state.config.pairingMode);
+      const overallPrevWeek = week > 1
+        ? Reports.computeStandings(state.scores, state.players, state.pairings, week - 1, state.config.rankingMethod, state.attendance, state.config.pairingMode)
+        : null;
+      document.getElementById('weekly-standings-table').innerHTML = renderStandingsTable(s, playerName, overallThisWeek, overallPrevWeek);
+    }
   }
 
   // ── Full Attendance ────────────────────────────────────────
@@ -1817,6 +1858,49 @@ function gaPage(pageName) {
       : '';
     return `<table class="compact-table">
       <thead><tr><th>#</th><th>Player</th><th>W/L</th><th>Win%</th>${secHeader}${pctHeader}${overallHeader}${movHeader}</tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>`;
+  }
+
+  function renderLadderStandingsTable(standings, highlightPlayer = null) {
+    if (!standings || !standings.length) return '<p class="text-muted">No standings data yet.</p>';
+    const cfg = state.config || {};
+    const ranges = [1, 2, 3, 4].map(i => ({
+      min: parseFloat(cfg[`ladderRange${i}Min`]) || 0,
+      max: parseFloat(cfg[`ladderRange${i}Max`]) || 0,
+      pts: parseFloat(cfg[`ladderRange${i}Pts`]) || 0,
+      idx: i - 1,
+    })).filter(r => r.max > 0);
+
+    const fmt = v => v.toFixed(v % 1 === 0 ? 0 : 1);
+    const rows = standings.map((s, i) => {
+      const isMe = s.name === highlightPlayer;
+      const top  = i < 3 ? 'top' : '';
+      const rangeCols = ranges.map(r =>
+        `<td style="text-align:center;">${fmt(s.rangePts[r.idx])}</td>`
+      ).join('');
+      return `<tr ${isMe ? 'style="background:rgba(94,194,106,0.08);"' : ''}>
+        <td class="rank-cell ${top}">${s.rank}</td>
+        <td class="player-name" ${isMe ? 'style="color:var(--green);"' : ''}>${esc(s.name)}${isMe ? ' ◀' : ''}</td>
+        <td style="text-align:center; font-weight:600; color:var(--gold);">${fmt(s.totalPts)}</td>
+        <td style="text-align:center;">${fmt(s.attendPts)}</td>
+        <td style="text-align:center;">${fmt(s.playPts)}</td>
+        <td style="text-align:center;">${fmt(s.upsetWinPts)}</td>
+        ${rangeCols}
+      </tr>`;
+    });
+    const rangeHeaders = ranges.map(r =>
+      `<th title="Favored-win range: rank advantage ${r.min}–${r.max} → ${r.pts} pts each" style="cursor:help; text-align:center;">R${r.idx+1}</th>`
+    ).join('');
+    return `<table class="compact-table">
+      <thead><tr>
+        <th>#</th><th>Player</th>
+        <th style="text-align:center;" title="Total ladder points">Total</th>
+        <th style="text-align:center;" title="Points for attending sessions">Attend</th>
+        <th style="text-align:center;" title="Points for playing games">Play</th>
+        <th style="text-align:center;" title="Points for upset wins">Upset</th>
+        ${rangeHeaders}
+      </tr></thead>
       <tbody>${rows.join('')}</tbody>
     </table>`;
   }
@@ -2346,6 +2430,232 @@ function gaPage(pageName) {
     document.getElementById('btn-push-dismiss')?.addEventListener('click', () => {
       bar.style.display = 'none';
       sessionStorage.setItem(PUSH_DISMISS_KEY, '1');
+    });
+  }
+
+  // ── Challenges ──────────────────────────────────────────────
+  function renderChallenges() {
+    const isLadder = (state.config.standingsMethod || 'standard') === 'ladder';
+    const enabled  = state.config.challengesEnabled === true || state.config.challengesEnabled === 'true';
+    const navEl    = document.getElementById('nav-challenges');
+    const el       = document.getElementById('challenges-content');
+
+    // Show nav item only in ladder mode with challenges enabled
+    if (navEl) navEl.classList.toggle('hidden', !(isLadder && enabled));
+
+    // Update notification dot: any challenge where this player is a non-responding participant
+    if (navEl) {
+      const hasPending = state.challenges.some(c =>
+        c.status === 'pending' && (
+          (c.partner   === playerName && c.partnerResponse   === 'pending') ||
+          (c.opponent1 === playerName && c.opponent1Response === 'pending') ||
+          (c.opponent2 === playerName && c.opponent2Response === 'pending')
+        )
+      );
+      let dot = navEl.querySelector('.new-dot');
+      if (hasPending && !dot) {
+        dot = document.createElement('span');
+        dot.className = 'new-dot';
+        navEl.appendChild(dot);
+      } else if (!hasPending && dot) {
+        dot.remove();
+      }
+    }
+
+    if (!el) return;
+    if (!isLadder || !enabled) {
+      el.innerHTML = '<div class="card"><p class="text-muted" style="font-size:0.88rem;">Challenges are not enabled for this league.</p></div>';
+      return;
+    }
+
+    // Partition challenges relevant to this player
+    const myIssued   = state.challenges.find(c => c.challenger === playerName && ['pending','accepted'].includes(c.status));
+    const myPending  = state.challenges.filter(c => c.status === 'pending' && c.challenger !== playerName && [c.partner, c.opponent1, c.opponent2].includes(playerName));
+    const myAccepted = state.challenges.filter(c => c.status === 'accepted' && c.challenger !== playerName && [c.partner, c.opponent1, c.opponent2].includes(playerName));
+    const myScheduled = state.challenges.filter(c => c.status === 'scheduled' && [c.challenger, c.partner, c.opponent1, c.opponent2].includes(playerName));
+
+    const format = state.config.gameMode === 'singles' ? 'singles' : 'doubles';
+    const singles = format === 'singles';
+
+    const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    function respBadge(r) {
+      if (!r || r === '') return '';
+      if (r === 'accepted') return '<span style="color:var(--green);font-size:0.75rem;font-weight:700;">✓ Accepted</span>';
+      if (r === 'rejected') return '<span style="color:#e05a5a;font-size:0.75rem;font-weight:700;">✗ Declined</span>';
+      return '<span style="color:var(--muted);font-size:0.75rem;">⏳ Pending</span>';
+    }
+
+    function teamLine(c) {
+      const t1 = c.partner ? esc(c.challenger) + ' &amp; ' + esc(c.partner) : esc(c.challenger);
+      const t2 = c.opponent2 ? esc(c.opponent1) + ' &amp; ' + esc(c.opponent2) : esc(c.opponent1);
+      return `<span style="font-weight:600;">${t1}</span> <span style="color:var(--muted);font-size:0.8rem;">vs</span> <span style="font-weight:600;">${t2}</span>`;
+    }
+
+    let html = '';
+
+    // ── Challenges this player is waiting to respond to ──
+    if (myPending.length) {
+      html += `<div class="card" style="margin-bottom:12px;">
+        <div class="card-header" style="display:flex;align-items:center;gap:8px;">
+          <div class="card-title">⚔️ Challenges Awaiting Your Response</div>
+        </div>`;
+      myPending.forEach(c => {
+        let myRole = c.partner === playerName ? 'partner' : c.opponent1 === playerName ? 'opponent' : 'opponent';
+        let myResp = c.partner === playerName ? c.partnerResponse : c.opponent1 === playerName ? c.opponent1Response : c.opponent2Response;
+        html += `<div style="padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.07);">
+          <div style="font-size:0.82rem; color:var(--muted); margin-bottom:4px;">${esc(c.challenger)} challenged — you as ${myRole}</div>
+          <div style="margin-bottom:8px;">${teamLine(c)}</div>`;
+        if (myResp === 'pending') {
+          html += `<div style="display:flex;gap:8px;margin-top:6px;">
+            <button class="btn btn-primary" style="padding:4px 16px;font-size:0.82rem;" data-cid="${c.id}" data-resp="accepted">✅ Accept</button>
+            <button class="btn btn-danger"  style="padding:4px 16px;font-size:0.82rem;" data-cid="${c.id}" data-resp="rejected">❌ Decline</button>
+          </div>`;
+        } else {
+          html += `<div style="font-size:0.8rem; margin-top:4px;">Your response: ${respBadge(myResp)}</div>`;
+        }
+        html += `</div>`;
+      });
+      html += `</div>`;
+    }
+
+    // ── Challenge this player has accepted (as opponent/partner) ──
+    if (myAccepted.length) {
+      html += `<div class="card" style="margin-bottom:12px;">
+        <div class="card-header"><div class="card-title">✅ Challenges Accepted — Awaiting Schedule</div></div>`;
+      myAccepted.forEach(c => {
+        html += `<div style="padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.07);">
+          <div style="font-size:0.82rem; color:var(--muted); margin-bottom:4px;">Issued by ${esc(c.challenger)}</div>
+          <div>${teamLine(c)}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    // ── Scheduled challenges ──
+    if (myScheduled.length) {
+      html += `<div class="card" style="margin-bottom:12px;">
+        <div class="card-header"><div class="card-title">📅 Scheduled Challenges</div></div>`;
+      myScheduled.forEach(c => {
+        html += `<div style="padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.07);">
+          <div style="font-size:0.82rem; color:var(--muted); margin-bottom:4px;">Session ${c.weekScheduled || '?'}</div>
+          <div>${teamLine(c)}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    // ── My issued challenge status ──
+    if (myIssued) {
+      const responses = [];
+      if (myIssued.partner)   responses.push(`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:0.85rem;"><span>${esc(myIssued.partner)} <span style="color:var(--muted);font-size:0.75rem;">(partner)</span></span>${respBadge(myIssued.partnerResponse)}</div>`);
+      responses.push(`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:0.85rem;"><span>${esc(myIssued.opponent1)}</span>${respBadge(myIssued.opponent1Response)}</div>`);
+      if (myIssued.opponent2) responses.push(`<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:0.85rem;"><span>${esc(myIssued.opponent2)}</span>${respBadge(myIssued.opponent2Response)}</div>`);
+
+      html += `<div class="card" style="margin-bottom:12px;">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+          <div class="card-title">My Challenge</div>
+          <button id="btn-delete-challenge" data-cid="${myIssued.id}" class="btn btn-danger" style="padding:3px 12px;font-size:0.78rem;">Delete</button>
+        </div>
+        <div style="margin-bottom:8px;">${teamLine(myIssued)}</div>
+        <div style="font-size:0.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin:8px 0 4px;">Responses</div>
+        ${responses.join('')}
+      </div>`;
+    }
+
+    // ── Issue a new challenge (only if player has no active issued challenge) ──
+    if (!myIssued) {
+      const activePlayers = state.players
+        .filter(p => p.active === true && p.role !== 'spectator' && p.name !== playerName)
+        .map(p => p.name).sort();
+
+      const opts = activePlayers.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+
+      html += `<div class="card">
+        <div class="card-header"><div class="card-title">⚔️ Issue a Challenge</div></div>
+        <p style="font-size:0.84rem;color:var(--muted);margin-bottom:12px;">
+          Challenge ${singles ? 'another player' : 'another team'} to a game. All players must accept before the admin can schedule it.
+        </p>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          ${!singles ? `<div>
+            <label style="font-size:0.8rem;color:var(--muted);display:block;margin-bottom:4px;">Your Partner</label>
+            <select id="ch-partner" class="form-control" style="max-width:240px;"><option value="">— select partner —</option>${opts}</select>
+          </div>` : ''}
+          <div>
+            <label style="font-size:0.8rem;color:var(--muted);display:block;margin-bottom:4px;">Opponent ${singles ? '' : '1'}</label>
+            <select id="ch-opp1" class="form-control" style="max-width:240px;"><option value="">— select opponent —</option>${opts}</select>
+          </div>
+          ${!singles ? `<div>
+            <label style="font-size:0.8rem;color:var(--muted);display:block;margin-bottom:4px;">Opponent 2</label>
+            <select id="ch-opp2" class="form-control" style="max-width:240px;"><option value="">— select opponent —</option>${opts}</select>
+          </div>` : ''}
+        </div>
+        <div style="margin-top:14px;">
+          <button class="btn btn-primary" id="btn-issue-challenge" style="padding:6px 20px;">⚔️ Send Challenge</button>
+        </div>
+      </div>`;
+    }
+
+    if (!html) {
+      html = '<div class="card"><p class="text-muted" style="font-size:0.88rem;">No active challenges. Issue one below!</p></div>';
+    }
+    el.innerHTML = html;
+
+    // ── Wire respond buttons ──
+    el.querySelectorAll('[data-cid][data-resp]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const cid  = btn.dataset.cid;
+        const resp = btn.dataset.resp;
+        btn.disabled = true;
+        try {
+          await API.respondToChallenge(cid, playerName, resp);
+          state.challenges = (await API.getChallenges()).challenges;
+          renderChallenges();
+        } catch(e) { toast(e.message, 'error'); btn.disabled = false; }
+      });
+    });
+
+    // ── Wire delete button ──
+    document.getElementById('btn-delete-challenge')?.addEventListener('click', async (e) => {
+      const cid = e.currentTarget.dataset.cid;
+      if (!confirm('Delete this challenge?')) return;
+      try {
+        await API.deleteChallenge(cid, playerName);
+        state.challenges = (await API.getChallenges()).challenges;
+        renderChallenges();
+      } catch(err) { toast(err.message, 'error'); }
+    });
+
+    // ── Wire issue challenge button ──
+    document.getElementById('btn-issue-challenge')?.addEventListener('click', async () => {
+      const partner   = singles ? '' : (document.getElementById('ch-partner')?.value || '');
+      const opp1      = document.getElementById('ch-opp1')?.value || '';
+      const opp2      = singles ? '' : (document.getElementById('ch-opp2')?.value || '');
+
+      if (!opp1) { toast('Select at least one opponent.', 'warn'); return; }
+      if (!singles && !partner) { toast('Select your partner.', 'warn'); return; }
+      if (!singles && !opp2)   { toast('Select opponent 2.', 'warn'); return; }
+
+      const players = [playerName, partner, opp1, opp2].filter(Boolean);
+      if (new Set(players).size !== players.length) { toast('A player cannot appear more than once.', 'warn'); return; }
+
+      const btn = document.getElementById('btn-issue-challenge');
+      btn.disabled = true;
+      btn.textContent = '⏳ Sending…';
+      try {
+        const { config } = state;
+        await API.submitChallenge({
+          challenger: playerName,
+          partner, opponent1: opp1, opponent2: opp2,
+          format,
+          gasUrl: GAS_URL,
+          relayConfig: { emailScriptUrl: config.emailScriptUrl, emailScriptSecret: config.emailScriptSecret },
+          leagueId: (JSON.parse(sessionStorage.getItem('pb_session') || '{}')).leagueId,
+        });
+        toast('Challenge sent! Waiting for responses.');
+        state.challenges = (await API.getChallenges()).challenges;
+        renderChallenges();
+      } catch(e) { toast(e.message, 'error'); btn.disabled = false; btn.textContent = '⚔️ Send Challenge'; }
     });
   }
 

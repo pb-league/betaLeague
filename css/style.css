@@ -236,8 +236,11 @@ h4 { font-size: 1.1rem; }
 .stat-tile {
   background: var(--navy-light);
   border-radius: var(--radius);
-  padding: 10px 14px;
+  padding: 8px 14px;
   border-left: 3px solid var(--green);
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
 }
 
 .stat-tile .stat-value {
@@ -246,6 +249,7 @@ h4 { font-size: 1.1rem; }
   font-weight: 800;
   color: var(--green);
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .stat-tile .stat-label {
@@ -253,7 +257,6 @@ h4 { font-size: 1.1rem; }
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
-  margin-top: 3px;
 }
 
 /* ── Tables ──────────────────────────────────────────────────── */
@@ -571,6 +574,10 @@ select.form-control option { background: var(--navy-mid); }
 @keyframes spin {
   0%   { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
 }
 
 .login-logo h1 {

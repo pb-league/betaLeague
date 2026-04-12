@@ -75,6 +75,7 @@
       <div class="nav-section">
         <div class="nav-item active" data-page="my-games"><span class="icon">🎾</span> My Games</div>
         <div class="nav-item" data-page="attendance"><span class="icon">📋</span> Availability</div>
+        <div class="nav-item hidden" id="nav-challenges" data-page="challenges"><span class="icon">⚔️</span> Challenges</div>
         <div class="nav-item" data-page="scoresheet"><span class="icon">📊</span> Scoresheet</div>
         <div class="nav-item hidden" id="nav-score-entry" data-page="score-entry"><span class="icon">✏️</span> Score Entry</div>
       </div>
@@ -243,6 +244,12 @@
         <div class="card">
           <div id="player-bracket-content"><p class="text-muted">No tournament in progress.</p></div>
         </div>
+      </section>
+
+      <!-- ═══ CHALLENGES ═══ -->
+      <section id="page-challenges" class="tab-panel">
+        <div class="page-header"><h2>Challenges</h2></div>
+        <div id="challenges-content"></div>
       </section>
 
       <!-- ═══ FULL ATTENDANCE ═══ -->

@@ -92,6 +92,7 @@
         </div>
         <div id="dash-info"></div>
         <div class="card-grid" id="dash-stats"></div>
+        <div id="dash-config"></div>
         <div id="dash-rules"></div>
         <details id="dash-standings-details" style="margin-top:10px;">
           <summary class="card-header collapsible-header" style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; background:var(--surface); border-radius:var(--radius); padding:10px 16px;">
@@ -199,6 +200,13 @@
               <option value="ptspct">Pts/Tot %</option>
             </select>
           </div>
+          <div class="form-group">
+            <label class="form-label">Standings Method</label>
+            <select class="form-control" id="cfg-standings-method">
+              <option value="standard">Standard</option>
+              <option value="ladder">Ladder League</option>
+            </select>
+          </div>
             <div class="form-group">
               <label class="form-label">Game Mode</label>
               <select class="form-control" id="cfg-game-mode">
@@ -236,6 +244,71 @@
               <input class="form-control" id="cfg-reg-max-pending" type="number" min="1" max="50" value="10" style="max-width:80px;">
             </div>
           </div>
+
+          <!-- Ladder League Points Configuration -->
+          <div id="cfg-ladder-section" style="display:none; margin-top:16px; padding:14px 18px; background:rgba(232,184,75,0.06); border-radius:8px; border-left:3px solid var(--gold);">
+            <div style="font-size:0.78rem; font-weight:700; text-transform:uppercase; color:var(--gold); letter-spacing:0.07em; margin-bottom:10px;">Ladder League — Point Schedule</div>
+            <div style="margin-bottom:14px;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.85rem;" id="cfg-challenges-row">
+                <input type="checkbox" id="cfg-challenges-enabled" style="width:16px;height:16px;">
+                <span>Enable player challenges</span>
+                <span style="color:var(--muted); font-size:0.78rem;">(players can challenge each other; admin schedules accepted challenges)</span>
+              </label>
+            </div>
+            <div class="form-row" style="flex-wrap:wrap; gap:12px 24px; margin-bottom:14px;">
+              <div class="form-group" style="min-width:130px;">
+                <label class="form-label">Attend a session</label>
+                <input class="form-control" id="cfg-ladder-attend-pts" type="number" min="0" step="0.5" style="width:80px;">
+              </div>
+              <div class="form-group" style="min-width:130px;">
+                <label class="form-label">Play any game</label>
+                <input class="form-control" id="cfg-ladder-play-pts" type="number" min="0" step="0.5" style="width:80px;">
+              </div>
+              <div class="form-group" style="min-width:200px;">
+                <label class="form-label">Upset win <span style="color:var(--muted); font-weight:400; font-size:0.76rem;">(your rank worse than opp)</span></label>
+                <input class="form-control" id="cfg-ladder-win-upset-pts" type="number" min="0" step="0.5" style="width:80px;">
+              </div>
+            </div>
+            <div style="font-size:0.78rem; color:var(--muted); margin-bottom:10px;">
+              Favored-win ranges — points when your team's avg rank is better than opponents' by the given margin:
+            </div>
+            <div style="display:grid; grid-template-columns: 70px 70px 16px 70px 16px 70px; gap:6px 8px; align-items:center; font-size:0.82rem; margin-bottom:6px;">
+              <span style="color:var(--muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">Label</span>
+              <span style="color:var(--muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">Min</span>
+              <span></span>
+              <span style="color:var(--muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">Max</span>
+              <span></span>
+              <span style="color:var(--muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">Pts</span>
+              <span style="font-size:0.82rem; color:var(--muted);">Range 1</span>
+              <input class="form-control" id="cfg-ladder-range1-min" type="number" min="0" step="1" style="width:70px;">
+              <span style="text-align:center; color:var(--muted);">–</span>
+              <input class="form-control" id="cfg-ladder-range1-max" type="number" min="0" step="1" style="width:70px;">
+              <span style="text-align:center; color:var(--muted);">→</span>
+              <input class="form-control" id="cfg-ladder-range1-pts" type="number" min="0" step="0.5" style="width:70px;">
+              <span style="font-size:0.82rem; color:var(--muted);">Range 2</span>
+              <input class="form-control" id="cfg-ladder-range2-min" type="number" min="0" step="1" style="width:70px;">
+              <span style="text-align:center; color:var(--muted);">–</span>
+              <input class="form-control" id="cfg-ladder-range2-max" type="number" min="0" step="1" style="width:70px;">
+              <span style="text-align:center; color:var(--muted);">→</span>
+              <input class="form-control" id="cfg-ladder-range2-pts" type="number" min="0" step="0.5" style="width:70px;">
+              <span style="font-size:0.82rem; color:var(--muted);">Range 3</span>
+              <input class="form-control" id="cfg-ladder-range3-min" type="number" min="0" step="1" style="width:70px;">
+              <span style="text-align:center; color:var(--muted);">–</span>
+              <input class="form-control" id="cfg-ladder-range3-max" type="number" min="0" step="1" style="width:70px;">
+              <span style="text-align:center; color:var(--muted);">→</span>
+              <input class="form-control" id="cfg-ladder-range3-pts" type="number" min="0" step="0.5" style="width:70px;">
+              <span style="font-size:0.82rem; color:var(--muted);">Range 4</span>
+              <input class="form-control" id="cfg-ladder-range4-min" type="number" min="0" step="1" style="width:70px;">
+              <span style="text-align:center; color:var(--muted);">–</span>
+              <input class="form-control" id="cfg-ladder-range4-max" type="number" min="0" step="1" style="width:70px;">
+              <span style="text-align:center; color:var(--muted);">→</span>
+              <input class="form-control" id="cfg-ladder-range4-pts" type="number" min="0" step="0.5" style="width:70px;">
+            </div>
+            <div style="font-size:0.72rem; color:var(--muted); margin-top:8px;">
+              Rank margin = (opponents' avg rank − your avg rank). Set Range max to 0 to disable that row.
+            </div>
+          </div>
+
           <div id="cfg-dates-area"></div>
           <div id="cfg-court-names-area"></div>
           <button class="btn btn-primary mt-2" id="btn-save-config">Save Configuration</button>
@@ -646,6 +719,9 @@
               <option value="remaining">All remaining rounds</option>
             </select>
           </div>
+          <div id="arrange-games-wrap"></div>
+          <div id="challenge-suggestions"></div>
+          <div id="pair-generate-roster"></div>
           <div class="btn-group">
             <button class="btn btn-gold" id="btn-generate">🎲 Generate Pairings for Session 1</button>
             <button class="btn btn-secondary hidden" id="btn-generate-fresh" title="Discard current best and start a new search from scratch">↺ Start Fresh</button>

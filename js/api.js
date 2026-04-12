@@ -117,5 +117,11 @@ const API = (() => {
     setTimerState:      (timerState)             => post({ action: 'setTimerState', timerState }),
     getTimerPushSubs:   (adminPin)               => get('getTimerPushSubs', { adminPin }),
     sendTimerPush:      (adminPin, notifications) => post({ action: 'sendTimerPush', adminPin, notifications }),
+
+    // Challenges
+    getChallenges:       ()                             => get('getChallenges'),
+    submitChallenge:     (payload)                      => post({ action: 'submitChallenge', ...payload }),
+    respondToChallenge:  (challengeId, playerName, response) => post({ action: 'respondToChallenge', challengeId, playerName, response }),
+    deleteChallenge:     (challengeId, playerName)      => post({ action: 'deleteChallenge', challengeId, playerName }),
   };
 })();

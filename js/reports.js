@@ -411,5 +411,119 @@ const Reports = (() => {
     return null;
   }
 
-  return { computeStandings, computePlayerReport, computeWeeklyStandings, computeFinishScenarios, pct, wl };
+  // ── Ladder League Standings ────────────────────────────────
+  // Points-based standings calculated from a configurable point schedule.
+  // rankMap: {playerName: rankNumber} — built from computeStandings or initialRank by caller.
+  // advantage = oppTeamAvgRank - myTeamAvgRank (positive = I'm stronger/better ranked).
+  // Upset win: advantage < 0 (I was the underdog).
+  // Range wins: advantage falls within a configured [min, max] band.
+  function computeLadderStandings(scores, players, pairings, upToWeek, attendance, config, rankMap) {
+    const cfg          = config || {};
+    const attendPts    = parseFloat(cfg.ladderAttendPts)    || 0;
+    const playPts      = parseFloat(cfg.ladderPlayPts)      || 0;
+    const upsetWinPts  = parseFloat(cfg.ladderWinUpsetPts)  || 0;
+    const ranges = [1, 2, 3, 4].map(i => ({
+      min: parseFloat(cfg[`ladderRange${i}Min`]) || 0,
+      max: parseFloat(cfg[`ladderRange${i}Max`]) || 0,
+      pts: parseFloat(cfg[`ladderRange${i}Pts`]) || 0,
+    }));
+
+    // Merge passed-in rankMap with initialRank fallback
+    const rm = Object.assign({}, rankMap || {});
+    players.forEach(p => { if (rm[p.name] == null && p.initialRank) rm[p.name] = p.initialRank; });
+
+    // Initialise per-player accumulators (exclude subs and pending)
+    const stats = {};
+    players.forEach(p => {
+      if (p.role === 'sub' || p.active === 'pend') return;
+      stats[p.name] = {
+        name: p.name,
+        sessionsAttended: 0, gamesPlayed: 0,
+        upsetWins: 0, rangeWins: [0, 0, 0, 0],
+      };
+    });
+
+    // Attendance: distinct weeks with ≥1 scored game
+    const playerSessions = {};
+    scores.forEach(s => {
+      if (upToWeek !== null && upToWeek !== undefined && parseInt(s.week) > upToWeek) return;
+      if (!s.p1 || !s.p3) return;
+      if (s.score1 === '' || s.score1 == null || s.score2 === '' || s.score2 == null) return;
+      const wk = parseInt(s.week);
+      [s.p1, s.p2, s.p3, s.p4].filter(Boolean).forEach(name => {
+        if (!stats[name]) return;
+        if (!playerSessions[name]) playerSessions[name] = new Set();
+        playerSessions[name].add(wk);
+      });
+    });
+    Object.keys(stats).forEach(n => {
+      stats[n].sessionsAttended = playerSessions[n] ? playerSessions[n].size : 0;
+    });
+
+    // Process scored games
+    scores.forEach(s => {
+      if (upToWeek !== null && upToWeek !== undefined && parseInt(s.week) > upToWeek) return;
+      if (!s.p1 || !s.p3) return;
+      if (s.score1 === '' || s.score1 == null || s.score2 === '' || s.score2 == null) return;
+      const score1 = parseInt(s.score1);
+      const score2 = parseInt(s.score2);
+      if (isNaN(score1) || isNaN(score2)) return;
+
+      const team1 = [s.p1, s.p2].filter(Boolean);
+      const team2 = [s.p3, s.p4].filter(Boolean);
+      const t1win = score1 > score2;
+
+      const avgRank = team => {
+        const rs = team.map(n => rm[n]).filter(r => r != null);
+        return rs.length ? rs.reduce((a, b) => a + b, 0) / rs.length : null;
+      };
+      const r1 = avgRank(team1), r2 = avgRank(team2);
+
+      [[team1, t1win, r1, r2], [team2, !t1win, r2, r1]].forEach(([team, won, myAvg, oppAvg]) => {
+        team.forEach(name => { if (stats[name]) stats[name].gamesPlayed++; });
+
+        if (!won) return;
+        if (myAvg == null || oppAvg == null) return; // no rank data — skip category
+
+        const advantage = oppAvg - myAvg; // positive = I'm better ranked (stronger)
+        team.forEach(name => {
+          if (!stats[name]) return;
+          if (advantage < 0) {
+            // Upset: I was the underdog
+            stats[name].upsetWins++;
+          } else {
+            // Favored win — find first matching range
+            for (let i = 0; i < 4; i++) {
+              if (ranges[i].max > 0 && advantage >= ranges[i].min && advantage <= ranges[i].max) {
+                stats[name].rangeWins[i]++;
+                break;
+              }
+            }
+          }
+        });
+      });
+    });
+
+    // Compute points and build result list
+    const list = Object.values(stats).map(s => {
+      const rAttend   = s.sessionsAttended * attendPts;
+      const rPlay     = s.gamesPlayed      * playPts;
+      const rUpset    = s.upsetWins        * upsetWinPts;
+      const rRange    = s.rangeWins.map((w, i) => w * ranges[i].pts);
+      const totalPts  = rAttend + rPlay + rUpset + rRange.reduce((a, b) => a + b, 0);
+      return { ...s, attendPts: rAttend, playPts: rPlay, upsetWinPts: rUpset, rangePts: rRange, totalPts };
+    });
+
+    list.sort((a, b) => b.totalPts - a.totalPts || b.gamesPlayed - a.gamesPlayed);
+    list.forEach((s, i) => { s.rank = i + 1; });
+    return list;
+  }
+
+  function computeWeeklyLadderStandings(scores, players, pairings, week, attendance, config, rankMap) {
+    const weekScores   = scores.filter(s => parseInt(s.week) === parseInt(week));
+    const weekPairings = pairings.filter(p => parseInt(p.week) === parseInt(week));
+    return computeLadderStandings(weekScores, players, weekPairings, null, attendance, config, rankMap);
+  }
+
+  return { computeStandings, computePlayerReport, computeWeeklyStandings, computeFinishScenarios, computeLadderStandings, computeWeeklyLadderStandings, pct, wl };
 })();
