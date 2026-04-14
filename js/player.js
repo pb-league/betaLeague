@@ -2276,18 +2276,38 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
   function renderLadderStandingsTable(standings, highlightPlayer = null) {
     if (!standings || !standings.length) return '<p class="text-muted">No standings data yet.</p>';
     const cfg = state.config || {};
-    const ranges = [1, 2, 3, 4].map(i => ({
+    const fmt = v => { const n = parseFloat(v) || 0; return n % 1 === 0 ? n.toFixed(0) : n.toFixed(1); };
+    const attendPts = parseFloat(cfg.ladderAttendPts) || 0;
+    const playPts   = parseFloat(cfg.ladderPlayPts)   || 0;
+    const ranges = [1, 2, 3, 4, 5, 6].map(i => ({
       min: parseFloat(cfg[`ladderRange${i}Min`]) || 0,
       max: parseFloat(cfg[`ladderRange${i}Max`]) || 0,
       pts: parseFloat(cfg[`ladderRange${i}Pts`]) || 0,
       idx: i - 1,
-    })).filter(r => r.max > 0);
+    })).filter(r => r.max > r.min);
 
     const _ladderPhotosOn = tierAllows(state.limits?.tier, 'playerPhotos');
     const ladderPhotoMap = {};
     if (_ladderPhotosOn) state.players.forEach(p => { if (p.photo) ladderPhotoMap[p.name] = p.photo; });
 
-    const fmt = v => v.toFixed(v % 1 === 0 ? 0 : 1);
+    // ── Points legend ─────────────────────────────────────────
+    const legendRows = [];
+    if (attendPts) legendRows.push(`<tr><td>Attend a session</td><td style="text-align:right; font-weight:600; color:var(--gold);">${fmt(attendPts)} pt${attendPts !== 1 ? 's' : ''}</td></tr>`);
+    if (playPts)   legendRows.push(`<tr><td>Play any game</td><td style="text-align:right; font-weight:600; color:var(--gold);">${fmt(playPts)} pt${playPts !== 1 ? 's' : ''}</td></tr>`);
+    ranges.forEach(r => {
+      const isUpset   = r.max < 0;
+      const isFavored = r.min >= 0;
+      const typeLabel = isUpset ? 'Upset win' : isFavored ? 'Favored win' : 'Win';
+      legendRows.push(`<tr><td><strong>R${r.idx + 1}:</strong> ${typeLabel} <span style="color:var(--muted); font-size:0.78rem;">(rank adv ${r.min} to ${r.max})</span></td><td style="text-align:right; font-weight:600; color:var(--gold);">${fmt(r.pts)} pt${r.pts !== 1 ? 's' : ''}</td></tr>`);
+    });
+    const legendHtml = legendRows.length ? `
+      <div style="margin-bottom:14px; display:inline-block; min-width:260px;">
+        <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); margin-bottom:6px;">Points Legend</div>
+        <table style="font-size:0.82rem; border-collapse:collapse; width:100%;">
+          <tbody>${legendRows.join('')}</tbody>
+        </table>
+      </div>` : '';
+
     const rows = standings.map((s, i) => {
       const isMe = s.name === highlightPlayer;
       const top  = i < 3 ? 'top' : '';
@@ -2302,20 +2322,21 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
         <td style="text-align:center; font-weight:600; color:var(--gold);">${fmt(s.totalPts)}</td>
         <td style="text-align:center;">${fmt(s.attendPts)}</td>
         <td style="text-align:center;">${fmt(s.playPts)}</td>
-        <td style="text-align:center;">${fmt(s.upsetWinPts)}</td>
         ${rangeCols}
       </tr>`;
     });
-    const rangeHeaders = ranges.map(r =>
-      `<th title="Favored-win range: rank advantage ${r.min}–${r.max} → ${r.pts} pts each" style="cursor:help; text-align:center;">R${r.idx+1}</th>`
-    ).join('');
-    return `<table class="compact-table">
+    const rangeHeaders = ranges.map(r => {
+      const isUpset   = r.max < 0;
+      const isFavored = r.min >= 0;
+      const typeLabel = isUpset ? 'Upset' : isFavored ? 'Favored' : 'Win';
+      return `<th title="R${r.idx+1}: ${typeLabel} win — rank adv ${r.min} to ${r.max} → ${fmt(r.pts)} pts" style="cursor:help; text-align:center;">R${r.idx+1}</th>`;
+    }).join('');
+    return `${legendHtml}<table class="compact-table">
       <thead><tr>
         <th>#</th><th>Player</th>
         <th style="text-align:center;" title="Total ladder points">Total</th>
         <th style="text-align:center;" title="Points for attending sessions">Attend</th>
         <th style="text-align:center;" title="Points for playing games">Play</th>
-        <th style="text-align:center;" title="Points for upset wins">Upset</th>
         ${rangeHeaders}
       </tr></thead>
       <tbody>${rows.join('')}</tbody>

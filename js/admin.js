@@ -1810,11 +1810,10 @@ const ROLE_COLORS = {
       }
     }
     const lv = id => document.getElementById(id);
-    if (lv('cfg-ladder-attend-pts'))   lv('cfg-ladder-attend-pts').value   = c.ladderAttendPts   ?? 2;
-    if (lv('cfg-ladder-play-pts'))     lv('cfg-ladder-play-pts').value     = c.ladderPlayPts     ?? 1;
-    if (lv('cfg-ladder-win-upset-pts')) lv('cfg-ladder-win-upset-pts').value = c.ladderWinUpsetPts ?? 3;
-    [1,2,3,4].forEach(i => {
-      const dfMin = [1,4,7,0][i-1], dfMax = [3,6,99,0][i-1], dfPts = [2,1,0,0][i-1];
+    if (lv('cfg-ladder-attend-pts')) lv('cfg-ladder-attend-pts').value = c.ladderAttendPts ?? 2;
+    if (lv('cfg-ladder-play-pts'))   lv('cfg-ladder-play-pts').value   = c.ladderPlayPts   ?? 1;
+    [1,2,3,4,5,6].forEach(i => {
+      const dfMin = [-99, 0, 4, 7, 0, 0][i-1], dfMax = [-1, 3, 6, 99, 0, 0][i-1], dfPts = [3, 2, 1, 0, 0, 0][i-1];
       if (lv(`cfg-ladder-range${i}-min`)) lv(`cfg-ladder-range${i}-min`).value = c[`ladderRange${i}Min`] ?? dfMin;
       if (lv(`cfg-ladder-range${i}-max`)) lv(`cfg-ladder-range${i}-max`).value = c[`ladderRange${i}Max`] ?? dfMax;
       if (lv(`cfg-ladder-range${i}-pts`)) lv(`cfg-ladder-range${i}-pts`).value = c[`ladderRange${i}Pts`] ?? dfPts;
@@ -1908,10 +1907,23 @@ const ROLE_COLORS = {
     const photoSrc = state._tierDisablePhotos ? generateInitialAvatar('', 32) : playerPhotoSrc(p.name, p.photo || '', 32);
 
     const statusBadge = p.active === 'pend'
-      ? '<span class="status-badge" style="font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(255,165,0,0.18); color:#f0a500; white-space:nowrap;">Pending</span>'
+      ? '<span class="status-badge" style="font-size:0.68rem; padding:1px 7px; border-radius:8px; background:rgba(255,165,0,0.18); color:#f0a500; white-space:nowrap;">Pending</span>'
       : p.active === false
-        ? '<span class="status-badge" style="font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(255,80,80,0.15); color:var(--danger); white-space:nowrap;">Inactive</span>'
+        ? '<span class="status-badge" style="font-size:0.68rem; padding:1px 7px; border-radius:8px; background:rgba(255,80,80,0.15); color:var(--danger); white-space:nowrap;">Inactive</span>'
         : '<span class="status-badge" style="display:none;"></span>';
+
+    const groupLabel = { M: 'Male', F: 'Female', Either: 'Either' }[p.group] || (p.group || '');
+    const groupChip  = groupLabel
+      ? `<span class="summary-chip-group" style="font-size:0.68rem; padding:1px 7px; border-radius:8px; background:rgba(255,255,255,0.07); color:var(--muted); white-space:nowrap;">${groupLabel}</span>`
+      : '';
+    const rankChipHtml = p.initialRank
+      ? `<span class="summary-chip-rank" style="font-size:0.68rem; padding:1px 7px; border-radius:8px; background:rgba(255,255,255,0.07); color:var(--muted); white-space:nowrap;">#${p.initialRank}</span>`
+      : `<span class="summary-chip-rank" style="display:none;"></span>`;
+    const scoreChip  = !state._tierDisableScoring
+      ? (p.canScore
+          ? `<span class="summary-chip-score" style="font-size:0.68rem; padding:1px 7px; border-radius:8px; background:rgba(94,194,106,0.15); color:var(--green); white-space:nowrap;">✓ Score</span>`
+          : `<span class="summary-chip-score" style="font-size:0.68rem; padding:1px 7px; border-radius:8px; background:rgba(255,255,255,0.05); color:var(--muted); white-space:nowrap;">No Score</span>`)
+      : '';
 
     const displayName = p.name
       ? esc(p.name)
@@ -1923,14 +1935,16 @@ const ROLE_COLORS = {
     row.style.cssText = 'margin-bottom:4px; border:1px solid rgba(255,255,255,0.08); border-radius:8px; background:rgba(255,255,255,0.02);';
 
     row.innerHTML = `
-      <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; user-select:none;">
+      <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:8px; user-select:none;">
         <button class="btn btn-outline btn-photo" data-photo-idx="${i}" title="Add/change photo"
           style="padding:0; width:32px; height:32px; border-radius:50%; overflow:hidden; border:2px solid var(--border); flex-shrink:0;${state._tierDisablePhotos ? 'visibility:hidden;' : ''}">
           <img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover;" alt="photo">
         </button>
-        <span class="player-accordion-name" style="font-weight:600; font-size:0.9rem; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${displayName}</span>
-        ${statusBadge}
-        <span style="font-size:0.7rem; color:var(--muted); flex-shrink:0; margin-left:4px;">▼</span>
+        <span class="player-accordion-name" style="font-weight:600; font-size:0.9rem; min-width:80px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${displayName}</span>
+        <div style="display:flex; align-items:center; gap:4px; flex:1; flex-wrap:wrap;">
+          ${groupChip}${rankChipHtml}${scoreChip}${statusBadge}
+        </div>
+        <span style="font-size:0.7rem; color:var(--muted); flex-shrink:0;">▼</span>
       </summary>
       <div style="padding:14px 16px; border-top:1px solid rgba(255,255,255,0.06); display:grid; grid-template-columns:1fr 1fr; gap:12px;">
         <div style="grid-column:1/-1;">
@@ -2079,21 +2093,44 @@ const ROLE_COLORS = {
         }
         if (field === 'initialRank') val = val ? parseInt(val) : null;
         state.players[idx][field] = val;
-        // Sync status badge when active changes
-        if (field === 'active') {
-          const accordion = el.closest('.player-accordion');
-          if (accordion) {
+        // Sync summary chips when relevant fields change
+        const accordion = el.closest('.player-accordion');
+        if (accordion) {
+          if (field === 'active') {
             const badge = accordion.querySelector('summary .status-badge');
             if (badge) {
               if (val === 'pend') {
                 badge.textContent = 'Pending';
-                badge.style.cssText = 'font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(255,165,0,0.18); color:#f0a500; white-space:nowrap;';
+                badge.style.cssText = 'font-size:0.68rem; padding:1px 7px; border-radius:8px; background:rgba(255,165,0,0.18); color:#f0a500; white-space:nowrap;';
               } else if (val === false) {
                 badge.textContent = 'Inactive';
-                badge.style.cssText = 'font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(255,80,80,0.15); color:var(--danger); white-space:nowrap;';
+                badge.style.cssText = 'font-size:0.68rem; padding:1px 7px; border-radius:8px; background:rgba(255,80,80,0.15); color:var(--danger); white-space:nowrap;';
               } else {
                 badge.textContent = '';
                 badge.style.cssText = 'display:none;';
+              }
+            }
+          }
+          if (field === 'group') {
+            const chip = accordion.querySelector('summary .summary-chip-group');
+            if (chip) chip.textContent = { M: 'Male', F: 'Female', Either: 'Either' }[val] || val;
+          }
+          if (field === 'initialRank') {
+            const chip = accordion.querySelector('summary .summary-chip-rank');
+            if (chip) {
+              if (val) { chip.textContent = '#' + val; chip.style.display = ''; }
+              else     { chip.textContent = ''; chip.style.display = 'none'; }
+            }
+          }
+          if (field === 'canScore') {
+            const chip = accordion.querySelector('summary .summary-chip-score');
+            if (chip) {
+              if (val) {
+                chip.textContent = '✓ Score';
+                chip.style.cssText = 'font-size:0.68rem; padding:1px 7px; border-radius:8px; background:rgba(94,194,106,0.15); color:var(--green); white-space:nowrap;';
+              } else {
+                chip.textContent = 'No Score';
+                chip.style.cssText = 'font-size:0.68rem; padding:1px 7px; border-radius:8px; background:rgba(255,255,255,0.05); color:var(--muted); white-space:nowrap;';
               }
             }
           }
@@ -2491,6 +2528,29 @@ function doPost(e) {
       ? [...existing, ...state.pendingPairings.filter(p => !existing.find(e => e.round === p.round && e.court === p.court))]
       : (state.pendingPairings || existing);
 
+    // Always rebuild the round-scope dropdown and clear button — must happen even
+    // when there are no pairings so that switching sessions / scope updates the text.
+    const scopeSel = document.getElementById('round-scope');
+    if (scopeSel) {
+      const cur         = scopeSel.value;
+      const totalRounds = parseInt(state.config.gamesPerSession || 7);
+      const lockedRounds = [...new Set(existing.map(p => parseInt(p.round)))].sort((a,b) => a - b);
+      scopeSel.innerHTML = '<option value="all">All rounds</option><option value="remaining">All remaining rounds</option>';
+      for (let r = 1; r <= totalRounds; r++) {
+        const opt = document.createElement('option');
+        opt.value = String(r);
+        const locked = lockedRounds.includes(r) ? ' \u2713' : '';
+        opt.textContent = `Round ${r}${locked}`;
+        scopeSel.appendChild(opt);
+      }
+      if ([...scopeSel.options].some(o => o.value === cur)) scopeSel.value = cur;
+      updateClearBtn(scopeSel.value, week, totalRounds, lockedRounds);
+      if (!scopeSel._genBtnListenerAdded) {
+        scopeSel.addEventListener('change', () => renderPairingsPreview());
+        scopeSel._genBtnListenerAdded = true;
+      }
+    }
+
     if (!toShow.length) {
       document.getElementById('pairings-preview').innerHTML =
         '<div class="card"><p class="text-muted" style="font-size:0.88rem;">No pairings generated yet for this session.</p></div>';
@@ -2542,30 +2602,7 @@ function doPost(e) {
     const unsavedWarn = document.getElementById('pairings-unsaved-warning');
     if (unsavedWarn) unsavedWarn.style.display = state.pendingPairings ? 'flex' : 'none';
 
-    // Populate round-scope dropdown with locked rounds + individual options
-    const scopeSel = document.getElementById('round-scope');
-    if (scopeSel) {
-      const cur = scopeSel.value;
-      const totalRounds = parseInt(state.config.gamesPerSession || 7);
-      const lockedRounds = [...new Set(existing.map(p => parseInt(p.round)))].sort((a,b)=>a-b);
-      scopeSel.innerHTML = '<option value="all">All rounds</option><option value="remaining">All remaining rounds</option>';
-      for (let r = 1; r <= totalRounds; r++) {
-        const opt = document.createElement('option');
-        opt.value = String(r);
-        const locked = lockedRounds.includes(r) ? ' \u2713' : '';
-        opt.textContent = `Round ${r}${locked}`;
-        scopeSel.appendChild(opt);
-      }
-      // Restore selection if still valid
-      if ([...scopeSel.options].some(o => o.value === cur)) scopeSel.value = cur;
-      // Update clear button text to match scope
-      updateClearBtn(scopeSel.value, week, totalRounds, lockedRounds);
-      // Update generate and clear button text when scope changes
-      if (!scopeSel._genBtnListenerAdded) {
-        scopeSel.addEventListener('change', () => renderPairingsPreview());
-        scopeSel._genBtnListenerAdded = true;
-      }
-    }
+    // (round-scope dropdown rebuild and clear-button update now happen unconditionally above)
 
     renderGenerateRoster();
     renderArrangeGames();
@@ -3201,7 +3238,7 @@ function doPost(e) {
         const diffStr  = rankDiff !== null ? (rankDiff > 0 ? '+' : '') + rankDiff.toFixed(1) : '—';
         const diffColor = rankDiff === null ? 'var(--muted)' : rankDiff < 0 ? 'var(--green)' : rankDiff > 0 ? 'var(--danger)' : 'var(--muted)';
 
-        html += `<div style="background:var(--card-bg); border-radius:7px; padding:6px 10px; margin-bottom:4px;"
+        html += `<div style="background:var(--card-bg); border-radius:7px; padding:6px 10px; margin-bottom:4px; position:relative;"
             data-week="${week}" data-round="${game.round}" data-court="${game.court}">
           <div style="display:grid; grid-template-columns:auto 1fr auto 1fr; align-items:center; gap:6px;">
             <div style="font-size:0.7rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); padding-right:4px; white-space:nowrap;">${courtName(game.court, week)}</div>
@@ -3231,12 +3268,11 @@ function doPost(e) {
             <div style="text-align:center;" title="Rank difference (Team 1 avg rank − Team 2 avg rank). Negative = Team 1 ranked higher. U = upset." style="color:${diffColor}; cursor:help;"><span style="color:${diffColor};">Rnk&thinsp;Δ&thinsp;${diffStr}${isUpset ? '&thinsp;<strong style="color:var(--gold);">U</strong>' : ''}</span></div>
             <div title="Team 2 average rank">${t2Avg !== null ? '#' + t2Avg.toFixed(1) : ''}</div>
           </div>` : ''}
-          ${canDeletePairings && !entered ? `<div style="text-align:right; margin-top:4px;">
-            <button class="btn-delete-game" tabindex="-1" data-week="${week}" data-round="${game.round}" data-court="${game.court}"
-              style="font-size:0.7rem; color:var(--danger); background:none; border:1px solid var(--danger);
-                     border-radius:4px; padding:1px 7px; cursor:pointer; opacity:0.6;"
-              title="Delete this game">Delete game</button>
-          </div>` : ''}
+          ${canDeletePairings && !entered ? `<button class="btn-delete-game" tabindex="-1" data-week="${week}" data-round="${game.round}" data-court="${game.court}"
+              style="position:absolute; top:5px; right:8px; font-size:0.7rem; color:var(--danger);
+                     background:none; border:1px solid var(--danger); border-radius:4px;
+                     padding:1px 7px; cursor:pointer; opacity:0.6;"
+              title="Delete this game">Delete game</button>` : ''}
         </div>`;
       });
 
@@ -4733,46 +4769,68 @@ function doPost(e) {
   function renderLadderStandingsTable(standings, config, compact = false) {
     if (!standings || !standings.length) return '<p class="text-muted">No standings data yet.</p>';
     const cfg = config || {};
-    const ranges = [1, 2, 3, 4].map(i => ({
-      min: parseFloat(cfg[`ladderRange${i}Min`]) || 0,
-      max: parseFloat(cfg[`ladderRange${i}Max`]) || 0,
-      pts: parseFloat(cfg[`ladderRange${i}Pts`]) || 0,
+    const fmt = v => { const n = parseFloat(v) || 0; return n % 1 === 0 ? n.toFixed(0) : n.toFixed(1); };
+    const attendPts = parseFloat(cfg.ladderAttendPts) || 0;
+    const playPts   = parseFloat(cfg.ladderPlayPts)   || 0;
+    const ranges = [1, 2, 3, 4, 5, 6].map(i => ({
+      min: parseFloat(cfg[`ladderRange${i}Min`] ?? 0),
+      max: parseFloat(cfg[`ladderRange${i}Max`] ?? 0),
+      pts: parseFloat(cfg[`ladderRange${i}Pts`] ?? 0),
     }));
-    // Only show range columns that are active (max > 0)
-    const activeRanges = ranges.map((r, i) => ({ ...r, idx: i })).filter(r => r.max > 0);
+    // A range is active when max > min (also handles negative ranges)
+    const activeRanges = ranges.map((r, i) => ({ ...r, idx: i })).filter(r => r.max > r.min);
 
     const ladderPhotoMap = {};
     if (!state._tierDisablePhotos) state.players.forEach(p => { if (p.photo) ladderPhotoMap[p.name] = p.photo; });
 
+    // ── Points legend ─────────────────────────────────────────
+    const legendRows = [];
+    if (attendPts) legendRows.push(`<tr><td>Attend a session</td><td style="text-align:right; font-weight:600; color:var(--gold);">${fmt(attendPts)} pt${attendPts !== 1 ? 's' : ''}</td></tr>`);
+    if (playPts)   legendRows.push(`<tr><td>Play any game</td><td style="text-align:right; font-weight:600; color:var(--gold);">${fmt(playPts)} pt${playPts !== 1 ? 's' : ''}</td></tr>`);
+    activeRanges.forEach((r, ci) => {
+      const isUpset   = r.max < 0;
+      const isFavored = r.min >= 0;
+      const typeLabel = isUpset ? 'Upset win' : isFavored ? 'Favored win' : 'Win';
+      legendRows.push(`<tr><td><strong>R${r.idx + 1}:</strong> ${typeLabel} <span style="color:var(--muted); font-size:0.78rem;">(rank adv ${r.min} to ${r.max})</span></td><td style="text-align:right; font-weight:600; color:var(--gold);">${fmt(r.pts)} pt${r.pts !== 1 ? 's' : ''}</td></tr>`);
+    });
+    const legendHtml = legendRows.length ? `
+      <div style="margin-bottom:14px; display:inline-block; min-width:260px;">
+        <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); margin-bottom:6px;">Points Legend</div>
+        <table style="font-size:0.82rem; border-collapse:collapse; width:100%;">
+          <tbody>${legendRows.join('')}</tbody>
+        </table>
+      </div>` : '';
+
     const rows = standings.map((s, i) => {
       const top = i < 3 ? 'top' : '';
-      let rangeCols = activeRanges.map((r, ci) =>
-        `<td style="text-align:center;">${s.rangePts[r.idx].toFixed(s.rangePts[r.idx] % 1 === 0 ? 0 : 1)}</td>`
+      let rangeCols = activeRanges.map(r =>
+        `<td style="text-align:center;">${fmt(s.rangePts[r.idx])}</td>`
       ).join('');
       const avatar = state._tierDisablePhotos ? '' : `<img src="${playerPhotoSrc(s.name, ladderPhotoMap[s.name], 24)}"
         style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;flex-shrink:0;">`;
       return `<tr>
         <td class="rank-cell ${top}">${s.rank}</td>
         <td class="player-name" style="white-space:nowrap;">${avatar}${esc(s.name)}</td>
-        <td style="text-align:center; font-weight:600; color:var(--gold);">${s.totalPts.toFixed(s.totalPts % 1 === 0 ? 0 : 1)}</td>
-        <td style="text-align:center;">${s.attendPts.toFixed(s.attendPts % 1 === 0 ? 0 : 1)}</td>
-        <td style="text-align:center;">${s.playPts.toFixed(s.playPts % 1 === 0 ? 0 : 1)}</td>
-        <td style="text-align:center;">${s.upsetWinPts.toFixed(s.upsetWinPts % 1 === 0 ? 0 : 1)}</td>
+        <td style="text-align:center; font-weight:600; color:var(--gold);">${fmt(s.totalPts)}</td>
+        <td style="text-align:center;">${fmt(s.attendPts)}</td>
+        <td style="text-align:center;">${fmt(s.playPts)}</td>
         ${rangeCols}
       </tr>`;
     });
 
-    const rangeHeaders = activeRanges.map(r =>
-      `<th title="Favored-win range: rank advantage ${r.min}–${r.max} → ${r.pts} pts each" style="cursor:help; text-align:center;">R${r.idx+1}</th>`
-    ).join('');
+    const rangeHeaders = activeRanges.map(r => {
+      const isUpset   = r.max < 0;
+      const isFavored = r.min >= 0;
+      const typeLabel = isUpset ? 'Upset' : isFavored ? 'Favored' : 'Win';
+      return `<th title="${typeLabel} win: rank advantage ${r.min} to ${r.max} → ${fmt(r.pts)} pts each" style="cursor:help; text-align:center;">R${r.idx+1}</th>`;
+    }).join('');
 
-    return `<table class="compact-table">
+    return `${legendHtml}<table class="compact-table">
       <thead><tr>
         <th>#</th><th>Player</th>
         <th style="text-align:center;" title="Total ladder points">Total</th>
         <th style="text-align:center;" title="Points for attending sessions">Attend</th>
         <th style="text-align:center;" title="Points for playing games">Play</th>
-        <th style="text-align:center;" title="Points for upset wins (team ranked worse than opponents)">Upset</th>
         ${rangeHeaders}
       </tr></thead>
       <tbody>${rows.join('')}</tbody>
@@ -5796,7 +5854,6 @@ function doPost(e) {
         standingsMethod: document.getElementById('cfg-standings-method')?.value || 'standard',
         ladderAttendPts:    parseFloat(document.getElementById('cfg-ladder-attend-pts')?.value)    || 0,
         ladderPlayPts:      parseFloat(document.getElementById('cfg-ladder-play-pts')?.value)      || 0,
-        ladderWinUpsetPts:  parseFloat(document.getElementById('cfg-ladder-win-upset-pts')?.value) || 0,
         ladderRange1Min:    parseFloat(document.getElementById('cfg-ladder-range1-min')?.value)    || 0,
         ladderRange1Max:    parseFloat(document.getElementById('cfg-ladder-range1-max')?.value)    || 0,
         ladderRange1Pts:    parseFloat(document.getElementById('cfg-ladder-range1-pts')?.value)    || 0,
@@ -5809,6 +5866,12 @@ function doPost(e) {
         ladderRange4Min:    parseFloat(document.getElementById('cfg-ladder-range4-min')?.value)    || 0,
         ladderRange4Max:    parseFloat(document.getElementById('cfg-ladder-range4-max')?.value)    || 0,
         ladderRange4Pts:    parseFloat(document.getElementById('cfg-ladder-range4-pts')?.value)    || 0,
+        ladderRange5Min:    parseFloat(document.getElementById('cfg-ladder-range5-min')?.value)    || 0,
+        ladderRange5Max:    parseFloat(document.getElementById('cfg-ladder-range5-max')?.value)    || 0,
+        ladderRange5Pts:    parseFloat(document.getElementById('cfg-ladder-range5-pts')?.value)    || 0,
+        ladderRange6Min:    parseFloat(document.getElementById('cfg-ladder-range6-min')?.value)    || 0,
+        ladderRange6Max:    parseFloat(document.getElementById('cfg-ladder-range6-max')?.value)    || 0,
+        ladderRange6Pts:    parseFloat(document.getElementById('cfg-ladder-range6-pts')?.value)    || 0,
         minParticipation: document.getElementById('cfg-min-participation').value !== '' ? parseFloat(document.getElementById('cfg-min-participation').value) : null,
         wSessionPartner:  parseFloat(document.getElementById('cfg-w-session-partner').value),
         wSessionOpponent: parseFloat(document.getElementById('cfg-w-session-opponent').value),
@@ -5846,6 +5909,17 @@ function doPost(e) {
           }
         }
       }
+      // Validate ladder range min/max
+      for (let ri = 1; ri <= 6; ri++) {
+        const mn = config[`ladderRange${ri}Min`];
+        const mx = config[`ladderRange${ri}Max`];
+        if (mn === 0 && mx === 0) continue; // disabled row
+        if (mx <= mn) {
+          toast(`Win Range ${ri}: Max (${mx}) must be greater than Min (${mn}).`, 'warn');
+          return;
+        }
+      }
+
       // Enforce registry limits on config save
       const cfgCourts  = parseInt(config.courts)  || 0;
       const cfgWeeks   = parseInt(config.weeks)   || 0;
@@ -6008,6 +6082,17 @@ function doPost(e) {
         }
       }
 
+      // Build active range descriptors for the email standings table
+      const emailActiveRanges = isLadder
+        ? [1,2,3,4,5,6].map(i => ({
+            idx: i - 1,
+            label: `R${i}`,
+            min: parseFloat(c[`ladderRange${i}Min`]) || 0,
+            max: parseFloat(c[`ladderRange${i}Max`]) || 0,
+            pts: parseFloat(c[`ladderRange${i}Pts`]) || 0,
+          })).filter(r => r.max > r.min)
+        : [];
+
       const leagueInfo = {
         leagueName:  incName     ? (c.leagueName  || '') : '',
         location:    incLocation ? (c.location    || '') : '',
@@ -6015,6 +6100,7 @@ function doPost(e) {
         rules:       incRules    ? (c.rules       || '') : '',
         leagueUrl:   incUrl      ? (c.leagueUrl || '') : '',
         isLadder,
+        ladderRanges: emailActiveRanges,
         players:     incPlayers  ? state.players.filter(p => p.active === true)
                                     .map(p => ({ name: p.name, fullName: p.fullName || '' })) : [],
         standings:   emailStandings,
@@ -6522,6 +6608,28 @@ function doPost(e) {
           );
         });
 
+        // Assign remaining fillPool players to the courts that had no pre-arranged players.
+        // Sort by rank so the snake-draft below produces balanced matchups.
+        if (fillPool.length >= ppc && courtNum < courts) {
+          fillPool.sort((a, b) => (rankLookup[a] || 500) - (rankLookup[b] || 500));
+          while (fillPool.length >= ppc && courtNum < courts) {
+            const group = fillPool.splice(0, ppc);
+            courtNum++;
+            if (ppc === 2) {
+              // Singles: best vs next-best
+              round1.push({ round: startRound, court: courtNum, p1: group[0], p2: null, p3: group[1], p4: null, type: 'game' });
+            } else {
+              // Doubles snake-draft: [0,3] vs [1,2] balances rank when sorted ascending
+              round1.push({ round: startRound, court: courtNum, p1: group[0], p2: group[3], p3: group[1], p4: group[2], type: 'game' });
+            }
+          }
+          // Any players who didn't fit into a full court get byes for this round
+          fillPool.forEach(name => {
+            round1.push({ round: startRound, court: 0, p1: name, p2: null, p3: null, p4: null, type: 'bye' });
+          });
+          fillPool = [];
+        }
+
         if (round1.length > 0) {
           lockedThisWeek = [...lockedThisWeek, ...round1]; // treat as locked history for optimizer
           arrangeRound1WithWeek = round1.map(p => ({ ...p, week }));
@@ -6571,9 +6679,22 @@ function doPost(e) {
       const priorWeeks   = [...new Set(pastPairings.map(p => parseInt(p.week)))].sort((a,b)=>a-b);
       const historyStats = { games: pastGames.length, sessions: priorWeeks.length };
 
+      // In ladder-league mode use ladder-point rankings so the rank-balance /
+      // rank-std-dev weights group similarly-skilled players together correctly.
+      // state.standings is always win%-based and would give the wrong rank order.
+      let optimizerStandings = state.standings;
+      if ((state.config.standingsMethod || 'standard') === 'ladder') {
+        const initRankMap = {};
+        state.standings.forEach(s => { if (s.rank && s.rank !== '-') initRankMap[s.name] = parseInt(s.rank); });
+        state.players.forEach(p => { if (initRankMap[p.name] == null && p.initialRank) initRankMap[p.name] = p.initialRank; });
+        optimizerStandings = Reports.computeLadderStandings(
+          state.scores, state.players, state.pairings, null, state.attendance, state.config, initRankMap
+        );
+      }
+
       const workerParams = {
         presentPlayers, courts, rounds, pastPairings, tries, weights,
-        standings: state.standings, gameMode, playerGroups,
+        standings: optimizerStandings, gameMode, playerGroups,
         startRound, sessionHistory: lockedThisWeek, players: state.players,
         useLocalImprove, swapPasses, useInitialRank, verbose,
       };

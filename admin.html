@@ -268,13 +268,10 @@
                 <label class="form-label">Play any game</label>
                 <input class="form-control" id="cfg-ladder-play-pts" type="number" min="0" step="0.5" style="width:80px;">
               </div>
-              <div class="form-group" style="min-width:200px;">
-                <label class="form-label">Upset win <span style="color:var(--muted); font-weight:400; font-size:0.76rem;">(your rank worse than opp)</span></label>
-                <input class="form-control" id="cfg-ladder-win-upset-pts" type="number" min="0" step="0.5" style="width:80px;">
-              </div>
             </div>
             <div style="font-size:0.78rem; color:var(--muted); margin-bottom:10px;">
-              Favored-win ranges — points when your team's avg rank is better than opponents' by the given margin:
+              Win ranges — points awarded based on rank advantage when you win
+              <span style="color:var(--muted); font-size:0.72rem;">(rank adv = opponents' avg rank − your avg rank; <strong style="color:var(--white);">negative = upset win</strong>, positive = favored win)</span>:
             </div>
             <div style="display:grid; grid-template-columns: 70px 70px 16px 70px 16px 70px; gap:6px 8px; align-items:center; font-size:0.82rem; margin-bottom:6px;">
               <span style="color:var(--muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">Label</span>
@@ -284,32 +281,44 @@
               <span></span>
               <span style="color:var(--muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">Pts</span>
               <span style="font-size:0.82rem; color:var(--muted);">Range 1</span>
-              <input class="form-control" id="cfg-ladder-range1-min" type="number" min="0" step="1" style="width:70px;">
+              <input class="form-control" id="cfg-ladder-range1-min" type="number" step="1" style="width:70px;">
               <span style="text-align:center; color:var(--muted);">–</span>
-              <input class="form-control" id="cfg-ladder-range1-max" type="number" min="0" step="1" style="width:70px;">
+              <input class="form-control" id="cfg-ladder-range1-max" type="number" step="1" style="width:70px;">
               <span style="text-align:center; color:var(--muted);">→</span>
-              <input class="form-control" id="cfg-ladder-range1-pts" type="number" min="0" step="0.5" style="width:70px;">
+              <input class="form-control" id="cfg-ladder-range1-pts" type="number" step="0.5" style="width:70px;">
               <span style="font-size:0.82rem; color:var(--muted);">Range 2</span>
-              <input class="form-control" id="cfg-ladder-range2-min" type="number" min="0" step="1" style="width:70px;">
+              <input class="form-control" id="cfg-ladder-range2-min" type="number" step="1" style="width:70px;">
               <span style="text-align:center; color:var(--muted);">–</span>
-              <input class="form-control" id="cfg-ladder-range2-max" type="number" min="0" step="1" style="width:70px;">
+              <input class="form-control" id="cfg-ladder-range2-max" type="number" step="1" style="width:70px;">
               <span style="text-align:center; color:var(--muted);">→</span>
-              <input class="form-control" id="cfg-ladder-range2-pts" type="number" min="0" step="0.5" style="width:70px;">
+              <input class="form-control" id="cfg-ladder-range2-pts" type="number" step="0.5" style="width:70px;">
               <span style="font-size:0.82rem; color:var(--muted);">Range 3</span>
-              <input class="form-control" id="cfg-ladder-range3-min" type="number" min="0" step="1" style="width:70px;">
+              <input class="form-control" id="cfg-ladder-range3-min" type="number" step="1" style="width:70px;">
               <span style="text-align:center; color:var(--muted);">–</span>
-              <input class="form-control" id="cfg-ladder-range3-max" type="number" min="0" step="1" style="width:70px;">
+              <input class="form-control" id="cfg-ladder-range3-max" type="number" step="1" style="width:70px;">
               <span style="text-align:center; color:var(--muted);">→</span>
-              <input class="form-control" id="cfg-ladder-range3-pts" type="number" min="0" step="0.5" style="width:70px;">
+              <input class="form-control" id="cfg-ladder-range3-pts" type="number" step="0.5" style="width:70px;">
               <span style="font-size:0.82rem; color:var(--muted);">Range 4</span>
-              <input class="form-control" id="cfg-ladder-range4-min" type="number" min="0" step="1" style="width:70px;">
+              <input class="form-control" id="cfg-ladder-range4-min" type="number" step="1" style="width:70px;">
               <span style="text-align:center; color:var(--muted);">–</span>
-              <input class="form-control" id="cfg-ladder-range4-max" type="number" min="0" step="1" style="width:70px;">
+              <input class="form-control" id="cfg-ladder-range4-max" type="number" step="1" style="width:70px;">
               <span style="text-align:center; color:var(--muted);">→</span>
-              <input class="form-control" id="cfg-ladder-range4-pts" type="number" min="0" step="0.5" style="width:70px;">
+              <input class="form-control" id="cfg-ladder-range4-pts" type="number" step="0.5" style="width:70px;">
+              <span style="font-size:0.82rem; color:var(--muted);">Range 5</span>
+              <input class="form-control" id="cfg-ladder-range5-min" type="number" step="1" style="width:70px;">
+              <span style="text-align:center; color:var(--muted);">–</span>
+              <input class="form-control" id="cfg-ladder-range5-max" type="number" step="1" style="width:70px;">
+              <span style="text-align:center; color:var(--muted);">→</span>
+              <input class="form-control" id="cfg-ladder-range5-pts" type="number" step="0.5" style="width:70px;">
+              <span style="font-size:0.82rem; color:var(--muted);">Range 6</span>
+              <input class="form-control" id="cfg-ladder-range6-min" type="number" step="1" style="width:70px;">
+              <span style="text-align:center; color:var(--muted);">–</span>
+              <input class="form-control" id="cfg-ladder-range6-max" type="number" step="1" style="width:70px;">
+              <span style="text-align:center; color:var(--muted);">→</span>
+              <input class="form-control" id="cfg-ladder-range6-pts" type="number" step="0.5" style="width:70px;">
             </div>
             <div style="font-size:0.72rem; color:var(--muted); margin-top:8px;">
-              Rank margin = (opponents' avg rank − your avg rank). Set Range max to 0 to disable that row.
+              Max must be greater than Min. Leave both at 0 to disable a range row.
             </div>
           </div>
 

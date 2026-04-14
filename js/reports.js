@@ -421,8 +421,7 @@ const Reports = (() => {
     const cfg          = config || {};
     const attendPts    = parseFloat(cfg.ladderAttendPts)    || 0;
     const playPts      = parseFloat(cfg.ladderPlayPts)      || 0;
-    const upsetWinPts  = parseFloat(cfg.ladderWinUpsetPts)  || 0;
-    const ranges = [1, 2, 3, 4].map(i => ({
+    const ranges = [1, 2, 3, 4, 5, 6].map(i => ({
       min: parseFloat(cfg[`ladderRange${i}Min`]) || 0,
       max: parseFloat(cfg[`ladderRange${i}Max`]) || 0,
       pts: parseFloat(cfg[`ladderRange${i}Pts`]) || 0,
@@ -439,7 +438,7 @@ const Reports = (() => {
       stats[p.name] = {
         name: p.name,
         sessionsAttended: 0, gamesPlayed: 0,
-        upsetWins: 0, rangeWins: [0, 0, 0, 0],
+        rangeWins: [0, 0, 0, 0, 0, 0],
       };
     });
 
@@ -485,19 +484,14 @@ const Reports = (() => {
         if (!won) return;
         if (myAvg == null || oppAvg == null) return; // no rank data — skip category
 
-        const advantage = oppAvg - myAvg; // positive = I'm better ranked (stronger)
+        const advantage = oppAvg - myAvg; // positive = I'm better ranked (stronger); negative = upset win
         team.forEach(name => {
           if (!stats[name]) return;
-          if (advantage < 0) {
-            // Upset: I was the underdog
-            stats[name].upsetWins++;
-          } else {
-            // Favored win — find first matching range
-            for (let i = 0; i < 4; i++) {
-              if (ranges[i].max > 0 && advantage >= ranges[i].min && advantage <= ranges[i].max) {
-                stats[name].rangeWins[i]++;
-                break;
-              }
+          // Unified range matching — ranges can have negative min/max (negative = upset win)
+          for (let i = 0; i < 4; i++) {
+            if (ranges[i].max > ranges[i].min && advantage >= ranges[i].min && advantage <= ranges[i].max) {
+              stats[name].rangeWins[i]++;
+              break;
             }
           }
         });
@@ -508,10 +502,9 @@ const Reports = (() => {
     const list = Object.values(stats).map(s => {
       const rAttend   = s.sessionsAttended * attendPts;
       const rPlay     = s.gamesPlayed      * playPts;
-      const rUpset    = s.upsetWins        * upsetWinPts;
       const rRange    = s.rangeWins.map((w, i) => w * ranges[i].pts);
-      const totalPts  = rAttend + rPlay + rUpset + rRange.reduce((a, b) => a + b, 0);
-      return { ...s, attendPts: rAttend, playPts: rPlay, upsetWinPts: rUpset, rangePts: rRange, totalPts };
+      const totalPts  = rAttend + rPlay + rRange.reduce((a, b) => a + b, 0);
+      return { ...s, attendPts: rAttend, playPts: rPlay, rangePts: rRange, totalPts };
     });
 
     list.sort((a, b) => b.totalPts - a.totalPts || b.gamesPlayed - a.gamesPlayed);
