@@ -12,6 +12,9 @@
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
   <title>Admin — Pickleball League</title>
   <link rel="stylesheet" href="css/style.css">
+<style>
+  @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+</style>
 </head>
 <body class="court-bg">
 
@@ -55,6 +58,7 @@
         <div class="nav-item active" data-page="dashboard"><span class="icon">📊</span> Dashboard</div>
         <div class="nav-item" data-page="setup"><span class="icon">⚙️</span> Setup</div>
         <div class="nav-item" data-page="messaging"><span class="icon">📧</span> Messaging</div>
+        <div class="nav-item" id="nav-admin-chat" data-page="chat"><span class="icon">💬</span> Chat</div>
         <div class="nav-item" data-page="players"><span class="icon">👥</span> Players</div>
         <div class="nav-item" data-page="leagues"><span class="icon">🌐</span> All Leagues</div>
       </div>
@@ -91,7 +95,7 @@
           <button class="btn btn-secondary" id="btn-refresh-dashboard" style="padding:5px 12px; font-size:0.78rem;">🔄 Refresh</button>
         </div>
         <div id="dash-info"></div>
-        <div class="card-grid" id="dash-stats"></div>
+        <div id="dash-stats"></div>
         <div id="dash-config"></div>
         <div id="dash-rules"></div>
         <details id="dash-standings-details" style="margin-top:10px;">
@@ -312,6 +316,33 @@
           <div id="cfg-dates-area"></div>
           <div id="cfg-court-names-area"></div>
           <button class="btn btn-primary mt-2" id="btn-save-config">Save Configuration</button>
+        </div>
+
+        <!-- League Coordinator card -->
+        <div class="card mt-2" id="coordinator-card">
+          <div class="card-header"><div class="card-title">👤 League Coordinator</div></div>
+          <div style="font-size:0.82rem; color:var(--muted); margin-bottom:12px;">
+            Shown on players' dashboards so they know who to contact. Coordinator name is also shown as sender in chat.
+          </div>
+          <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+              <button id="btn-coordinator-photo" title="Click to set coordinator photo"
+                style="width:72px; height:72px; border-radius:50%; border:2px solid var(--border);
+                       background:rgba(255,255,255,0.04); overflow:hidden; cursor:pointer; padding:0; flex-shrink:0;">
+                <img id="coordinator-photo-preview" src="" alt="Coordinator"
+                  style="width:100%; height:100%; object-fit:cover; display:block;">
+              </button>
+              <span style="font-size:0.68rem; color:var(--muted);">Click to change</span>
+            </div>
+            <input type="file" id="coordinator-photo-input" accept="image/*" style="display:none;">
+            <div class="form-group" style="flex:1; min-width:180px; margin:0;">
+              <label class="form-label">Coordinator Name</label>
+              <input class="form-control" id="cfg-coordinator-name" placeholder="e.g. Jane Smith" style="max-width:260px;">
+              <div style="font-size:0.72rem; color:var(--muted); margin-top:4px;">
+                Name saves with the main Save button above. Photo saves immediately on change.
+              </div>
+            </div>
+          </div>
         </div>
 
       </section>
@@ -655,21 +686,7 @@
           <strong>Fixed Pairs mode:</strong> Each "player" entry represents a permanent doubles team. Enter the team name as both player names joined together (e.g. <em>Doug&amp;Kim</em>). The team competes as a single unit — pairings, standings, and scores all track the team name.
         </div>
         <div class="card">
-          <div style="overflow-x:auto;">
-          <div style="display:grid; grid-template-columns:minmax(120px,1fr) 68px 90px minmax(140px,180px) 44px 44px 54px 90px 72px 34px; gap:6px; padding:0 4px 8px; border-bottom:1px solid rgba(255,255,255,0.06); min-width:760px;">
-            <span class="label">Name</span>
-            <span class="label">Password</span>
-            <span class="label" title="Gender group — only used for Mixed Doubles mode to balance partnerships. Has no effect in other game modes.">Group</span>
-            <span class="label">Email</span>
-            <span class="label" title="Email notifications">Ntfy</span>
-            <span class="label" title="Can enter scores" id="col-can-score">Scr</span>
-            <span class="label" title="Initial ranking used before season standings are established">Rank&#x2070;</span>
-            <span class="label" title="Player: view only&#10;Scorer: can enter scores&#10;Assistant: generate pairings &amp; enter scores, no settings&#10;Admin: full league control (logs in via admin password)&#10;Spectator: view only, never in pairings&#10;Sub: plays in pairings but excluded from standings">Role</span>
-            <span class="label">Status</span>
-            <span></span>
-          </div>
-          <div id="player-list" style="min-width:680px;"></div>
-          </div><!-- end overflow-x:auto -->
+          <div id="player-list"></div>
           <button class="btn btn-primary mt-2" id="btn-save-players">Save Players</button>
         </div>
       </section>
@@ -678,6 +695,15 @@
       <section id="page-attendance" class="tab-panel">
         <div class="page-header"><h2>Attendance</h2></div>
         <div class="card">
+          <div class="mb-2" style="display:flex; align-items:center; gap:8px;">
+            <label for="att-sort" style="font-size:0.85rem; color:var(--muted); white-space:nowrap;">Sort by:</label>
+            <select id="att-sort" class="form-control" style="width:auto;">
+              <option value="alpha">Alphabetical</option>
+              <option value="initial-rank">Initial Rank</option>
+              <option value="season-rank">Season Rank</option>
+              <option value="gender">Gender (M / F / E)</option>
+            </select>
+          </div>
           <div id="attendance-grid"></div>
           <div class="mt-2 text-muted" style="font-size:0.8rem;">Click to cycle: TBD → <span style="color:var(--green);">In</span> → <span style="color:var(--danger);">Out</span>. Spectator-role members never appear in pairings.</div>
           <div class="mt-2" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
@@ -922,10 +948,11 @@
           <div class="form-row" style="align-items:flex-end; gap:12px;">
             <div class="form-group">
               <label class="form-label">Format</label>
-              <select class="form-control" id="tourn-mode" style="width:220px;">
+              <select class="form-control" id="tourn-mode" style="width:260px;">
                 <option value="single">Single Elimination</option>
                 <option value="double">Double Elimination</option>
-                <option value="rr">Round Robin (reseeded each round)</option>
+                <option value="rr">Round Robin Doubles (reseeded)</option>
+                <option value="rr-singles">Round Robin Singles (reseeded)</option>
               </select>
             </div>
             <div class="form-group" style="margin-top:20px;">
@@ -1093,6 +1120,7 @@
           <button class="tab-btn" data-tab="trend">Ranking Trend</button>
         </div>
         <div id="standings-season" class="tab-panel active">
+          <div id="season-podium"></div>
           <div class="card">
             <div class="card-header"><div class="card-title">Season Standings</div></div>
             <div class="table-wrap" id="standings-season-table"></div>
@@ -1214,9 +1242,19 @@
       <section id="page-head-to-head" class="tab-panel">
         <div class="page-header">
           <h2>Head-to-Head</h2>
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size:0.8rem; color:var(--muted);">Session:</span>
-            <select class="form-control" id="h2h-week-select" style="width:120px; font-size:0.82rem; padding:4px 8px;"></select>
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:0.8rem; color:var(--muted);">Session:</span>
+              <select class="form-control" id="h2h-week-select" style="width:120px; font-size:0.82rem; padding:4px 8px;"></select>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:0.8rem; color:var(--muted);">Sort:</span>
+              <select class="form-control" id="h2h-sort-select" style="width:150px; font-size:0.82rem; padding:4px 8px;">
+                <option value="alpha">Alphabetical</option>
+                <option value="initial-rank">Initial Rank</option>
+                <option value="overall-rank">Overall Rank</option>
+              </select>
+            </div>
           </div>
         </div>
         <div class="tabs" id="h2h-tabs">
@@ -1224,6 +1262,35 @@
           <button class="tab-btn" data-h2h="opponents">Opponents</button>
         </div>
         <div id="h2h-content"></div>
+      </section>
+
+      <!-- ═══ CHAT ═══ -->
+      <section id="page-chat" class="tab-panel">
+        <div class="page-header">
+          <h2>Chat</h2>
+        </div>
+        <div class="card" style="display:flex; flex-direction:column;">
+          <div id="admin-chat-messages"
+               style="min-height:240px; max-height:460px; overflow-y:auto; padding:4px 0;"></div>
+          <div style="border-top:1px solid var(--border); padding:10px 0 2px; flex-shrink:0;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+              <span style="font-size:0.8rem; color:var(--muted); white-space:nowrap;">To:</span>
+              <select id="admin-chat-recipient" class="form-control"
+                style="max-width:200px; font-size:0.82rem; padding:4px 8px;"></select>
+              <span id="admin-chat-char-count"
+                style="font-size:0.75rem; color:var(--muted); margin-left:auto; white-space:nowrap;">160</span>
+            </div>
+            <div style="display:flex; gap:8px; align-items:flex-end;">
+              <textarea id="admin-chat-input" class="form-control" maxlength="160" rows="2"
+                placeholder="Type a message…"
+                style="flex:1; resize:none; font-size:0.88rem; padding:6px 10px;"></textarea>
+              <button id="btn-admin-chat-send" class="btn btn-primary"
+                style="padding:8px 16px; white-space:nowrap;">Send</button>
+            </div>
+            <div id="admin-chat-send-status"
+              style="font-size:0.75rem; color:var(--danger); margin-top:4px; min-height:14px;"></div>
+          </div>
+        </div>
       </section>
 
       <!-- ═══ TIMERS ═══ -->
@@ -1495,7 +1562,7 @@
   }, true);
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="js/settings.js?v=1.4.7"></script>
+<script src="js/settings.js?v=1.4.17"></script>
   <!-- Google Analytics — loads only if GA_MEASUREMENT_ID is set in settings.js -->
   <script>
     window.__gaReady = false;
@@ -1517,15 +1584,15 @@
       window.__gaReady = true;
     });
   </script>
-<script src="js/api.js?v=1.4.7"></script>
-<script src="js/push.js?v=1.4.7"></script>
-<script src="js/auth.js?v=1.4.7"></script>
-<script src="js/pairings.js?v=1.4.7"></script>
-<script src="js/reports.js?v=1.4.7"></script>
-<script src="js/tournament.js?v=1.4.7"></script>
-<script src="js/changelog.js?v=1.4.7"></script>
-<script src="js/timers.js?v=1.4.7"></script>
-<script src="js/admin.js?v=1.4.7"></script>
+<script src="js/api.js?v=1.4.17"></script>
+<script src="js/push.js?v=1.4.17"></script>
+<script src="js/auth.js?v=1.4.17"></script>
+<script src="js/pairings.js?v=1.4.17"></script>
+<script src="js/reports.js?v=1.4.17"></script>
+<script src="js/tournament.js?v=1.4.17"></script>
+<script src="js/changelog.js?v=1.4.17"></script>
+<script src="js/timers.js?v=1.4.17"></script>
+<script src="js/admin.js?v=1.4.17"></script>
 <script>
 (function() {
   const toggle   = document.getElementById('nav-toggle');

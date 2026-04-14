@@ -121,6 +121,14 @@
         <div style="font-size:0.72rem; color:var(--muted); margin-top:4px;">Must be unique in the league. Doesn't have to be your full name.</div>
       </div>
       <div class="form-group">
+        <label class="form-label">Full Name <span style="color:var(--muted); font-weight:400;">(optional)</span></label>
+        <input class="form-control" id="reg-fullname" placeholder="First Last" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cell Phone <span style="color:var(--muted); font-weight:400;">(optional)</span></label>
+        <input class="form-control" id="reg-phone" type="tel" placeholder="e.g. 555-123-4567" autocomplete="tel">
+      </div>
+      <div class="form-group">
         <label class="form-label">Email <span style="color:var(--muted); font-weight:400;">(optional)</span></label>
         <input class="form-control" id="reg-email" type="email" placeholder="email@example.com" autocomplete="email">
         <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.82rem; margin-top:8px;">
@@ -338,7 +346,7 @@
 
 <div id="toast-container"></div>
 
-<script src="js/settings.js?v=1.4.7"></script>
+<script src="js/settings.js?v=1.4.17"></script>
   <!-- Google Analytics — loads only if GA_MEASUREMENT_ID is set in settings.js -->
   <script>
     window.__gaReady = false;
@@ -360,8 +368,8 @@
       window.__gaReady = true;
     });
   </script>
-<script src="js/api.js?v=1.4.7"></script>
-<script src="js/auth.js?v=1.4.7"></script>
+<script src="js/api.js?v=1.4.17"></script>
+<script src="js/auth.js?v=1.4.17"></script>
 <script>
 (async function init() {
   // If already logged in with a valid league, redirect
@@ -655,7 +663,7 @@
     document.getElementById('reg-league-name').textContent =
       selectedLeague ? selectedLeague.name : '';
     document.getElementById('reg-error').style.display = 'none';
-    ['reg-code','reg-name','reg-email','reg-pin','reg-pin2'].forEach(id => {
+    ['reg-code','reg-name','reg-fullname','reg-phone','reg-email','reg-pin','reg-pin2'].forEach(id => {
       document.getElementById(id).value = '';
     });
     document.getElementById('reg-notify').checked = false;
@@ -667,14 +675,16 @@
   document.getElementById('btn-reg-back').addEventListener('click', () => goTo('step-player'));
 
   document.getElementById('btn-reg-submit').addEventListener('click', async () => {
-    const code  = document.getElementById('reg-code').value.trim();
-    const name  = document.getElementById('reg-name').value.trim();
-    const email = document.getElementById('reg-email').value.trim();
-    const group = document.getElementById('reg-group').value;
-    const notify = document.getElementById('reg-notify').checked;
-    const role  = document.querySelector('input[name="reg-role"]:checked')?.value || 'player';
-    const pin   = document.getElementById('reg-pin').value.trim();
-    const pin2  = document.getElementById('reg-pin2').value.trim();
+    const code     = document.getElementById('reg-code').value.trim();
+    const name     = document.getElementById('reg-name').value.trim();
+    const fullName = document.getElementById('reg-fullname').value.trim();
+    const phone    = document.getElementById('reg-phone').value.trim();
+    const email    = document.getElementById('reg-email').value.trim();
+    const group    = document.getElementById('reg-group').value;
+    const notify   = document.getElementById('reg-notify').checked;
+    const role     = document.querySelector('input[name="reg-role"]:checked')?.value || 'player';
+    const pin      = document.getElementById('reg-pin').value.trim();
+    const pin2     = document.getElementById('reg-pin2').value.trim();
     const errEl = document.getElementById('reg-error');
 
     errEl.style.display = 'none';
@@ -691,7 +701,7 @@
     try {
       // Temporarily store leagueId for the API call without creating a real session
       sessionStorage.setItem('pb_reg_league', selectedLeague.leagueId);
-      const result = await API.registerPlayer({ playerName: name, email, group, notify, pin, inviteCode: code, role, leagueId: selectedLeague.leagueId });
+      const result = await API.registerPlayer({ playerName: name, fullName, phone, email, group, notify, pin, inviteCode: code, role, leagueId: selectedLeague.leagueId });
       sessionStorage.removeItem('pb_reg_league');
       if (result.success) {
         // Show success message in place of form

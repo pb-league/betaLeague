@@ -18,8 +18,8 @@
 // const GAS_URL = 'https://script.google.com/macros/s/AKfycbzudYO4IDqCJt92kR4gu6dVJyGN5LoKtxpD3RYR1pNHepxU_liEdpogjCnE8mWTOXqU/exec';
 
 // App version — bump when deploying changes
-const APP_VERSION    = '1.4.7';
-const APP_BUILD_DATE = '2026-04-09';
+const APP_VERSION    = '1.4.17';
+const APP_BUILD_DATE = '2026-04-14';
 
 const TIERS = [
 {
@@ -41,7 +41,8 @@ const TIERS = [
       'pairingEditor',
       'finalRoundAnalysis',
       'arrangeGames',
-      'challenges'
+      'challenges',
+      'playerPhotos'
     ],
 
   },
@@ -55,13 +56,14 @@ const TIERS = [
       'queuePairings',
       'tournamentPairings',
       'headToHead',
-     'playerReport',
-     'playerRegistration',
-     'playerAttendance',
-     'playerScoring',
-     'finalRoundAnalysis',
-     'arrangeGames',
-     'challenges'
+      'playerReport',
+      'playerRegistration',
+      'playerAttendance',
+      'playerScoring',
+      'finalRoundAnalysis',
+      'arrangeGames',
+      'challenges',
+      'playerPhotos'
     ],
   },
   {

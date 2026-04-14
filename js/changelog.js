@@ -6,6 +6,26 @@
 
 const CHANGELOG = [
 {
+  version: '1.4.17',
+  date: '2026-04-14',
+  changes: [
+    'Replace flat player table with collapsible accordion list',
+    'Add Full Name and Cell Phone fields to player info (admin) and self-registration form',
+    'H2H page: add Sort dropdown — alphabetical, initial rank, or overall rank (ladder-aware)',
+    'add Ladder League support',
+    'add player Avatars',
+    'add player chat',
+    'add queue-based pairing for open-play style league',
+    'add ability for admin to setup certain pairs or matches before generate fills in rest',
+    'in ladder-leagues allow players to issue challenges to other players',
+    'improve tournament pairing to support mixed-doubles',
+    'add singles tournament with reseeding option',
+    'allow attendance sheet to be sorted by gender or rank'
+]
+  },
+
+
+  {
     version: '1.4.6',
     date: '2026-04-05',
     changes: [

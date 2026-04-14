@@ -12,6 +12,113 @@ function gaPage(pageName) {
 }
 
 // ============================================================
+// Photo / avatar utilities (shared by player and admin pages)
+// ============================================================
+
+function resizeImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const MAX = 200;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+          else        { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        // Return base64 string only (no data-URL prefix)
+        resolve(canvas.toDataURL('image/jpeg', 0.75).split(',')[1]);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function generateInitialAvatar(name, size) {
+  size = size || 40;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const palette = ['#c84c4c','#c87c38','#9a8c28','#3a9e50','#2e8eb4','#4060c0','#8044b8','#b04488'];
+  let hash = 0;
+  for (let i = 0; i < (name || '').length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0x7fffffff;
+  ctx.fillStyle = palette[hash % palette.length];
+  const r = size / 2;
+  ctx.beginPath(); ctx.arc(r, r, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.font = `bold ${Math.round(size * 0.46)}px sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(((name || '?')[0]).toUpperCase(), r, r + Math.round(size * 0.03));
+  return canvas.toDataURL('image/png');
+}
+
+function playerPhotoSrc(name, photo, size) {
+  if (photo) return 'data:image/jpeg;base64,' + photo;
+  return generateInitialAvatar(name, size || 40);
+}
+
+// Returns true if the given feature is enabled for the supplied tier string.
+// tier comes from state.limits?.tier; feature is a key from TIERS disableList.
+function tierAllows(tier, feature) {
+  if (!tier || typeof TIERS === 'undefined') return true;
+  const def = TIERS.find(t => t.version.toLowerCase() === tier.toLowerCase());
+  if (!def) return true;
+  return !(def.disableList || []).includes(feature);
+}
+
+// Builds the podium HTML for the top-3 season finishers.
+// topThree  — array of standings objects sorted by rank (index 0 = 1st place)
+// photoMap  — { name: base64photoString }
+// photosOn  — boolean, whether photo avatars are enabled for this tier
+// seasonComplete — boolean, whether the season is over (affects title label)
+function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
+  if (!topThree || topThree.length < 3) return '';
+  const _esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Visual order: 2nd (left), 1st (centre/tallest), 3rd (right)
+  const slots = [
+    { s: topThree[1], label: '🥈 2nd', height: 68,  grad: 'rgba(192,192,192,0.25)', border: 'rgba(192,192,192,0.5)' },
+    { s: topThree[0], label: '🥇 1st', height: 96,  grad: 'rgba(245,200,66,0.25)',  border: 'rgba(245,200,66,0.6)'  },
+    { s: topThree[2], label: '🥉 3rd', height: 48,  grad: 'rgba(205,127,50,0.25)',  border: 'rgba(205,127,50,0.5)'  },
+  ];
+
+  const slotHtml = slots.map(({ s, label, height, grad, border }) => {
+    const photo = photosOn ? (photoMap[s.name] || '') : '';
+    const avatarHtml = photosOn
+      ? `<img src="${playerPhotoSrc(s.name, photo, 60)}"
+           style="width:60px;height:60px;border-radius:50%;object-fit:cover;
+                  border:2px solid ${border};margin-bottom:5px;flex-shrink:0;">`
+      : '';
+    const nameHtml = `<div style="font-size:0.76rem;font-weight:600;color:var(--white);
+        text-align:center;margin-bottom:5px;max-width:86px;
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(s.name)}</div>`;
+    const blockHtml = `<div style="width:86px;height:${height}px;
+        background:${grad};border:1px solid ${border};
+        border-radius:6px 6px 0 0;display:flex;align-items:center;
+        justify-content:center;font-size:0.82rem;font-weight:700;color:var(--white);">${label}</div>`;
+    return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;">
+      ${avatarHtml}${nameHtml}${blockHtml}
+    </div>`;
+  }).join('');
+
+  const title = seasonComplete ? '🏆 Season Champions' : 'Season Leaders';
+  return `<div style="text-align:center;padding-bottom:4px;margin-bottom:8px;">
+    <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;
+        color:var(--muted);margin-bottom:2px;">${title}</div>
+    <div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;padding-top:12px;">
+      ${slotHtml}
+    </div>
+  </div>`;
+}
+
+// ============================================================
 // player.js — Player dashboard logic
 // ============================================================
 
@@ -49,7 +156,10 @@ function gaPage(pageName) {
     dataLoaded: false,        // true after phase 2 pairings/scores are loaded
     saveLocks: {},            // per-week save queue to prevent concurrent writes
     _scoreEntryLoading: false, // nav fetch in flight — block external re-renders
-    _scoreEntryTouched: false  // user has typed in score entry — block external re-renders
+    _scoreEntryTouched: false, // user has typed in score entry — block external re-renders
+    chatMessages: [],         // all visible chat messages, newest last
+    chatLastId: 0,            // highest message id seen — used for incremental polling
+    chatPollTimer: null,      // setInterval handle for background chat polling
   };
 
   // ── Phase 1: Fast load — config, players, attendance ────────
@@ -97,6 +207,7 @@ function gaPage(pageName) {
       state.pairings  = data.pairings  || [];
       state.scores    = data.scores    || [];
       state.standings = data.standings || [];
+      if (data.limits) state.limits = data.limits;
       state.loadedSinceWeek = sinceWeek;
 
       // Update current week pointers to latest available
@@ -140,6 +251,14 @@ function gaPage(pageName) {
       populateWeekSelect('wstand-select', 'currentWstandWeek');
       if (canScore) populateWeekSelect('player-score-week-select', 'currentScoreEntryWeek');
 
+      // ── Chat initialization ───────────────────────────────
+      if (tierAllows(state.limits?.tier, 'messaging')) {
+        const navChat = document.getElementById('nav-chat');
+        if (navChat) navChat.classList.remove('hidden');
+        pollChatMessages(); // initial background fetch (don't await — non-blocking)
+        startChatPolling(false); // 25-second badge-update poll
+      }
+
       // ── New pairings indicator ──────────────────────────────
       // Show a pulsing dot on "My Games" nav if the latest pairing week
       // is newer than what this player last acknowledged.
@@ -166,6 +285,182 @@ function gaPage(pageName) {
       toast('Background data load failed: ' + e.message, 'error');
     }
   })();
+
+  // ── Chat ─────────────────────────────────────────────────────
+
+  function chatTimeAgo(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const s = Math.floor((Date.now() - d) / 1000);
+    if (s < 60)    return 'just now';
+    if (s < 3600)  return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function chatSeenKey() {
+    return `chat_seen_${session.leagueId || ''}_${playerName}`;
+  }
+  function chatGetLastSeen() { return parseInt(localStorage.getItem(chatSeenKey()) || '0'); }
+  function chatSetLastSeen(id) { if (id > chatGetLastSeen()) localStorage.setItem(chatSeenKey(), String(id)); }
+
+  function updateChatBadge() {
+    const badge = document.getElementById('chat-nav-badge');
+    if (!badge) return;
+    const lastSeen = chatGetLastSeen();
+    const hasUnread = state.chatMessages.some(m => m.recipient === playerName && m.id > lastSeen);
+    badge.classList.toggle('visible', hasUnread);
+  }
+
+  function buildChatMsgHTML(m) {
+    const isMe        = m.sender === playerName;
+    const isPrivToMe  = m.recipient === playerName;
+    const isPrivFromMe = isMe && m.recipient !== '';
+    const photosOn    = tierAllows(state.limits?.tier, 'playerPhotos');
+    const coordName   = state.config.coordinatorName || '';
+    const senderIsCoord = coordName && m.sender === coordName;
+    const senderPl    = state.players.find(p => p.name === m.sender) || {};
+    const senderPhoto = senderIsCoord ? (state.config.coordinatorPhoto || '') : (senderPl.photo || '');
+    const avatarHtml  = photosOn
+      ? `<img src="${playerPhotoSrc(m.sender, senderPhoto, 28)}"
+           style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;margin-top:1px;">`
+      : `<div style="width:28px;height:28px;border-radius:50%;background:var(--border);
+           flex-shrink:0;display:flex;align-items:center;justify-content:center;
+           font-size:0.72rem;font-weight:700;color:var(--muted);">${esc((m.sender||'?')[0].toUpperCase())}</div>`;
+
+    const recipLabel = isPrivFromMe
+      ? ` <span style="color:var(--muted);">→</span> <span style="color:var(--gold);">${esc(m.recipient)}</span>` : '';
+    const privateBadge = (m.recipient !== '')
+      ? `<span style="font-size:0.65rem;padding:1px 5px;background:rgba(245,200,66,0.18);
+           color:var(--gold);border-radius:3px;margin-left:5px;border:1px solid rgba(245,200,66,0.3);">🔒 private</span>` : '';
+    const rowBg = isPrivToMe
+      ? 'background:rgba(245,200,66,0.07);border-left:2px solid rgba(245,200,66,0.35);padding-left:8px;'
+      : isPrivFromMe
+      ? 'background:rgba(255,255,255,0.03);border-left:2px solid rgba(255,255,255,0.08);padding-left:8px;'
+      : '';
+
+    return `<div class="chat-msg" data-id="${m.id}"
+        style="display:flex;gap:8px;padding:5px 8px;border-radius:6px;margin-bottom:3px;${rowBg}">
+      <div style="flex-shrink:0;">${avatarHtml}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:0.72rem;margin-bottom:2px;display:flex;align-items:baseline;flex-wrap:wrap;gap:2px;">
+          <span style="font-weight:600;color:${isMe ? 'var(--green)' : 'var(--white)'};">${esc(m.sender)}</span>
+          ${recipLabel}${privateBadge}
+          <span style="margin-left:auto;font-size:0.66rem;color:var(--muted);white-space:nowrap;">${chatTimeAgo(m.timestamp)}</span>
+        </div>
+        <div style="font-size:0.87rem;word-break:break-word;">${esc(m.message)}</div>
+      </div>
+    </div>`;
+  }
+
+  function renderChatMessages() {
+    const c = document.getElementById('chat-messages');
+    if (!c) return;
+    if (!state.chatMessages.length) {
+      c.innerHTML = `<div style="text-align:center;padding:40px 16px;color:var(--muted);font-size:0.85rem;">
+        No messages yet. Start the conversation! 👋</div>`;
+      return;
+    }
+    const atBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 60;
+    c.innerHTML = state.chatMessages.map(buildChatMsgHTML).join('');
+    if (atBottom || !c._hasScrolled) { c.scrollTop = c.scrollHeight; c._hasScrolled = true; }
+  }
+
+  function appendChatMsgs(newMsgs) {
+    const c = document.getElementById('chat-messages');
+    if (!c || !newMsgs.length) return;
+    const atBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 60;
+    if (!c.querySelector('.chat-msg')) { renderChatMessages(); return; }
+    newMsgs.forEach(m => {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = buildChatMsgHTML(m);
+      c.appendChild(tmp.firstChild);
+    });
+    if (atBottom) { c.scrollTop = c.scrollHeight; }
+    c._hasScrolled = true;
+  }
+
+  function renderChat() {
+    const sel = document.getElementById('chat-recipient');
+    if (sel) {
+      const active = state.players.filter(p =>
+        p.active !== false && p.active !== 'false' && p.name !== playerName
+      );
+      // Add coordinator as a private-message target if a name is configured
+      const coordName = state.config.coordinatorName || '';
+      // Only add coordinator if they're not already a player in the list
+      const coordIsPlayer = coordName && active.some(p => p.name === coordName);
+      const coordOption = coordName && !coordIsPlayer
+        ? `<option value="${esc(coordName)}">${esc(coordName)} (Coordinator)</option>` : '';
+      sel.innerHTML = `<option value="">Everyone</option>${coordOption}` +
+        active.map(p => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
+    }
+    renderChatMessages();
+    // Mark all visible messages as seen
+    if (state.chatMessages.length) {
+      chatSetLastSeen(Math.max(...state.chatMessages.map(m => m.id)));
+      updateChatBadge();
+    }
+    // Wire input / send button once
+    const input   = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('btn-chat-send');
+    const counter = document.getElementById('chat-char-count');
+    const status  = document.getElementById('chat-send-status');
+    if (input && !input._chatWired) {
+      input._chatWired = true;
+      input.addEventListener('input', () => {
+        const rem = 160 - input.value.length;
+        if (counter) { counter.textContent = rem; counter.style.color = rem < 20 ? 'var(--danger)' : 'var(--muted)'; }
+      });
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendBtn?.click(); }
+      });
+    }
+    if (sendBtn && !sendBtn._chatWired) {
+      sendBtn._chatWired = true;
+      sendBtn.addEventListener('click', async () => {
+        const msg = input?.value.trim() || '';
+        if (!msg) return;
+        const recipient = document.getElementById('chat-recipient')?.value || '';
+        sendBtn.disabled = true; sendBtn.textContent = '…';
+        if (status) status.textContent = '';
+        try {
+          const res = await API.postChatMessage(playerName, recipient, msg);
+          if (res.success) {
+            if (input) { input.value = ''; }
+            if (counter) { counter.textContent = '160'; counter.style.color = 'var(--muted)'; }
+            await pollChatMessages();
+          } else if (status) { status.textContent = res.error || 'Failed to send'; }
+        } catch (err) {
+          if (status) status.textContent = 'Error: ' + err.message;
+        } finally { sendBtn.disabled = false; sendBtn.textContent = 'Send'; }
+      });
+    }
+  }
+
+  async function pollChatMessages() {
+    try {
+      const data = await API.getChatMessages(state.chatLastId, playerName);
+      if (!data.messages?.length) return;
+      const newMsgs = data.messages;
+      state.chatMessages.push(...newMsgs);
+      if (state.chatMessages.length > 200) state.chatMessages = state.chatMessages.slice(-200);
+      state.chatLastId = Math.max(...state.chatMessages.map(m => m.id));
+      updateChatBadge();
+      // If chat page is active, append and mark seen
+      if (document.getElementById('page-chat')?.classList.contains('active')) {
+        appendChatMsgs(newMsgs);
+        chatSetLastSeen(state.chatLastId);
+        updateChatBadge();
+      }
+    } catch (e) { /* polling errors are silent */ }
+  }
+
+  function startChatPolling(fast) {
+    if (state.chatPollTimer) clearInterval(state.chatPollTimer);
+    state.chatPollTimer = setInterval(pollChatMessages, fast ? 10000 : 25000);
+  }
 
   // ── Nav ────────────────────────────────────────────────────
   function setupNav() {
@@ -242,6 +537,14 @@ function gaPage(pageName) {
             if (data && data.attendance) state.attendance = data.attendance;
             renderFullAttendance();
           }).catch(() => renderFullAttendance());
+        }
+
+        // Chat page — render and switch to fast poll; leaving chat → slow poll
+        if (page === 'chat') {
+          renderChat();
+          startChatPolling(true);
+        } else if (state.chatPollTimer) {
+          startChatPolling(false);
         }
 
         // Clear new-pairings dot when player opens My Games
@@ -343,6 +646,14 @@ function gaPage(pageName) {
       const won = score && parseInt(myScore) > parseInt(oppScore);
       const date = formatDateTime(week, state.config) ? ' · ' + formatDateTime(week, state.config) : '';
 
+      const _photosOn = tierAllows(state.limits?.tier, 'playerPhotos');
+      const partnerAvatarLast = _photosOn ? `<img src="${playerPhotoSrc(partner, (state.players.find(p=>p.name===partner)||{}).photo, 28)}"
+        style="width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:5px;">` : '';
+      const oppAvatarsLast = opps.map(o => {
+        const av = _photosOn ? `<img src="${playerPhotoSrc(o, (state.players.find(p=>p.name===o)||{}).photo, 28)}"
+          style="width:28px;height:28px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:5px;">` : '';
+        return av + esc(o);
+      }).join(' <span style="color:var(--muted);">&amp;</span> ');
       if (typeof _updatePlayerTimerCourt === 'function') _updatePlayerTimerCourt(lastGame.court);
     if (typeof _startPlayerTimerPolling === 'function') _startPlayerTimerPolling();
     el.innerHTML = `<div class="card mt-1" style="border-left:3px solid ${won ? 'var(--green)' : 'var(--danger)'}; margin-bottom:12px;">
@@ -352,8 +663,8 @@ function gaPage(pageName) {
         </div>
         <div style="display:flex; gap:24px; flex-wrap:wrap; font-size:0.88rem;">
           <div><span class="label">Court</span><br><strong>${courtName(lastGame.court)}</strong></div>
-          <div><span class="label">Partner</span><br><strong style="color:var(--green);">${esc(partner)}</strong></div>
-          <div><span class="label">Opponents</span><br><strong>${opps.map(o => esc(o)).join(' &amp; ')}</strong></div>
+          <div><span class="label">Partner</span><br><strong style="color:var(--green);">${partnerAvatarLast}${esc(partner)}</strong></div>
+          <div><span class="label">Opponents</span><br><strong>${oppAvatarsLast}</strong></div>
         </div>
       </div>`;
       return;
@@ -366,6 +677,14 @@ function gaPage(pageName) {
       : [nextGame.p1, nextGame.p2].filter(Boolean);
     const date = formatDateTime(week, state.config) ? ' · ' + formatDateTime(week, state.config) : '';
 
+    const _photosOn2 = tierAllows(state.limits?.tier, 'playerPhotos');
+    const partnerAvatar = _photosOn2 ? `<img src="${playerPhotoSrc(partner, (state.players.find(p=>p.name===partner)||{}).photo, 32)}"
+      style="width:32px;height:32px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;">` : '';
+    const oppAvatars = opps.map(o => {
+      const av = _photosOn2 ? `<img src="${playerPhotoSrc(o, (state.players.find(p=>p.name===o)||{}).photo, 32)}"
+        style="width:32px;height:32px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;">` : '';
+      return av + esc(o);
+    }).join(' <span style="color:var(--muted);">&amp;</span> ');
     if (typeof _updatePlayerTimerCourt === 'function') _updatePlayerTimerCourt(nextGame.court);
     if (typeof _startPlayerTimerPolling === 'function') _startPlayerTimerPolling();
     el.innerHTML = `<div class="card mt-1" style="border-left:3px solid var(--gold); margin-bottom:12px;">
@@ -374,8 +693,8 @@ function gaPage(pageName) {
         <span class="badge badge-gold">${courtName(nextGame.court)}</span>
       </div>
       <div style="display:flex; gap:24px; flex-wrap:wrap; font-size:0.88rem;">
-        <div><span class="label">Partner</span><br><strong style="color:var(--green); font-size:1rem;">${esc(partner)}</strong></div>
-        <div><span class="label">Opponents</span><br><strong style="font-size:1rem;">${opps.map(o => esc(o)).join(' &amp; ')}</strong></div>
+        <div><span class="label">Partner</span><br><strong style="color:var(--green); font-size:1rem;">${partnerAvatar}${esc(partner)}</strong></div>
+        <div><span class="label">Opponents</span><br><strong style="font-size:1rem;">${oppAvatars}</strong></div>
       </div>
     </div>`;
   }
@@ -423,9 +742,32 @@ function gaPage(pageName) {
         </div>`;
       }
 
+      // League Coordinator card
+      const coordName  = c.coordinatorName || '';
+      const coordEmail = c.replyTo || '';
+      let coordHtml = '';
+      if (coordName || coordEmail) {
+        const photosOn  = tierAllows(state.limits?.tier, 'playerPhotos');
+        const photoSrc  = photosOn
+          ? playerPhotoSrc(coordName || 'Admin', c.coordinatorPhoto || '', 48)
+          : generateInitialAvatar(coordName || 'Admin', 48);
+        coordHtml = `<div style="display:flex; align-items:center; gap:12px; padding:10px 14px;
+            background:rgba(255,255,255,0.03); border-radius:8px;
+            border:1px solid rgba(255,255,255,0.08); margin-bottom:12px;">
+          <img src="${photoSrc}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="coordinator">
+          <div>
+            <div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.07em;
+                color:var(--muted);margin-bottom:3px;">League Coordinator</div>
+            ${coordName  ? `<div style="font-size:0.9rem;font-weight:600;color:var(--white);margin-bottom:2px;">${esc(coordName)}</div>` : ''}
+            ${coordEmail ? `<div style="font-size:0.8rem;"><a href="mailto:${esc(coordEmail)}"
+                style="color:var(--green);text-decoration:none;">${esc(coordEmail)}</a></div>` : ''}
+          </div>
+        </div>`;
+      }
+
       infoEl.innerHTML = (parts.length
         ? `<div style="display:flex; flex-wrap:wrap; gap:8px 20px; margin-bottom:12px; font-size:0.85rem; color:var(--muted);">${parts.join('')}</div>`
-        : '') + urlHtml;
+        : '') + coordHtml + urlHtml;
     }
 
     const rulesEl = document.getElementById('player-dash-rules');
@@ -655,7 +997,25 @@ function gaPage(pageName) {
     const el = document.getElementById('email-prefs');
     if (!el) return;
     const me = state.players.find(p => p.name === playerName) || {};
+    const photosEnabled = tierAllows(state.limits?.tier, 'playerPhotos');
+    const photoSrc = photosEnabled ? playerPhotoSrc(playerName, me.photo || '', 80) : '';
     el.innerHTML = `
+      ${photosEnabled ? `<div class="card mt-2">
+        <div class="card-header"><div class="card-title">Profile Photo</div></div>
+        <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
+          <img id="player-photo-preview" src="${photoSrc}"
+            style="width:72px; height:72px; border-radius:50%; object-fit:cover;
+                   border:2px solid var(--border); flex-shrink:0;">
+          <div>
+            <label class="btn btn-outline" style="cursor:pointer; font-size:0.85rem;">
+              📷 Change Photo
+              <input type="file" id="player-photo-input" accept="image/*" capture="environment"
+                style="display:none;">
+            </label>
+            <div id="photo-save-status" style="font-size:0.8rem; margin-top:6px;"></div>
+          </div>
+        </div>
+      </div>` : ''}
       <div class="card mt-2">
         <div class="card-header"><div class="card-title">Email Notifications</div></div>
         <p style="font-size:0.85rem; color:var(--muted); margin-bottom:14px;">
@@ -699,6 +1059,30 @@ function gaPage(pageName) {
         status.textContent = 'Save failed: ' + e.message;
         status.style.color = 'var(--danger)';
       } finally { btn.disabled = false; }
+    });
+
+    if (photosEnabled) document.getElementById('player-photo-input').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const status = document.getElementById('photo-save-status');
+      const preview = document.getElementById('player-photo-preview');
+      status.textContent = 'Saving…';
+      status.style.color = 'var(--muted)';
+      try {
+        const b64 = await resizeImageFile(file);
+        await API.savePlayerPhoto(playerName, b64);
+        // Update local state so re-renders use the new photo
+        state.players = state.players.map(pl =>
+          pl.name === playerName ? { ...pl, photo: b64 } : pl
+        );
+        preview.src = 'data:image/jpeg;base64,' + b64;
+        status.textContent = '✓ Photo saved';
+        status.style.color = 'var(--green)';
+      } catch (err) {
+        status.textContent = 'Failed: ' + err.message;
+        status.style.color = 'var(--danger)';
+      }
+      e.target.value = ''; // allow re-selecting same file
     });
   }
 
@@ -1280,13 +1664,35 @@ function gaPage(pageName) {
     };
 
     // Season tab
+    const photosOnStand = tierAllows(state.limits?.tier, 'playerPhotos');
+    const podiumPhotoMap = {};
+    if (photosOnStand) state.players.forEach(p => { if (p.photo) podiumPhotoMap[p.name] = p.photo; });
+    const podiumFullNameMap = {};
+    state.players.forEach(p => { if (p.fullName) podiumFullNameMap[p.name] = p.fullName; });
+
+    // Detect whether the final session is fully scored (season complete)
+    const seasonDone = (() => {
+      const totalWeeks = parseInt(state.config.weeks) || 0;
+      if (!totalWeeks) return false;
+      const lastGames = state.pairings.filter(p => parseInt(p.week) === totalWeeks && (p.type === 'game' || p.type === 'tourn-game'));
+      if (!lastGames.length) return false;
+      return lastGames.every(g => {
+        const sc = state.scores.find(s => parseInt(s.week) === totalWeeks && parseInt(s.round) === parseInt(g.round) && String(s.court) === String(g.court));
+        return sc && sc.score1 !== '' && sc.score1 !== null && sc.score2 !== '' && sc.score2 !== null;
+      });
+    })();
+
     if (isLadder) {
       const rankMap = buildRankMap();
       const season = Reports.computeLadderStandings(state.scores, state.players, state.pairings,
         null, state.attendance, state.config, rankMap);
+      const topThree = season.filter(s => s.totalPts !== undefined).slice(0, 3);
+      document.getElementById('season-podium').innerHTML = buildPodiumHTML(topThree, podiumPhotoMap, photosOnStand, seasonDone, podiumFullNameMap);
       document.getElementById('season-standings-table').innerHTML = renderLadderStandingsTable(season, playerName);
     } else {
       const season = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance, state.config.pairingMode);
+      const topThree = season.filter(s => s.games > 0).slice(0, 3);
+      document.getElementById('season-podium').innerHTML = buildPodiumHTML(topThree, podiumPhotoMap, photosOnStand, seasonDone, podiumFullNameMap);
       document.getElementById('season-standings-table').innerHTML = renderStandingsTable(season, playerName);
     }
 
@@ -1777,6 +2183,9 @@ function gaPage(pageName) {
     const minPct = state.config.minParticipation !== null && state.config.minParticipation !== undefined
       ? parseFloat(state.config.minParticipation) / 100 : 0.50;
     const hasParticipation = standings.some(s => s.participationPct !== null);
+    const _standPhotosOn = tierAllows(state.limits?.tier, 'playerPhotos');
+    const photoMap = {};
+    if (_standPhotosOn) state.players.forEach(p => { if (p.photo) photoMap[p.name] = p.photo; });
 
     // Build rank lookups for overall rank column and movement indicator
     const overallRankMap = {};
@@ -1835,9 +2244,11 @@ function gaPage(pageName) {
         }
       }
 
+      const avatar = _standPhotosOn ? `<img src="${playerPhotoSrc(s.name, photoMap[s.name], 24)}"
+        style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;flex-shrink:0;">` : '';
       return `<tr ${isMe ? 'style="background:rgba(94,194,106,0.08);"' : ''}>
         <td class="rank-cell ${top}">${s.rank}</td>
-        <td class="player-name" ${isMe ? 'style="color:var(--green);"' : ''}>${esc(s.name)}${isMe ? ' ◀' : ''}</td>
+        <td class="player-name" ${isMe ? 'style="color:var(--green);"' : ''} style="white-space:nowrap;">${avatar}${esc(s.name)}${isMe ? ' ◀' : ''}</td>
         <td>${s.wins}/${s.losses}</td>
         <td>${Reports.pct(s.winPct)}</td>
         ${secCol}
@@ -1872,6 +2283,10 @@ function gaPage(pageName) {
       idx: i - 1,
     })).filter(r => r.max > 0);
 
+    const _ladderPhotosOn = tierAllows(state.limits?.tier, 'playerPhotos');
+    const ladderPhotoMap = {};
+    if (_ladderPhotosOn) state.players.forEach(p => { if (p.photo) ladderPhotoMap[p.name] = p.photo; });
+
     const fmt = v => v.toFixed(v % 1 === 0 ? 0 : 1);
     const rows = standings.map((s, i) => {
       const isMe = s.name === highlightPlayer;
@@ -1879,9 +2294,11 @@ function gaPage(pageName) {
       const rangeCols = ranges.map(r =>
         `<td style="text-align:center;">${fmt(s.rangePts[r.idx])}</td>`
       ).join('');
+      const avatar = _ladderPhotosOn ? `<img src="${playerPhotoSrc(s.name, ladderPhotoMap[s.name], 24)}"
+        style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;flex-shrink:0;">` : '';
       return `<tr ${isMe ? 'style="background:rgba(94,194,106,0.08);"' : ''}>
         <td class="rank-cell ${top}">${s.rank}</td>
-        <td class="player-name" ${isMe ? 'style="color:var(--green);"' : ''}>${esc(s.name)}${isMe ? ' ◀' : ''}</td>
+        <td class="player-name" ${isMe ? 'style="color:var(--green);"' : ''} style="white-space:nowrap;">${avatar}${esc(s.name)}${isMe ? ' ◀' : ''}</td>
         <td style="text-align:center; font-weight:600; color:var(--gold);">${fmt(s.totalPts)}</td>
         <td style="text-align:center;">${fmt(s.attendPts)}</td>
         <td style="text-align:center;">${fmt(s.playPts)}</td>
@@ -2308,10 +2725,18 @@ function gaPage(pageName) {
         const cP1 = t1win ? fg.p1 : fg.p3, cP2 = t1win ? fg.p2 : fg.p4;
         const champName = cP2 ? `${esc(cP1)} &amp; ${esc(cP2)}` : esc(cP1);
         const isMe = highlightPlayer && [cP1, cP2].includes(highlightPlayer);
+        const photosOn = tierAllows(state.limits?.tier, 'playerPhotos');
+        const champAvatars = photosOn ? [cP1, cP2].filter(Boolean).map(name => {
+          const photo = state.players.find(p => p.name === name)?.photo || '';
+          return `<img src="${playerPhotoSrc(name, photo, 64)}"
+            style="width:64px;height:64px;border-radius:50%;object-fit:cover;
+                   border:2px solid rgba(245,200,66,0.6);">`;
+        }).join('') : '';
         html += `<div style="margin-top:16px; padding:14px 16px;
           background:linear-gradient(135deg, rgba(245,200,66,0.15), rgba(245,200,66,0.05));
           border:1px solid rgba(245,200,66,0.4); border-radius:10px; text-align:center;">
-          <div style="font-size:1.1rem; color:var(--gold); font-weight:700; margin-bottom:4px;">🏆 Tournament Champion</div>
+          <div style="font-size:1.1rem; color:var(--gold); font-weight:700; margin-bottom:${photosOn ? '10px' : '4px'};">🏆 Tournament Champion</div>
+          ${photosOn ? `<div style="display:flex;justify-content:center;gap:10px;margin-bottom:8px;">${champAvatars}</div>` : ''}
           <div style="font-size:1rem; color:${isMe ? 'var(--green)' : 'var(--white)'}; font-weight:700;">${champName}</div>
           <div style="font-size:0.78rem; color:var(--muted); margin-top:4px;">Final: ${fs.score1} – ${fs.score2}</div>
         </div>`;

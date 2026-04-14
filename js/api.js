@@ -86,6 +86,7 @@ const API = (() => {
     sendFeedback:     (payload)        => post({ action: 'sendFeedback', ...payload }),
     saveConfig:       (config)         => post({ action: 'saveConfig', config }),
     savePlayers:      (players)        => post({ action: 'savePlayers', players }),
+    savePlayerPhoto:  (playerName, photo) => post({ action: 'savePlayerPhoto', playerName, photo }),
     setAttendance:      (player, week, status) => post({ action: 'setAttendance', player, week, status }),
     batchSetAttendance: (changes)             => post({ action: 'batchSetAttendance', changes }),
     savePairings:     (week, pairings) => post({ action: 'savePairings', week, pairings }),
@@ -123,5 +124,9 @@ const API = (() => {
     submitChallenge:     (payload)                      => post({ action: 'submitChallenge', ...payload }),
     respondToChallenge:  (challengeId, playerName, response) => post({ action: 'respondToChallenge', challengeId, playerName, response }),
     deleteChallenge:     (challengeId, playerName)      => post({ action: 'deleteChallenge', challengeId, playerName }),
+
+    // Chat
+    getChatMessages: (sinceId, player) => get('getChatMessages', { sinceId: sinceId || 0, player: player || '' }),
+    postChatMessage: (sender, recipient, message) => post({ action: 'postChatMessage', sender, recipient: recipient || '', message }),
   };
 })();

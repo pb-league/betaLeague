@@ -11,6 +11,112 @@ function gaPage(pageName) {
   } catch(e) {}
 }
 
+// ── Photo / avatar utilities ──────────────────────────────────
+
+function resizeImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const MAX = 200;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+          else        { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.75).split(',')[1]);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function generateInitialAvatar(name, size) {
+  size = size || 40;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const palette = ['#c84c4c','#c87c38','#9a8c28','#3a9e50','#2e8eb4','#4060c0','#8044b8','#b04488'];
+  let hash = 0;
+  for (let i = 0; i < (name || '').length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0x7fffffff;
+  ctx.fillStyle = palette[hash % palette.length];
+  const r = size / 2;
+  ctx.beginPath(); ctx.arc(r, r, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.font = `bold ${Math.round(size * 0.46)}px sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(((name || '?')[0]).toUpperCase(), r, r + Math.round(size * 0.03));
+  return canvas.toDataURL('image/png');
+}
+
+function playerPhotoSrc(name, photo, size) {
+  if (photo) return 'data:image/jpeg;base64,' + photo;
+  return generateInitialAvatar(name, size || 40);
+}
+
+// Returns true if the given feature is enabled for the supplied tier string.
+function tierAllows(tier, feature) {
+  if (!tier || typeof TIERS === 'undefined') return true;
+  const def = TIERS.find(t => t.version.toLowerCase() === tier.toLowerCase());
+  if (!def) return true;
+  return !(def.disableList || []).includes(feature);
+}
+
+// Builds the podium HTML for the top-3 season finishers.
+// topThree    — array of standings objects sorted by rank (index 0 = 1st place)
+// photoMap    — { name: base64photoString }
+// photosOn    — boolean, whether photo avatars are enabled for this tier
+// seasonComplete — boolean, whether the season is over (affects title label)
+// fullNameMap — optional { handle: fullName } — shows full name when available
+function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete, fullNameMap) {
+  if (!topThree || topThree.length < 3) return '';
+  const _esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const _fnMap = fullNameMap || {};
+
+  // Visual order: 2nd (left), 1st (centre/tallest), 3rd (right)
+  const slots = [
+    { s: topThree[1], label: '🥈 2nd', height: 68,  grad: 'rgba(192,192,192,0.25)', border: 'rgba(192,192,192,0.5)' },
+    { s: topThree[0], label: '🥇 1st', height: 96,  grad: 'rgba(245,200,66,0.25)',  border: 'rgba(245,200,66,0.6)'  },
+    { s: topThree[2], label: '🥉 3rd', height: 48,  grad: 'rgba(205,127,50,0.25)',  border: 'rgba(205,127,50,0.5)'  },
+  ];
+
+  const slotHtml = slots.map(({ s, label, height, grad, border }) => {
+    const photo = photosOn ? (photoMap[s.name] || '') : '';
+    const avatarHtml = photosOn
+      ? `<img src="${playerPhotoSrc(s.name, photo, 60)}"
+           style="width:60px;height:60px;border-radius:50%;object-fit:cover;
+                  border:2px solid ${border};margin-bottom:5px;flex-shrink:0;">`
+      : '';
+    const displayName = _fnMap[s.name] || s.name;
+    const nameHtml = `<div style="font-size:0.76rem;font-weight:600;color:var(--white);
+        text-align:center;margin-bottom:5px;width:110px;
+        line-height:1.3;word-break:break-word;overflow-wrap:break-word;">${_esc(displayName)}</div>`;
+    const blockHtml = `<div style="width:110px;height:${height}px;
+        background:${grad};border:1px solid ${border};
+        border-radius:6px 6px 0 0;display:flex;align-items:center;
+        justify-content:center;font-size:0.82rem;font-weight:700;color:var(--white);">${label}</div>`;
+    return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;">
+      ${avatarHtml}${nameHtml}${blockHtml}
+    </div>`;
+  }).join('');
+
+  const title = seasonComplete ? '🏆 Season Champions' : 'Season Leaders';
+  return `<div style="text-align:center;padding-bottom:4px;margin-bottom:8px;">
+    <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;
+        color:var(--muted);margin-bottom:2px;">${title}</div>
+    <div style="display:flex;align-items:flex-end;justify-content:center;gap:6px;padding-top:12px;">
+      ${slotHtml}
+    </div>
+  </div>`;
+}
+
 // ── QR Code modal ────────────────────────────────────────────
 function showLeagueQR(event, url, leagueName) {
   event.preventDefault();
@@ -216,6 +322,9 @@ const ROLE_COLORS = {
     _arrangeSitOut: new Set(),  // players excluded from all rounds via the arrange grid sit-out zone
     _arrangeOpen: false,        // whether the arrange grid panel is expanded
     _arrangeGridWeek: null,     // week the grid was last initialized (resets on week change)
+    adminChatMessages: [],      // all visible chat messages, newest last
+    adminChatLastId: 0,         // highest message id seen — used for incremental polling
+    adminChatPollTimer: null,   // setInterval handle for background chat polling
   };
 
   // Helper: returns relay config from state.config for inclusion in email API calls.
@@ -311,20 +420,34 @@ const ROLE_COLORS = {
   if (standEl) standEl.innerHTML = spinnerHtml;
   if (progEl)  progEl.innerHTML  = spinnerHtml;
 
+  state._initialDataLoading = true;
+  // Show loading indicator on scoresheet immediately if it's visible
+  const scoresheetEl = document.getElementById('scoresheet');
+  if (scoresheetEl) {
+    scoresheetEl.innerHTML = '<div style="padding:24px; text-align:center; color:var(--muted); font-size:0.88rem;">⏳ Loading scores…</div>';
+    document.querySelectorAll('#page-scores .score-input').forEach(el => { el.disabled = true; });
+  }
+
   API.getAllData().then(data => {
     state.pairings  = data.pairings  || [];
     state.scores    = data.scores    || [];
     state.standings = data.standings || [];
     state._pairingsLoaded = true;
+    state._initialDataLoading = false;
     if (data.limits) state.limits = data.limits;
     renderDashboard();
     renderPairingsPreview();
-    if (!state._scoresheetLoading && !state._scoresheetTouched) renderScoresheet();
+    renderScoresheet();
     renderStandings();
     applyLimitRestrictions();
     applyTierRestrictions(state.limits?.tier);
     updatePairingModeUI();
     if (state.config.pairingMode === 'queue-based') loadQueueForWeek(state.currentPairWeek);
+    // Start background chat polling if messaging is available for this tier
+    if (tierAllows(state.limits?.tier, 'messaging')) {
+      pollAdminChatMessages();
+      startAdminChatPolling(false);
+    }
     // Refresh challenges so accepted ones appear in pairings section
     API.getChallenges().then(r => { state.challenges = r.challenges || []; renderPairingsPreview(); }).catch(() => {});
     // Reconcile week selectors now that pairings are loaded
@@ -339,6 +462,160 @@ const ROLE_COLORS = {
     if (standEl) standEl.innerHTML = errHtml;
     if (progEl)  progEl.innerHTML  = errHtml;
   });
+
+  // ── Admin Chat ─────────────────────────────────────────────
+  function adminChatTimeAgo(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const s = Math.floor((Date.now() - d) / 1000);
+    if (s < 60)    return 'just now';
+    if (s < 3600)  return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  // Returns the name the admin sends chat messages as (coordinator name if set, else session name)
+  function adminSenderName() {
+    return state.config.coordinatorName || Auth.getSession()?.name || 'Admin';
+  }
+
+  function buildAdminChatMsgHTML(m) {
+    const myName     = adminSenderName();
+    const isMe       = m.sender === myName;
+    const isPrivToMe = m.recipient === myName;
+    const isPrivFromMe = isMe && m.recipient !== '';
+    const photosOn   = !state._tierDisablePhotos;
+    // For the coordinator's own messages, use the coordinator photo from config
+    const senderIsCoord = m.sender === myName;
+    const senderPhoto   = senderIsCoord
+      ? (state.config.coordinatorPhoto || '')
+      : (state.players.find(p => p.name === m.sender)?.photo || '');
+    const avatarHtml = photosOn
+      ? `<img src="${playerPhotoSrc(m.sender, senderPhoto, 28)}"
+           style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;margin-top:1px;">`
+      : `<div style="width:28px;height:28px;border-radius:50%;background:var(--border);
+           flex-shrink:0;display:flex;align-items:center;justify-content:center;
+           font-size:0.72rem;font-weight:700;color:var(--muted);">${esc((m.sender||'?')[0].toUpperCase())}</div>`;
+
+    const recipLabel = isPrivFromMe
+      ? ` <span style="color:var(--muted);">→</span> <span style="color:var(--gold);">${esc(m.recipient)}</span>` : '';
+    const privateBadge = (m.recipient !== '')
+      ? `<span style="font-size:0.65rem;padding:1px 5px;background:rgba(245,200,66,0.18);
+           color:var(--gold);border-radius:3px;margin-left:5px;border:1px solid rgba(245,200,66,0.3);">🔒 private</span>` : '';
+    const rowBg = isPrivToMe
+      ? 'background:rgba(245,200,66,0.07);border-left:2px solid rgba(245,200,66,0.35);padding-left:8px;'
+      : isPrivFromMe
+      ? 'background:rgba(255,255,255,0.03);border-left:2px solid rgba(255,255,255,0.08);padding-left:8px;'
+      : '';
+
+    return `<div class="admin-chat-msg" data-id="${m.id}"
+        style="display:flex;gap:8px;padding:5px 8px;border-radius:6px;margin-bottom:3px;${rowBg}">
+      <div style="flex-shrink:0;">${avatarHtml}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:0.72rem;margin-bottom:2px;display:flex;align-items:baseline;flex-wrap:wrap;gap:2px;">
+          <span style="font-weight:600;color:${isMe ? 'var(--green)' : 'var(--white)'};">${esc(m.sender)}</span>
+          ${recipLabel}${privateBadge}
+          <span style="margin-left:auto;font-size:0.66rem;color:var(--muted);white-space:nowrap;">${adminChatTimeAgo(m.timestamp)}</span>
+        </div>
+        <div style="font-size:0.87rem;word-break:break-word;">${esc(m.message)}</div>
+      </div>
+    </div>`;
+  }
+
+  function renderAdminChatMessages() {
+    const c = document.getElementById('admin-chat-messages');
+    if (!c) return;
+    if (!state.adminChatMessages.length) {
+      c.innerHTML = `<div style="text-align:center;padding:40px 16px;color:var(--muted);font-size:0.85rem;">
+        No messages yet. Start the conversation! 👋</div>`;
+      return;
+    }
+    const atBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 60;
+    c.innerHTML = state.adminChatMessages.map(buildAdminChatMsgHTML).join('');
+    if (atBottom || !c._hasScrolled) { c.scrollTop = c.scrollHeight; c._hasScrolled = true; }
+  }
+
+  function appendAdminChatMsgs(newMsgs) {
+    const c = document.getElementById('admin-chat-messages');
+    if (!c || !newMsgs.length) return;
+    const atBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 60;
+    if (!c.querySelector('.admin-chat-msg')) { renderAdminChatMessages(); return; }
+    newMsgs.forEach(m => {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = buildAdminChatMsgHTML(m);
+      c.appendChild(tmp.firstChild);
+    });
+    if (atBottom) { c.scrollTop = c.scrollHeight; }
+    c._hasScrolled = true;
+  }
+
+  function renderAdminChat() {
+    const myName = adminSenderName();
+    const sel = document.getElementById('admin-chat-recipient');
+    if (sel) {
+      const active = state.players.filter(p => p.active !== false && p.active !== 'false');
+      sel.innerHTML = `<option value="">Everyone</option>` +
+        active.map(p => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
+    }
+    renderAdminChatMessages();
+
+    const input   = document.getElementById('admin-chat-input');
+    const sendBtn = document.getElementById('btn-admin-chat-send');
+    const counter = document.getElementById('admin-chat-char-count');
+    const status  = document.getElementById('admin-chat-send-status');
+    if (input && !input._chatWired) {
+      input._chatWired = true;
+      input.addEventListener('input', () => {
+        const rem = 160 - input.value.length;
+        if (counter) { counter.textContent = rem; counter.style.color = rem < 20 ? 'var(--danger)' : 'var(--muted)'; }
+      });
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendBtn?.click(); }
+      });
+    }
+    if (sendBtn && !sendBtn._chatWired) {
+      sendBtn._chatWired = true;
+      sendBtn.addEventListener('click', async () => {
+        const msg = input?.value.trim() || '';
+        if (!msg) return;
+        const recipient = document.getElementById('admin-chat-recipient')?.value || '';
+        sendBtn.disabled = true; sendBtn.textContent = '…';
+        if (status) status.textContent = '';
+        try {
+          const res = await API.postChatMessage(myName, recipient, msg);
+          if (res.success) {
+            if (input) { input.value = ''; }
+            if (counter) { counter.textContent = '160'; counter.style.color = 'var(--muted)'; }
+            await pollAdminChatMessages();
+          } else if (status) { status.textContent = res.error || 'Failed to send'; }
+        } catch (err) {
+          if (status) status.textContent = 'Error: ' + err.message;
+        } finally { sendBtn.disabled = false; sendBtn.textContent = 'Send'; }
+      });
+    }
+  }
+
+  async function pollAdminChatMessages() {
+    try {
+      // Admin passes no player filter — sees all messages
+      const data = await API.getChatMessages(state.adminChatLastId, '');
+      if (!data.messages?.length) return;
+      const newMsgs = data.messages;
+      state.adminChatMessages.push(...newMsgs);
+      if (state.adminChatMessages.length > 200) state.adminChatMessages = state.adminChatMessages.slice(-200);
+      state.adminChatLastId = Math.max(...state.adminChatMessages.map(m => m.id));
+      // If chat page is active, append without disrupting scroll
+      if (document.getElementById('page-chat')?.classList.contains('active')) {
+        appendAdminChatMsgs(newMsgs);
+      }
+    } catch (e) { /* polling errors are silent */ }
+  }
+
+  function startAdminChatPolling(fast) {
+    if (state.adminChatPollTimer) clearInterval(state.adminChatPollTimer);
+    state.adminChatPollTimer = setInterval(pollAdminChatMessages, fast ? 10000 : 25000);
+  }
 
   // ── Nav ────────────────────────────────────────────────────
   function setupNav() {
@@ -386,8 +663,13 @@ const ROLE_COLORS = {
         if (page === 'timers') {
           if (typeof setTimerCourtConfig === 'function') {
             const numCourts = parseInt(state.config.courts || 3);
+            const timerWeek = state.currentPairWeek;
+            const perSess = state.config.courtNamesPerSession === true || state.config.courtNamesPerSession === 'true';
             const nameMap = {};
-            for (let c = 1; c <= numCourts; c++) nameMap[c] = state.config['courtName_' + c] || ('Court ' + c);
+            for (let c = 1; c <= numCourts; c++) {
+              const sName = perSess && timerWeek ? state.config[`courtName_${c}_w${timerWeek}`] : null;
+              nameMap[c] = (sName && sName.trim()) ? sName.trim() : (state.config['courtName_' + c] || ('Court ' + c));
+            }
             setTimerCourtConfig(numCourts, nameMap);
           }
           if (typeof setTimerSessionContext === 'function') {
@@ -479,6 +761,12 @@ const ROLE_COLORS = {
         }
         if (page === 'leagues') renderLeagues();
         if (page === 'head-to-head') renderHeadToHead();
+        if (page === 'chat') {
+          renderAdminChat();
+          startAdminChatPolling(true);
+        } else if (state.adminChatPollTimer) {
+          startAdminChatPolling(false);
+        }
       });
     });
   }
@@ -504,6 +792,7 @@ const ROLE_COLORS = {
   // ── Head-to-Head ───────────────────────────────────────────
   let h2hMode = 'partners';
   let h2hWeek = 'all';
+  let h2hSort = 'alpha';
 
   function renderHeadToHead() {
     // Populate session selector
@@ -519,6 +808,13 @@ const ROLE_COLORS = {
       sel.onchange = () => { h2hWeek = sel.value; renderH2HTable(); };
     }
 
+    // Sort select
+    const sortSel = document.getElementById('h2h-sort-select');
+    if (sortSel) {
+      sortSel.value = h2hSort;
+      sortSel.onchange = () => { h2hSort = sortSel.value; renderH2HTable(); };
+    }
+
     // Tab switching
     document.querySelectorAll('#h2h-tabs .tab-btn').forEach(btn => {
       btn.onclick = () => {
@@ -532,7 +828,50 @@ const ROLE_COLORS = {
   }
 
   function renderH2HTable() {
-    const players = state.players.filter(p => p.active === true && p.role !== 'spectator' && p.role !== 'sub').map(p => p.name);
+    const activePlayers = state.players.filter(p => p.active === true && p.role !== 'spectator' && p.role !== 'sub');
+    if (!activePlayers.length) {
+      document.getElementById('h2h-content').innerHTML = '<div class="card"><p class="text-muted">No players yet.</p></div>';
+      return;
+    }
+
+    // ── Build rank map (used for sort and avg-rank analysis) ──
+    // Use ladder standings when the league is configured for it, otherwise standard.
+    const isLadder = (state.config.standingsMethod || 'standard') === 'ladder';
+    const rankMap = {};
+    if (isLadder) {
+      const initRankMap = {};
+      state.standings.forEach(s => { if (s.rank && s.rank !== '-') initRankMap[s.name] = parseInt(s.rank); });
+      activePlayers.forEach(p => { if (initRankMap[p.name] == null && p.initialRank) initRankMap[p.name] = p.initialRank; });
+      try {
+        const ls = Reports.computeLadderStandings(state.scores, state.players, state.pairings,
+          null, state.attendance, state.config, initRankMap);
+        ls.forEach(s => { if (s.rank && s.rank !== '-') rankMap[s.name] = parseInt(s.rank); });
+      } catch (e) {
+        state.standings.forEach(s => { if (s.rank && s.rank !== '-') rankMap[s.name] = parseInt(s.rank); });
+      }
+    } else {
+      state.standings.forEach(s => { if (s.rank && s.rank !== '-') rankMap[s.name] = parseInt(s.rank); });
+    }
+    activePlayers.forEach(p => { if (rankMap[p.name] == null && p.initialRank) rankMap[p.name] = p.initialRank; });
+
+    // ── Sort players ──────────────────────────────────────────
+    if (h2hSort === 'alpha') {
+      activePlayers.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (h2hSort === 'initial-rank') {
+      activePlayers.sort((a, b) => {
+        const ra = a.initialRank ?? Infinity;
+        const rb = b.initialRank ?? Infinity;
+        return ra !== rb ? ra - rb : a.name.localeCompare(b.name);
+      });
+    } else { // overall-rank
+      activePlayers.sort((a, b) => {
+        const ra = rankMap[a.name] ?? Infinity;
+        const rb = rankMap[b.name] ?? Infinity;
+        return ra !== rb ? ra - rb : a.name.localeCompare(b.name);
+      });
+    }
+
+    const players = activePlayers.map(p => p.name);
     if (!players.length) {
       document.getElementById('h2h-content').innerHTML = '<div class="card"><p class="text-muted">No players yet.</p></div>';
       return;
@@ -603,14 +942,7 @@ const ROLE_COLORS = {
     tableHtml += '</tbody></table>';
 
     // ── Average rank analysis ─────────────────────────────────
-    // Build a rank lookup from current standings (rank by name)
-    const rankMap = {};
-    state.standings.forEach(s => { if (s.rank && s.rank !== '-') rankMap[s.name] = s.rank; });
-    // Fallback: use initialRank from players array
-    state.players.forEach(p => {
-      if (!rankMap[p.name] && p.initialRank) rankMap[p.name] = p.initialRank;
-    });
-    // Fallback: median rank for players with no rank
+    // Median rank for players with no rank
     const rankedVals = Object.values(rankMap).filter(r => typeof r === 'number');
     const medianRank = rankedVals.length
       ? rankedVals.sort((a,b)=>a-b)[Math.floor(rankedVals.length/2)]
@@ -1136,7 +1468,7 @@ const ROLE_COLORS = {
     const dot = `<span style="color:rgba(255,255,255,0.18);">·</span>`;
     document.getElementById('dash-stats').innerHTML =
       `<div style="font-size:0.76rem;color:#7a9bb5;background:#1a2f45;border-radius:6px;
-           padding:6px 14px;margin-bottom:0;display:flex;flex-wrap:nowrap;align-items:center;gap:8px;overflow:hidden;">
+           padding:6px 14px;margin-bottom:0;display:flex;flex-wrap:nowrap;align-items:center;gap:8px;">
         ${statItem('👥', `${activePlayers} players${pendNote}`)}
         ${dot}
         ${statItem('📅', `${sessPlayed} of ${totalWeeks}${maxSessNote} sessions played`)}
@@ -1330,6 +1662,94 @@ const ROLE_COLORS = {
     }, 0);
   }
 
+  // ── Court names area (shared by renderSetup + dynamic rebuild) ──────────────
+  function renderCourtNamesArea() {
+    const c = state.config;
+    const numCourts = parseInt(document.getElementById('cfg-courts')?.value || c.courts || 3);
+    const weeks = parseInt(document.getElementById('cfg-weeks')?.value || c.weeks || 8);
+    const perSession = c.courtNamesPerSession === true || c.courtNamesPerSession === 'true';
+
+    // Preserve values already typed before rebuilding
+    const curGlobal = {}, curPerSess = {};
+    for (let cn = 1; cn <= 8; cn++) {
+      const el = document.getElementById(`cfg-court-name-${cn}`);
+      if (el) curGlobal[cn] = el.value;
+      for (let w = 1; w <= 20; w++) {
+        const el2 = document.getElementById(`cfg-court-name-${cn}-w${w}`);
+        if (el2) curPerSess[`${cn}_${w}`] = el2.value;
+      }
+    }
+
+    let html = `
+      <div style="margin-bottom:8px;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; cursor:pointer; user-select:none;">
+          <input type="checkbox" id="cfg-court-names-per-session" ${perSession ? 'checked' : ''}>
+          Different court names per session
+        </label>
+      </div>`;
+
+    if (!perSession) {
+      html += '<div class="form-row" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;">';
+      for (let cn = 1; cn <= numCourts; cn++) {
+        const val = curGlobal[cn] !== undefined ? curGlobal[cn] : (c['courtName_' + cn] || '');
+        html += `
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Court ${cn} Name</label>
+            <input class="form-control" id="cfg-court-name-${cn}" placeholder="Court ${cn}" value="${esc(val)}" style="width:120px;">
+          </div>`;
+      }
+      html += '</div>';
+    } else {
+      for (let w = 1; w <= weeks; w++) {
+        html += `<div style="margin-top:${w === 1 ? '4' : '10'}px;">`;
+        html += `<div class="form-row" style="display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end;">`;
+        html += `<div style="min-width:28px; padding-bottom:6px; font-size:0.8rem; font-weight:600; color:var(--muted);">S${w}</div>`;
+        for (let cn = 1; cn <= numCourts; cn++) {
+          const key = `${cn}_${w}`;
+          const val = curPerSess[key] !== undefined ? curPerSess[key] : (c[`courtName_${cn}_w${w}`] || '');
+          const fallback = curGlobal[cn] !== undefined ? curGlobal[cn] : (c['courtName_' + cn] || `Court ${cn}`);
+          html += `
+            <div class="form-group" style="margin-bottom:0;">
+              ${w === 1 ? `<label class="form-label">Court ${cn}</label>` : ''}
+              <input class="form-control" id="cfg-court-name-${cn}-w${w}" placeholder="${esc(fallback)}" value="${esc(val)}" style="width:110px;">
+            </div>`;
+        }
+        if (w === 1) {
+          html += `
+            <div style="padding-bottom:4px;">
+              <button type="button" id="btn-court-names-use-for-all" class="btn" style="font-size:0.78rem; padding:4px 10px; height:auto; white-space:nowrap;">Use for all sessions</button>
+            </div>`;
+        }
+        html += '</div></div>';
+      }
+    }
+
+    document.getElementById('cfg-court-names-area').innerHTML = html;
+
+    const toggleChk = document.getElementById('cfg-court-names-per-session');
+    if (toggleChk) {
+      toggleChk.addEventListener('change', () => {
+        state.config.courtNamesPerSession = toggleChk.checked;
+        renderCourtNamesArea();
+      });
+    }
+
+    const useAllBtn = document.getElementById('btn-court-names-use-for-all');
+    if (useAllBtn) {
+      useAllBtn.addEventListener('click', () => {
+        const numC = parseInt(document.getElementById('cfg-courts')?.value || state.config.courts || 3);
+        const numW = parseInt(document.getElementById('cfg-weeks')?.value || state.config.weeks || 8);
+        for (let cn = 1; cn <= numC; cn++) {
+          const s1Val = document.getElementById(`cfg-court-name-${cn}-w1`)?.value || '';
+          for (let w = 2; w <= numW; w++) {
+            const el = document.getElementById(`cfg-court-name-${cn}-w${w}`);
+            if (el) el.value = s1Val;
+          }
+        }
+      });
+    }
+  }
+
   // ── Setup ──────────────────────────────────────────────────
   function renderSetup() {
     const c = state.config;
@@ -1425,6 +1845,39 @@ const ROLE_COLORS = {
     const useInitialRankEl = document.getElementById('cfg-use-initial-rank');
     if (useInitialRankEl) useInitialRankEl.checked = c.useInitialRank === true || c.useInitialRank === 'true';
 
+    // Coordinator name + photo
+    const coordNameEl = document.getElementById('cfg-coordinator-name');
+    if (coordNameEl) coordNameEl.value = c.coordinatorName || '';
+    const coordPreview = document.getElementById('coordinator-photo-preview');
+    if (coordPreview) {
+      const cName = c.coordinatorName || 'Admin';
+      coordPreview.src = state._tierDisablePhotos
+        ? generateInitialAvatar(cName, 72)
+        : playerPhotoSrc(cName, c.coordinatorPhoto || '', 72);
+    }
+    const coordPhotoBtn   = document.getElementById('btn-coordinator-photo');
+    const coordPhotoInput = document.getElementById('coordinator-photo-input');
+    if (coordPhotoBtn && coordPhotoInput && !coordPhotoBtn._wired) {
+      coordPhotoBtn._wired = true;
+      coordPhotoBtn.addEventListener('click', () => coordPhotoInput.click());
+      coordPhotoInput.addEventListener('change', async ev => {
+        const file = ev.target.files?.[0];
+        if (!file) return;
+        coordPhotoBtn.style.opacity = '0.5';
+        try {
+          const b64 = await resizeImageFile(file);
+          const newConfig = { ...state.config,
+            coordinatorName:  document.getElementById('cfg-coordinator-name')?.value.trim() || state.config.coordinatorName || '',
+            coordinatorPhoto: b64 };
+          await API.saveConfig(newConfig);
+          state.config = sanitizeConfig(newConfig);
+          if (coordPreview) coordPreview.src = 'data:image/jpeg;base64,' + b64;
+          toast('Coordinator photo saved!');
+        } catch (err) { toast('Photo save failed: ' + err.message, 'error'); }
+        finally { coordPhotoBtn.style.opacity = ''; coordPhotoInput.value = ''; }
+      });
+    }
+
     // Session dates — each session on its own row, date+time side by side
     const weeks = parseInt(c.weeks || 8);
     let datesHtml = '';
@@ -1446,51 +1899,104 @@ const ROLE_COLORS = {
     document.getElementById('cfg-dates-area').innerHTML = datesHtml;
 
     // Court names
-    const numCourts = parseInt(c.courts || 3);
-    let courtNamesHtml = '<div class="form-row" style="display:flex; margin-top:8px;">';
-    for (let cn = 1; cn <= numCourts; cn++) {
-      courtNamesHtml += `
-        <div class="form-group">
-          <label class="form-label">Court ${cn} Name</label>
-          <input class="form-control" id="cfg-court-name-${cn}" placeholder="Court ${cn}" value="${esc(c['courtName_' + cn] || '')}">
-        </div>`;
-    }
-    courtNamesHtml += '</div>';
-    document.getElementById('cfg-court-names-area').innerHTML = courtNamesHtml;
+    renderCourtNamesArea();
   }
 
   // ── Players ────────────────────────────────────────────────
   function makePlayerRow(p, i) {
     const isFixedPairs = (state.config.gameMode || 'doubles') === 'fixed-pairs';
-    const row = document.createElement('div');
-    row.className = 'player-row';
-    row.style.gridTemplateColumns = 'minmax(120px,1fr) 68px 90px minmax(140px,180px) 44px 44px 54px 90px 72px 34px';
+    const photoSrc = state._tierDisablePhotos ? generateInitialAvatar('', 32) : playerPhotoSrc(p.name, p.photo || '', 32);
+
+    const statusBadge = p.active === 'pend'
+      ? '<span class="status-badge" style="font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(255,165,0,0.18); color:#f0a500; white-space:nowrap;">Pending</span>'
+      : p.active === false
+        ? '<span class="status-badge" style="font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(255,80,80,0.15); color:var(--danger); white-space:nowrap;">Inactive</span>'
+        : '<span class="status-badge" style="display:none;"></span>';
+
+    const displayName = p.name
+      ? esc(p.name)
+      : `<em style="color:var(--muted);">New ${isFixedPairs ? 'Team' : 'Player'}</em>`;
+
+    const row = document.createElement('details');
+    row.className = 'player-accordion';
+    if (!p.name) row.open = true;
+    row.style.cssText = 'margin-bottom:4px; border:1px solid rgba(255,255,255,0.08); border-radius:8px; background:rgba(255,255,255,0.02);';
+
     row.innerHTML = `
-      <input class="form-control" data-field="name" data-idx="${i}" value="${esc(p.name)}" placeholder="${isFixedPairs ? 'Team name e.g. Doug&Kim' : 'Player name'}">
-      <input class="form-control" data-field="pin" data-idx="${i}" type="text" value="${esc(String(p.pin || ''))}" placeholder="Password" maxlength="20">
-      <select class="form-control" data-field="group" data-idx="${i}">
-        <option value="M" ${p.group==='M'?'selected':''}>Male</option>
-        <option value="F" ${p.group==='F'?'selected':''}>Female</option>
-        <option value="Either" ${p.group==='Either'?'selected':''}>Either</option>
-      </select>
-      <input class="form-control" data-field="email" data-idx="${i}" type="email" value="${esc(p.email || '')}" placeholder="email@example.com">
-      <input type="checkbox" data-field="notify" data-idx="${i}" ${p.notify ? 'checked' : ''} style="width:18px;height:18px;margin:auto;">
-      <input type="checkbox" data-field="canScore" data-idx="${i}" ${p.canScore ? 'checked' : ''} style="width:18px;height:18px;margin:auto;${state._tierDisableScoring ? 'visibility:hidden;' : ''}" ${state._tierDisableScoring ? 'disabled' : ''}>
-      <input class="form-control" data-field="initialRank" data-idx="${i}" type="number" min="1" value="${p.initialRank || ''}" placeholder="—" style="text-align:center;">
-      <select class="form-control" data-field="role" data-idx="${i}">
-        <option value="" ${!p.role||p.role===''?'selected':''}>Player</option>
-        ${p.role==='scorer' ? `<option value="scorer" selected>Scorer (use Can Score instead)</option>` : ''}
-        <option value="assistant" ${p.role==='assistant'?'selected':''}>Assistant</option>
-        <option value="admin" ${p.role==='admin'?'selected':''}>Admin</option>
-        <option value="spectator" ${p.role==='spectator'?'selected':''}>Spectator</option>
-        <option value="sub" ${p.role==='sub'?'selected':''}>Sub (substitute)</option>
-      </select>
-      <select class="form-control" data-field="active" data-idx="${i}">
-        <option value="true" ${p.active===true?'selected':''}>Active</option>
-        <option value="pend" ${p.active==='pend'?'selected':''}>Pending</option>
-        <option value="false" ${p.active===false?'selected':''}>Inactive</option>
-      </select>
-      <button class="btn btn-danger" data-remove="${i}" style="padding:6px 10px;">✕</button>
+      <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; user-select:none;">
+        <button class="btn btn-outline btn-photo" data-photo-idx="${i}" title="Add/change photo"
+          style="padding:0; width:32px; height:32px; border-radius:50%; overflow:hidden; border:2px solid var(--border); flex-shrink:0;${state._tierDisablePhotos ? 'visibility:hidden;' : ''}">
+          <img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover;" alt="photo">
+        </button>
+        <span class="player-accordion-name" style="font-weight:600; font-size:0.9rem; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${displayName}</span>
+        ${statusBadge}
+        <span style="font-size:0.7rem; color:var(--muted); flex-shrink:0; margin-left:4px;">▼</span>
+      </summary>
+      <div style="padding:14px 16px; border-top:1px solid rgba(255,255,255,0.06); display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div style="grid-column:1/-1;">
+          <label class="label" style="display:block; margin-bottom:4px;">${isFixedPairs ? 'Team Name' : 'Handle / Display Name'} <span style="color:var(--danger);">*</span></label>
+          <input class="form-control" data-field="name" data-idx="${i}" value="${esc(p.name)}" placeholder="${isFixedPairs ? 'Team name e.g. Doug&amp;Kim' : 'Name others see'}">
+        </div>
+        ${!isFixedPairs ? `
+        <div style="grid-column:1/-1;">
+          <label class="label" style="display:block; margin-bottom:4px;">Full Name <span style="font-weight:400; color:var(--muted);">(optional)</span></label>
+          <input class="form-control" data-field="fullName" data-idx="${i}" value="${esc(p.fullName || '')}" placeholder="First Last">
+        </div>` : ''}
+        <div>
+          <label class="label" style="display:block; margin-bottom:4px;">Password</label>
+          <input class="form-control" data-field="pin" data-idx="${i}" type="text" value="${esc(String(p.pin || ''))}" placeholder="Password" maxlength="20">
+        </div>
+        <div>
+          <label class="label" style="display:block; margin-bottom:4px; cursor:help;" title="Only used for Mixed Doubles mode to balance partnerships. Has no effect in other game modes.">Gender Group &#x2139;</label>
+          <select class="form-control" data-field="group" data-idx="${i}">
+            <option value="M" ${p.group==='M'?'selected':''}>Male</option>
+            <option value="F" ${p.group==='F'?'selected':''}>Female</option>
+            <option value="Either" ${p.group==='Either'?'selected':''}>Either</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1;">
+          <label class="label" style="display:block; margin-bottom:4px;">Email <span style="font-weight:400; color:var(--muted);">(optional)</span></label>
+          <input class="form-control" data-field="email" data-idx="${i}" type="email" value="${esc(p.email || '')}" placeholder="email@example.com">
+        </div>
+        <div style="grid-column:1/-1;">
+          <label class="label" style="display:block; margin-bottom:4px;">Cell Phone <span style="font-weight:400; color:var(--muted);">(optional)</span></label>
+          <input class="form-control" data-field="phone" data-idx="${i}" type="tel" value="${esc(p.phone || '')}" placeholder="e.g. 555-123-4567">
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" data-field="notify" data-idx="${i}" ${p.notify ? 'checked' : ''} style="width:16px;height:16px; flex-shrink:0;">
+          <label class="label" style="margin:0; cursor:pointer;">Email notifications</label>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;${state._tierDisableScoring ? 'visibility:hidden;' : ''}">
+          <input type="checkbox" data-field="canScore" data-idx="${i}" ${p.canScore ? 'checked' : ''} style="width:16px;height:16px; flex-shrink:0;" ${state._tierDisableScoring ? 'disabled' : ''}>
+          <label class="label" style="margin:0; cursor:pointer;">Can enter scores</label>
+        </div>
+        <div>
+          <label class="label" style="display:block; margin-bottom:4px;" title="Initial ranking used before season standings are established">Initial Rank</label>
+          <input class="form-control" data-field="initialRank" data-idx="${i}" type="number" min="1" value="${p.initialRank || ''}" placeholder="—" style="text-align:center;">
+        </div>
+        <div>
+          <label class="label" style="display:block; margin-bottom:4px;">Role</label>
+          <select class="form-control" data-field="role" data-idx="${i}">
+            <option value="" ${!p.role||p.role===''?'selected':''}>Player</option>
+            ${p.role==='scorer' ? `<option value="scorer" selected>Scorer (use Can Score)</option>` : ''}
+            <option value="assistant" ${p.role==='assistant'?'selected':''}>Assistant</option>
+            <option value="admin" ${p.role==='admin'?'selected':''}>Admin</option>
+            <option value="spectator" ${p.role==='spectator'?'selected':''}>Spectator</option>
+            <option value="sub" ${p.role==='sub'?'selected':''}>Sub</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1;">
+          <label class="label" style="display:block; margin-bottom:4px;">Status</label>
+          <select class="form-control" data-field="active" data-idx="${i}">
+            <option value="true" ${p.active===true?'selected':''}>Active</option>
+            <option value="pend" ${p.active==='pend'?'selected':''}>Pending</option>
+            <option value="false" ${p.active===false?'selected':''}>Inactive</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1; padding-top:4px; border-top:1px solid rgba(255,255,255,0.06); margin-top:2px;">
+          <button class="btn btn-danger" data-remove="${i}" style="font-size:0.82rem;">Delete ${isFixedPairs ? 'Team' : 'Player'}</button>
+        </div>
+      </div>
     `;
     return row;
   }
@@ -1503,8 +2009,6 @@ const ROLE_COLORS = {
     if (hintEl) hintEl.style.display = isFixedPairs ? '' : 'none';
     const addBtn = document.getElementById('btn-add-player');
     if (addBtn) addBtn.textContent = isFixedPairs ? '+ Add Team' : '+ Add Player';
-    const nameLabel = document.querySelector('#page-players .label');
-    if (nameLabel) nameLabel.textContent = isFixedPairs ? 'Team Name' : 'Name';
 
     const list = document.getElementById('player-list');
     list.innerHTML = '';
@@ -1575,13 +2079,77 @@ const ROLE_COLORS = {
         }
         if (field === 'initialRank') val = val ? parseInt(val) : null;
         state.players[idx][field] = val;
+        // Sync status badge when active changes
+        if (field === 'active') {
+          const accordion = el.closest('.player-accordion');
+          if (accordion) {
+            const badge = accordion.querySelector('summary .status-badge');
+            if (badge) {
+              if (val === 'pend') {
+                badge.textContent = 'Pending';
+                badge.style.cssText = 'font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(255,165,0,0.18); color:#f0a500; white-space:nowrap;';
+              } else if (val === false) {
+                badge.textContent = 'Inactive';
+                badge.style.cssText = 'font-size:0.7rem; padding:2px 8px; border-radius:10px; background:rgba(255,80,80,0.15); color:var(--danger); white-space:nowrap;';
+              } else {
+                badge.textContent = '';
+                badge.style.cssText = 'display:none;';
+              }
+            }
+          }
+        }
+      });
+    });
+
+    // Live name → accordion summary sync
+    list.querySelectorAll('[data-field="name"]').forEach(el => {
+      el.addEventListener('input', () => {
+        const accordion = el.closest('.player-accordion');
+        if (!accordion) return;
+        const nameSpan = accordion.querySelector('.player-accordion-name');
+        if (nameSpan) nameSpan.textContent = el.value || '(unnamed)';
       });
     });
 
     list.querySelectorAll('[data-remove]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        state.players.splice(parseInt(btn.dataset.remove), 1);
+      btn.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.remove);
+        const playerName = state.players[idx]?.name || (isFixedPairs ? 'this team' : 'this player');
+        if (!confirm(`Delete "${playerName}"? This cannot be undone.`)) return;
+        state.players.splice(idx, 1);
         renderPlayers();
+      });
+    });
+
+    // Photo buttons — hidden file input per click
+    list.querySelectorAll('.btn-photo').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.photoIdx);
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async () => {
+          const file = input.files[0];
+          if (!file) return;
+          const playerName = state.players[idx].name;
+          btn.style.opacity = '0.5';
+          try {
+            const b64 = await resizeImageFile(file);
+            await API.savePlayerPhoto(playerName, b64);
+            state.players[idx].photo = b64;
+            // Update the button avatar in-place
+            const img = btn.querySelector('img');
+            if (img) img.src = 'data:image/jpeg;base64,' + b64;
+            toast(`Photo saved for ${esc(playerName)}`);
+          } catch (err) {
+            toast('Photo save failed: ' + err.message, 'warn');
+          } finally {
+            btn.style.opacity = '';
+          }
+        };
+        input.click();
       });
     });
   }
@@ -1677,7 +2245,35 @@ function doPost(e) {
   function renderAttendance() {
     const weeks = parseInt(state.config.weeks || 8);
     // Exclude pending players — not yet authorized
-    const attPlayers = state.players.filter(p => p.active !== 'pend');
+    const sortMode = document.getElementById('att-sort')?.value || 'alpha';
+    let attPlayers = state.players.filter(p => p.active !== 'pend');
+    if (sortMode === 'alpha') {
+      attPlayers = attPlayers.slice().sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortMode === 'initial-rank') {
+      attPlayers = attPlayers.slice().sort((a, b) => {
+        const ra = a.initialRank != null ? a.initialRank : Infinity;
+        const rb = b.initialRank != null ? b.initialRank : Infinity;
+        if (ra !== rb) return ra - rb;
+        return a.name.localeCompare(b.name);
+      });
+    } else if (sortMode === 'season-rank') {
+      const standMap = {};
+      (state.standings || []).forEach(s => { standMap[s.name] = s.rank != null ? s.rank : Infinity; });
+      attPlayers = attPlayers.slice().sort((a, b) => {
+        const ra = standMap[a.name] != null ? standMap[a.name] : Infinity;
+        const rb = standMap[b.name] != null ? standMap[b.name] : Infinity;
+        if (ra !== rb) return ra - rb;
+        return a.name.localeCompare(b.name);
+      });
+    } else if (sortMode === 'gender') {
+      const gOrder = { M: 0, F: 1, Either: 2 };
+      attPlayers = attPlayers.slice().sort((a, b) => {
+        const ga = gOrder[a.group || 'M'] ?? 3;
+        const gb = gOrder[b.group || 'M'] ?? 3;
+        if (ga !== gb) return ga - gb;
+        return a.name.localeCompare(b.name);
+      });
+    }
 
     let html = '<div class="att-grid">';
 
@@ -1796,6 +2392,13 @@ function doPost(e) {
       saveBtn.disabled = !state._attDirty;
       saveBtn.onclick = saveAttendance;
     }
+
+    // Wire up sort dropdown (once)
+    const sortSel = document.getElementById('att-sort');
+    if (sortSel && !sortSel._wired) {
+      sortSel._wired = true;
+      sortSel.addEventListener('change', renderAttendance);
+    }
   }
 
   // ── Pairings ───────────────────────────────────────────────
@@ -1911,7 +2514,7 @@ function doPost(e) {
       roundGames.forEach(game => {
         html += `<div style="background:var(--card-bg); border-radius:8px; padding:5px 10px; margin-bottom:4px;">
             <div style="display:grid; grid-template-columns:auto 1fr auto 1fr; align-items:center; gap:4px;">
-              <div style="font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); padding-right:4px; white-space:nowrap;">${courtName(game.court)}</div>
+              <div style="font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); padding-right:4px; white-space:nowrap;">${courtName(game.court, week)}</div>
               <div style="min-width:0; text-align:right;">
                 <div style="font-size:0.85rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p1)}</div>
                 ${game.p2 ? `<div style="font-size:0.85rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p2)}</div>` : ''}
@@ -2406,7 +3009,7 @@ function doPost(e) {
         );
         const s1 = score && score.score1 !== '' && score.score1 !== null ? score.score1 : '';
         const s2 = score && score.score2 !== '' && score.score2 !== null ? score.score2 : '';
-        const cn = courtName(game.court);
+        const cn = courtName(game.court, week);
 
         body += `<div class="game">
           <div class="court">${cn}</div>
@@ -2492,6 +3095,14 @@ function doPost(e) {
     document.getElementById('score-week-label').textContent = `Session ${week}`;
     const scoreWkSel = document.getElementById('score-week-select');
     if (scoreWkSel && scoreWkSel.value != week) scoreWkSel.value = week;
+
+    // Block score entry while background data fetch is still in flight
+    if (state._initialDataLoading) {
+      document.getElementById('scoresheet').innerHTML =
+        '<div style="padding:24px; text-align:center; color:var(--muted); font-size:0.88rem;">⏳ Loading scores…</div>';
+      state._scoresheetTouched = false;
+      return;
+    }
 
     renderFinishScenarios();
 
@@ -2593,7 +3204,7 @@ function doPost(e) {
         html += `<div style="background:var(--card-bg); border-radius:7px; padding:6px 10px; margin-bottom:4px;"
             data-week="${week}" data-round="${game.round}" data-court="${game.court}">
           <div style="display:grid; grid-template-columns:auto 1fr auto 1fr; align-items:center; gap:6px;">
-            <div style="font-size:0.7rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); padding-right:4px; white-space:nowrap;">${courtName(game.court)}</div>
+            <div style="font-size:0.7rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); padding-right:4px; white-space:nowrap;">${courtName(game.court, week)}</div>
             <div data-team="1" style="min-width:0; text-align:right;">
               <div style="${entered ? (t1win ? winStyle : loseStyle) : ''} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p1)}</div>
               ${game.p2 ? `<div style="${entered ? (t1win ? winStyle : loseStyle) : ''} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p2)}</div>` : ''}
@@ -3176,7 +3787,7 @@ function doPost(e) {
         state.pendingPairings.filter(p => p.type === 'game').forEach(game => {
           html += `<div style="background:var(--card-bg); border-radius:7px; padding:5px 10px; margin-bottom:3px;">
             <div style="display:grid; grid-template-columns:auto 1fr auto 1fr; align-items:center; gap:4px;">
-              <div style="font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); padding-right:4px; white-space:nowrap;">${courtName(game.court)}</div>
+              <div style="font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); padding-right:4px; white-space:nowrap;">${courtName(game.court, week)}</div>
               <div style="min-width:0; text-align:right;">
                 <div style="font-size:0.85rem;">${esc(game.p1)}</div>
                 ${game.p2 ? `<div style="font-size:0.85rem;">${esc(game.p2)}</div>` : ''}
@@ -3761,6 +4372,25 @@ function doPost(e) {
     }
     const isLadder = (state.config.standingsMethod || 'standard') === 'ladder';
 
+    // Podium shared setup
+    const podiumPhotosOn = !state._tierDisablePhotos;
+    const podiumPhotoMap = {};
+    if (podiumPhotosOn) state.players.forEach(p => { if (p.photo) podiumPhotoMap[p.name] = p.photo; });
+    const podiumFullNameMap = {};
+    state.players.forEach(p => { if (p.fullName) podiumFullNameMap[p.name] = p.fullName; });
+
+    // Detect whether the final session is fully scored (season complete)
+    const seasonDone = (() => {
+      const totalWeeks = parseInt(state.config.weeks) || 0;
+      if (!totalWeeks) return false;
+      const lastGames = state.pairings.filter(p => parseInt(p.week) === totalWeeks && (p.type === 'game' || p.type === 'tourn-game'));
+      if (!lastGames.length) return false;
+      return lastGames.every(g => {
+        const sc = state.scores.find(s => parseInt(s.week) === totalWeeks && parseInt(s.round) === parseInt(g.round) && String(s.court) === String(g.court));
+        return sc && sc.score1 !== '' && sc.score1 !== null && sc.score2 !== '' && sc.score2 !== null;
+      });
+    })();
+
     if (isLadder) {
       // Build rankMap from standard standings (used to determine which wins are upsets)
       const stdAll = Reports.computeStandings(state.scores, state.players, state.pairings, null,
@@ -3771,6 +4401,8 @@ function doPost(e) {
 
       const season = Reports.computeLadderStandings(state.scores, state.players, state.pairings,
         null, state.attendance, state.config, rankMap);
+      const topThree = season.filter(s => s.totalPts !== undefined).slice(0, 3);
+      document.getElementById('season-podium').innerHTML = buildPodiumHTML(topThree, podiumPhotoMap, podiumPhotosOn, seasonDone, podiumFullNameMap);
       document.getElementById('standings-season-table').innerHTML = renderLadderStandingsTable(season, state.config);
 
       const weekStand = Reports.computeWeeklyLadderStandings(state.scores, state.players, state.pairings,
@@ -3778,6 +4410,8 @@ function doPost(e) {
       document.getElementById('standings-weekly-table').innerHTML = renderLadderStandingsTable(weekStand, state.config);
     } else {
       const season = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance, state.config.pairingMode);
+      const topThree = season.filter(s => s.games > 0).slice(0, 3);
+      document.getElementById('season-podium').innerHTML = buildPodiumHTML(topThree, podiumPhotoMap, podiumPhotosOn, seasonDone, podiumFullNameMap);
       document.getElementById('standings-season-table').innerHTML = renderStandingsTable(season);
 
       const weekStand = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, state.currentStandWeek, state.config.rankingMethod, state.attendance, state.config.pairingMode);
@@ -4011,6 +4645,9 @@ function doPost(e) {
       prevOverallStandings.forEach(s => { if (s.rank && s.rank !== '-') prevOverallRankMap[s.name] = s.rank; });
     }
 
+    const photoMap = {};
+    if (!state._tierDisablePhotos) state.players.forEach(p => { if (p.photo) photoMap[p.name] = p.photo; });
+
     const rows = standings.filter(s => s.games > 0).map((s, i) => {
       const top = i < 3 ? 'top' : '';
       const ptsTot = s.points + s.pointsAgainst;
@@ -4057,9 +4694,11 @@ function doPost(e) {
         }
       }
 
+      const avatar = state._tierDisablePhotos ? '' : `<img src="${playerPhotoSrc(s.name, photoMap[s.name], 24)}"
+        style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;flex-shrink:0;">`;
       return `<tr>
         <td class="rank-cell ${top}">${s.rank}</td>
-        <td class="player-name">${esc(s.name)}</td>
+        <td class="player-name" style="white-space:nowrap;">${avatar}${esc(s.name)}</td>
         <td>${s.wins}/${s.losses}</td>
         <td>${Reports.pct(s.winPct)}</td>
         ${secCol}
@@ -4102,14 +4741,19 @@ function doPost(e) {
     // Only show range columns that are active (max > 0)
     const activeRanges = ranges.map((r, i) => ({ ...r, idx: i })).filter(r => r.max > 0);
 
+    const ladderPhotoMap = {};
+    if (!state._tierDisablePhotos) state.players.forEach(p => { if (p.photo) ladderPhotoMap[p.name] = p.photo; });
+
     const rows = standings.map((s, i) => {
       const top = i < 3 ? 'top' : '';
       let rangeCols = activeRanges.map((r, ci) =>
         `<td style="text-align:center;">${s.rangePts[r.idx].toFixed(s.rangePts[r.idx] % 1 === 0 ? 0 : 1)}</td>`
       ).join('');
+      const avatar = state._tierDisablePhotos ? '' : `<img src="${playerPhotoSrc(s.name, ladderPhotoMap[s.name], 24)}"
+        style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;flex-shrink:0;">`;
       return `<tr>
         <td class="rank-cell ${top}">${s.rank}</td>
-        <td class="player-name">${esc(s.name)}</td>
+        <td class="player-name" style="white-space:nowrap;">${avatar}${esc(s.name)}</td>
         <td style="text-align:center; font-weight:600; color:var(--gold);">${s.totalPts.toFixed(s.totalPts % 1 === 0 ? 0 : 1)}</td>
         <td style="text-align:center;">${s.attendPts.toFixed(s.attendPts % 1 === 0 ? 0 : 1)}</td>
         <td style="text-align:center;">${s.playPts.toFixed(s.playPts % 1 === 0 ? 0 : 1)}</td>
@@ -4482,10 +5126,18 @@ function doPost(e) {
         const cP2 = t1win ? fg.p2 : fg.p4;
         const champName = cP2 ? `${esc(cP1)} &amp; ${esc(cP2)}` : esc(cP1);
         const isMe = highlightPlayer && [cP1, cP2].includes(highlightPlayer);
+        const photosOn = !state._tierDisablePhotos;
+        const champAvatars = photosOn ? [cP1, cP2].filter(Boolean).map(name => {
+          const photo = state.players.find(p => p.name === name)?.photo || '';
+          return `<img src="${playerPhotoSrc(name, photo, 64)}"
+            style="width:64px;height:64px;border-radius:50%;object-fit:cover;
+                   border:2px solid rgba(245,200,66,0.6);">`;
+        }).join('') : '';
         html += `<div style="margin-top:16px; padding:14px 16px;
           background:linear-gradient(135deg, rgba(245,200,66,0.15), rgba(245,200,66,0.05));
           border:1px solid rgba(245,200,66,0.4); border-radius:10px; text-align:center;">
-          <div style="font-size:1.1rem; color:var(--gold); font-weight:700; margin-bottom:4px;">🏆 Tournament Champion</div>
+          <div style="font-size:1.1rem; color:var(--gold); font-weight:700; margin-bottom:${photosOn ? '10px' : '4px'};">🏆 Tournament Champion</div>
+          ${photosOn ? `<div style="display:flex;justify-content:center;gap:10px;margin-bottom:8px;">${champAvatars}</div>` : ''}
           <div style="font-size:1rem; color:${isMe ? 'var(--green)' : 'var(--white)'}; font-weight:700;">${champName}</div>
           <div style="font-size:0.78rem; color:var(--muted); margin-top:4px;">Final: ${fs.score1} – ${fs.score2}</div>
         </div>`;
@@ -4524,13 +5176,16 @@ function doPost(e) {
     if (!el) return;
 
     const week = t.week;
-    const modeLabel = t.mode === 'rr'     ? 'Round Robin (Reseeded)'
-                   : t.mode === 'double' ? 'Double Elimination' : 'Single Elimination';
+    const modeLabel = t.mode === 'rr'         ? 'Round Robin Doubles (Reseeded)'
+                   : t.mode === 'rr-singles' ? 'Round Robin Singles (Reseeded)'
+                   : t.mode === 'double'     ? 'Double Elimination' : 'Single Elimination';
 
-    // RR mode: show live standings table instead of bracket
-    if (t.mode === 'rr' && t.rrSeeds) {
+    // RR mode: bracket view for current pairings + collapsible standings table
+    if ((t.mode === 'rr' || t.mode === 'rr-singles') && t.rrSeeds) {
       const weekPairings = state.pairings.filter(p => parseInt(p.week) === t.week);
       const weekScores   = state.scores.filter(s => parseInt(s.week) === t.week);
+
+      // Recompute live standings by replaying locked rounds
       const liveSeeds = t.rrSeeds.map(s => ({ ...s, wins: 0, losses: 0, byes: 0 }));
       const lockedRounds = [...new Set(weekPairings.map(p => parseInt(p.round)))].sort((a,b)=>a-b);
       lockedRounds.forEach(r => {
@@ -4546,15 +5201,32 @@ function doPost(e) {
         });
       });
       liveSeeds.sort((a, b) => b.wins !== a.wins ? b.wins - a.wins : a.seed - b.seed);
+
+      // Build seed array for buildBracketHTML using each player's initial tournament seed
+      const rrSeedsForBracket = t.rrSeeds.map(s => ({ seed: s.seed, name: s.name, name2: '' }));
+
       let rrHtml = `<div style="font-size:0.78rem; color:var(--muted); margin-bottom:8px;">${modeLabel} · Session ${t.week} · Round ${t.round}</div>`;
-      rrHtml += `<table style="font-size:0.82rem; width:100%; border-collapse:collapse;">
-        <thead><tr>
-          <th style="text-align:left;padding:4px 8px;color:var(--muted);font-weight:500;">#</th>
-          <th style="text-align:left;padding:4px 8px;color:var(--muted);font-weight:500;">Player</th>
-          <th style="text-align:center;padding:4px 8px;color:var(--muted);font-weight:500;">W</th>
-          <th style="text-align:center;padding:4px 8px;color:var(--muted);font-weight:500;">L</th>
-          <th style="text-align:center;padding:4px 8px;color:var(--muted);font-weight:500;">Bye</th>
-        </tr></thead><tbody>`;
+
+      // Bracket-style pairings (same format as elimination modes)
+      if (weekPairings.length) {
+        rrHtml += buildBracketHTML(weekPairings, weekScores, week, rrSeedsForBracket, null);
+      } else {
+        rrHtml += '<p class="text-muted" style="font-size:0.82rem;">No rounds locked yet.</p>';
+      }
+
+      // Collapsible standings table
+      rrHtml += `<details style="margin-top:10px;">
+        <summary style="font-size:0.78rem; color:var(--muted); cursor:pointer; user-select:none;">
+          Tournament Standings
+        </summary>
+        <table style="font-size:0.82rem; width:100%; margin-top:6px; border-collapse:collapse;">
+          <thead><tr>
+            <th style="text-align:left;padding:4px 8px;color:var(--muted);font-weight:500;">#</th>
+            <th style="text-align:left;padding:4px 8px;color:var(--muted);font-weight:500;">Player</th>
+            <th style="text-align:center;padding:4px 8px;color:var(--muted);font-weight:500;">W</th>
+            <th style="text-align:center;padding:4px 8px;color:var(--muted);font-weight:500;">L</th>
+            <th style="text-align:center;padding:4px 8px;color:var(--muted);font-weight:500;">Bye</th>
+          </tr></thead><tbody>`;
       liveSeeds.forEach((s, i) => {
         const gold = i === 0 && s.wins > 0;
         rrHtml += `<tr style="${gold ? 'color:var(--gold);font-weight:700;' : ''}">
@@ -4565,7 +5237,8 @@ function doPost(e) {
           <td style="padding:4px 8px;text-align:center;">${s.byes}</td>
         </tr>`;
       });
-      rrHtml += `</tbody></table>`;
+      rrHtml += `</tbody></table></details>`;
+
       el.innerHTML = rrHtml;
       return;
     }
@@ -4696,14 +5369,16 @@ function doPost(e) {
         .map(p => p.name);
 
       const gameMode = state.config.gameMode || 'doubles';
-      const doubles  = gameMode !== 'singles' && gameMode !== 'fixed-pairs';
+      // rr-singles forces singles regardless of league gameMode
+      const doubles       = mode === 'rr-singles' ? false : (gameMode !== 'singles' && gameMode !== 'fixed-pairs');
+      const mixedDoubles  = doubles && gameMode === 'mixed-doubles';
 
       if (presentPlayers.length < 2) {
         toast('Need at least 2 present players for a tournament.', 'warn'); return;
       }
 
-      // Doubles requires an even number of players so every team has 2 members
-      if (doubles && presentPlayers.length % 2 !== 0) {
+      // Doubles (elimination or RR) requires an even number of players
+      if (doubles && (mode === 'single' || mode === 'double' || mode === 'rr') && presentPlayers.length % 2 !== 0) {
         toast(
           `Doubles tournament requires an even number of players. ` +
           `You currently have ${presentPlayers.length} marked present. ` +
@@ -4715,16 +5390,26 @@ function doPost(e) {
 
       const existing = state.pairings.filter(p => parseInt(p.week) === week);
       if (existing.length && !confirm(`Session ${week} already has pairings. Replace with tournament bracket?`)) return;
-      const result = Tournament.generateTournament(presentPlayers, courts, week, mode, state.standings, doubles, state.players);
+      const result = Tournament.generateTournament(presentPlayers, courts, week, mode, state.standings, doubles, state.players, mixedDoubles);
       if (result.error) { toast(result.error, 'error'); return; }
 
-      state.tournaments[week] = { week, mode, round: 1, seeds: result.seeds };
+      // Build tournament state — RR modes use rrSeeds; elimination modes use seeds
+      const tournState = { week, mode, round: 1, doubles };
+      if (result.rrSeeds) {
+        tournState.rrSeeds    = result.rrSeeds;
+        tournState.mixedDoubles = mixedDoubles;
+      } else {
+        tournState.seeds = result.seeds;
+      }
+      state.tournaments[week] = tournState;
       state.pendingPairings = result.pairings;
       document.getElementById('btn-lock-pairings').disabled = false;
       if (lockBtn) lockBtn.classList.remove('hidden');
       document.getElementById('optimizer-status').classList.add('hidden');
       renderPairingsPreview();
-      toast(`${mode === 'double' ? 'Double' : 'Single'} elimination bracket generated for ${presentPlayers.length} players.`);
+
+      const modeLabels = { single: 'Single elimination', double: 'Double elimination', rr: 'Round robin doubles', 'rr-singles': 'Round robin singles' };
+      toast(`${modeLabels[mode] || 'Tournament'} bracket generated for ${presentPlayers.length} players.`);
     });
 
     advBtn.addEventListener('click', async () => {
@@ -4746,12 +5431,13 @@ function doPost(e) {
         if (!confirm(`${unscoredGames.length} game(s) in round ${t.round} have no scores. Advance anyway? Those players will be treated as tied.`)) return;
       }
 
-      if (t.mode === 'rr') {
+      if (t.mode === 'rr' || t.mode === 'rr-singles') {
         const weekPairings = state.pairings.filter(p => parseInt(p.week) === week);
         const weekScores   = state.scores.filter(s => parseInt(s.week) === week);
         const rrResult = Tournament.advanceRoundRR(
           t.rrSeeds, weekPairings, weekScores, t.round,
-          parseInt(state.config.courts || 3), week, t.doubles
+          parseInt(state.config.courts || 3), week, t.doubles,
+          t.mixedDoubles, state.players
         );
         t.rrSeeds = rrResult.rrSeeds;
         t.round++;
@@ -5006,23 +5692,11 @@ function doPost(e) {
           </div>`;
       }
       document.getElementById('cfg-dates-area').innerHTML = datesHtml;
+      renderCourtNamesArea();
     });
 
     // Rebuild court name inputs when number of courts changes
-    document.getElementById('cfg-courts')?.addEventListener('change', () => {
-      const numCourts = parseInt(document.getElementById('cfg-courts').value) || 3;
-      let courtNamesHtml = '<div class="form-row" style="display:flex; margin-top:8px;">';
-      for (let cn = 1; cn <= numCourts; cn++) {
-        const existing = document.getElementById(`cfg-court-name-${cn}`)?.value || '';
-        courtNamesHtml += `
-          <div class="form-group">
-            <label class="form-label">Court ${cn} Name</label>
-            <input class="form-control" id="cfg-court-name-${cn}" placeholder="Court ${cn}" value="${esc(existing)}">
-          </div>`;
-      }
-      courtNamesHtml += '</div>';
-      document.getElementById('cfg-court-names-area').innerHTML = courtNamesHtml;
-    });
+    document.getElementById('cfg-courts')?.addEventListener('change', renderCourtNamesArea);
 
     // Pending config held here while the confirm-current-password modal is open
     let _pendingConfigSave = null;
@@ -5094,10 +5768,12 @@ function doPost(e) {
       if (isAssistant) { toast('Admin assistants cannot change league settings.', 'warn'); return; }
       const weeks = parseInt(document.getElementById('cfg-weeks').value);
       const config = {
-        leagueName:     document.getElementById('cfg-name').value.trim(),
-        location:       document.getElementById('cfg-location').value.trim(),
-        sessionTime:    document.getElementById('cfg-time').value.trim(),
-        notes:          document.getElementById('cfg-notes').value.trim(),
+        leagueName:        document.getElementById('cfg-name').value.trim(),
+        location:          document.getElementById('cfg-location').value.trim(),
+        sessionTime:       document.getElementById('cfg-time').value.trim(),
+        notes:             document.getElementById('cfg-notes').value.trim(),
+        coordinatorName:   document.getElementById('cfg-coordinator-name')?.value.trim() || '',
+        coordinatorPhoto:  state.config.coordinatorPhoto || '',
         leagueUrl:           document.getElementById('cfg-league-url').value.trim(),
         allowRegistration:   document.getElementById('cfg-allow-registration').checked,
         challengesEnabled:   document.getElementById('cfg-challenges-enabled')?.checked || false,
@@ -5152,9 +5828,23 @@ function doPost(e) {
         if (tel) config['time_' + w] = tel.value;
       }
       const numCourts = parseInt(document.getElementById('cfg-courts').value);
-      for (let cn = 1; cn <= numCourts; cn++) {
-        const el = document.getElementById('cfg-court-name-' + cn);
-        if (el) config['courtName_' + cn] = el.value.trim();
+      const perSessionChk = document.getElementById('cfg-court-names-per-session');
+      const courtNamesPerSession = perSessionChk ? perSessionChk.checked : false;
+      config.courtNamesPerSession = courtNamesPerSession;
+      if (!courtNamesPerSession) {
+        for (let cn = 1; cn <= numCourts; cn++) {
+          const el = document.getElementById('cfg-court-name-' + cn);
+          if (el) config['courtName_' + cn] = el.value.trim();
+          // Clear any per-session overrides
+          for (let w = 1; w <= weeks; w++) config[`courtName_${cn}_w${w}`] = '';
+        }
+      } else {
+        for (let cn = 1; cn <= numCourts; cn++) {
+          for (let w = 1; w <= weeks; w++) {
+            const el = document.getElementById(`cfg-court-name-${cn}-w${w}`);
+            if (el) config[`courtName_${cn}_w${w}`] = el.value.trim();
+          }
+        }
       }
       // Enforce registry limits on config save
       const cfgCourts  = parseInt(config.courts)  || 0;
@@ -5301,16 +5991,33 @@ function doPost(e) {
       const incPlayers   = document.getElementById('msg-inc-players').checked;
       const incStandings = document.getElementById('msg-inc-standings').checked;
 
+      const isLadder = (c.standingsMethod || 'standard') === 'ladder';
+      let emailStandings = [];
+      if (incStandings) {
+        if (isLadder) {
+          const initRankMap = {};
+          state.standings.forEach(s => { if (s.rank && s.rank !== '-') initRankMap[s.name] = parseInt(s.rank); });
+          state.players.forEach(p => { if (initRankMap[p.name] == null && p.initialRank) initRankMap[p.name] = p.initialRank; });
+          emailStandings = Reports.computeLadderStandings(state.scores, state.players, state.pairings,
+            null, state.attendance, state.config, initRankMap)
+            .filter(s => state.players.find(p => p.name === s.name && p.active === true));
+        } else {
+          emailStandings = Reports.computeStandings(state.scores, state.players, state.pairings, null,
+            state.config.rankingMethod, state.attendance, state.config.pairingMode)
+            .filter(s => state.players.find(p => p.name === s.name && p.active === true));
+        }
+      }
+
       const leagueInfo = {
         leagueName:  incName     ? (c.leagueName  || '') : '',
         location:    incLocation ? (c.location    || '') : '',
         sessionTime: incTime     ? (c.sessionTime || '') : '',
         rules:       incRules    ? (c.rules       || '') : '',
         leagueUrl:   incUrl      ? (c.leagueUrl || '') : '',
-        players:     incPlayers  ? state.players.filter(p => p.active === true).map(p => p.name) : [],
-        standings:   incStandings ? Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance, state.config.pairingMode)
-                                      .filter(s => state.players.find(p => p.name === s.name && p.active === true))
-                                  : [],
+        isLadder,
+        players:     incPlayers  ? state.players.filter(p => p.active === true)
+                                    .map(p => ({ name: p.name, fullName: p.fullName || '' })) : [],
+        standings:   emailStandings,
         dates:       incDates    ? (() => {
           const weeks = parseInt(c.weeks || 8);
           const d = [];
@@ -5382,28 +6089,9 @@ function doPost(e) {
     document.getElementById('btn-save-players').addEventListener('click', async () => {
       state._playersDirty = false; // clear before save attempt — reset on error below if needed
       if (isAssistant) { toast('Admin assistants cannot manage players.', 'warn'); return; }
-      // Collect from DOM
-      const rows = document.querySelectorAll('#player-list .player-row');
-      const players = [];
-      rows.forEach(row => {
-        const name = row.querySelector('[data-field="name"]').value.trim();
-        if (name) {
-          // Look up avtoken from state.players — it's not in the DOM but must be preserved
-          const existing = state.players.find(p => p.name === name);
-          players.push({
-            name,
-            pin:    row.querySelector('[data-field="pin"]').value.trim(),
-            group:  row.querySelector('[data-field="group"]').value,
-            email:  row.querySelector('[data-field="email"]').value.trim(),
-            notify:       row.querySelector('[data-field="notify"]').checked,
-            canScore:     row.querySelector('[data-field="canScore"]').checked,
-            initialRank:  (() => { const v = row.querySelector('[data-field="initialRank"]').value; return v ? parseInt(v) : null; })(),
-            role:         row.querySelector('[data-field="role"]').value || null,
-            active:       row.querySelector('[data-field="active"]').value === 'true' ? true : row.querySelector('[data-field="active"]').value === 'pend' ? 'pend' : false,
-            avtoken:      existing?.avtoken || ''
-          });
-        }
-      });
+      // state.players is kept in sync by the [data-field] change listeners,
+      // so read directly from it rather than scraping the DOM.
+      const players = state.players.filter(p => p.name && p.name.trim());
       // Safety guard — never save an empty player list (would wipe the sheet)
       if (players.length === 0) {
         toast('No players to save — player list is empty. Reload the page and try again.', 'warn');
@@ -6465,9 +7153,12 @@ function doPost(e) {
             return list;
           })(),
           courtNames:   Object.fromEntries(
-            Array.from({ length: parseInt(state.config.courts || 3) }, (_, i) => [
-              i + 1, state.config['courtName_' + (i + 1)] || ('Court ' + (i + 1))
-            ])
+            Array.from({ length: parseInt(state.config.courts || 3) }, (_, i) => {
+              const cn = i + 1;
+              const perSess = state.config.courtNamesPerSession === true || state.config.courtNamesPerSession === 'true';
+              const sName = perSess ? state.config[`courtName_${cn}_w${week}`] : null;
+              return [cn, (sName && sName.trim()) ? sName.trim() : (state.config['courtName_' + cn] || ('Court ' + cn))];
+            })
           ),
         });
         const actualCount = adminOnly && state.config.replyTo ? 1 : recipients.length + (state.config.replyTo ? 1 : 0);
@@ -6588,7 +7279,10 @@ function doPost(e) {
       el.dataset.tierHidden = '1';
     });
 
-    if (disabled.has('messaging'))          hideNav('messaging');
+    if (disabled.has('messaging')) {
+      hideNav('messaging');
+      hideNav('chat');
+    }
     if (disabled.has('timers'))             hideNav('timers');
     if (disabled.has('headToHead'))         hideNav('head-to-head');
     if (disabled.has('playerReport'))       hideNav('player-report');
@@ -6616,6 +7310,10 @@ function doPost(e) {
         el.disabled = true;
       });
       state._tierDisableScoring = true;
+    }
+    if (disabled.has('playerPhotos')) {
+      state._tierDisablePhotos = true;
+      document.querySelectorAll('.btn-photo').forEach(el => { el.style.visibility = 'hidden'; });
     }
   }
 
@@ -7017,7 +7715,11 @@ function doPost(e) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  function courtName(courtNum) {
+  function courtName(courtNum, week) {
+    if (week != null && (state.config.courtNamesPerSession === true || state.config.courtNamesPerSession === 'true')) {
+      const sName = state.config[`courtName_${courtNum}_w${week}`];
+      if (sName && sName.trim()) return esc(sName.trim());
+    }
     const name = state.config['courtName_' + courtNum];
     return name && name.trim() ? esc(name.trim()) : `Court ${courtNum}`;
   }
