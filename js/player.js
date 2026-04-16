@@ -564,6 +564,7 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
 
   function renderAll() {
     updatePageHeaders();
+    renderFinalBanner();
     renderNextGame();
     renderMyGames();
     renderMyAttendance();
@@ -576,6 +577,91 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
     renderTournamentBracket();
     renderChallenges();
     if (canScore && !state._scoreEntryLoading && !state._scoreEntryTouched) renderScoreEntry();
+  }
+
+  function renderFinalBanner() {
+    const el = document.getElementById('player-final-banner');
+    if (!el) return;
+    const totalWeeks = parseInt(state.config.weeks || 0);
+    if (!totalWeeks) { el.innerHTML = ''; return; }
+    const weeks = [...new Set(state.pairings.map(p => parseInt(p.week)))].sort((a, b) => a - b);
+    const currentWeek = weeks.length ? Math.max(...weeks) : 1;
+    if (currentWeek < totalWeeks) { el.innerHTML = ''; return; }
+
+    const idPrefix = 'player';
+    el.innerHTML = `
+      <details id="${idPrefix}-final-banner-details" style="margin-top:10px; margin-bottom:4px;">
+        <summary style="list-style:none; cursor:pointer; display:flex; align-items:center;
+            justify-content:space-between; background:rgba(232,184,75,0.13);
+            border:1px solid rgba(232,184,75,0.35); border-radius:8px; padding:10px 16px;
+            user-select:none;">
+          <div style="font-size:0.9rem; font-weight:600; color:var(--gold);">
+            🏆 Final Session! &nbsp; Please leave feedback for the app developer
+          </div>
+          <span style="font-size:0.72rem; color:var(--gold); opacity:0.7; flex-shrink:0; margin-left:10px;">▼</span>
+        </summary>
+        <div style="padding:14px 16px; background:rgba(232,184,75,0.05);
+            border:1px solid rgba(232,184,75,0.25); border-top:none;
+            border-radius:0 0 8px 8px;">
+          <p style="font-size:0.85rem; color:var(--muted); line-height:1.75; margin:0 0 14px;">
+            This app was built and provided to help run your league — completely free. Other apps doing far less
+            often charge significant fees, which could raise the cost to you. It took hundreds of hours to develop, test, and support.
+            If you'd like to show appreciation for the effort, free-will donations can be made on
+            Venmo to <strong style="color:var(--white);">Doug-Tucker-26</strong>
+            &nbsp;<a href="https://venmo.com/Doug-Tucker-26" target="_blank"
+              style="color:var(--green); text-decoration:none; font-size:0.8rem;
+                     border:1px solid rgba(94,194,106,0.3); border-radius:4px; padding:1px 9px;
+                     white-space:nowrap;">💸 Open Venmo</a>.
+            <br>Donations also help cover ongoing costs for tools and hosting, and will allow for faster hosting
+            and more advanced features to be added.
+          </p>
+          <div style="border-top:1px solid rgba(255,255,255,0.07); padding-top:12px;">
+            <div style="font-size:0.78rem; font-weight:600; color:var(--muted);
+                text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">
+              💡 Suggestions for the app
+            </div>
+            <textarea id="${idPrefix}-final-suggestion-text"
+                placeholder="What would you like to see improved or added?"
+                style="width:100%; box-sizing:border-box; min-height:80px; padding:8px 10px;
+                       font-size:0.85rem; background:rgba(255,255,255,0.05);
+                       border:1px solid rgba(255,255,255,0.15); border-radius:6px;
+                       color:var(--white); resize:vertical; font-family:inherit;"></textarea>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
+              <button id="${idPrefix}-final-suggestion-send"
+                  class="btn btn-primary" style="font-size:0.82rem; padding:5px 16px;">
+                📨 Send
+              </button>
+              <span id="${idPrefix}-final-suggestion-status" style="font-size:0.82rem;"></span>
+            </div>
+          </div>
+        </div>
+      </details>`;
+
+    const btn    = document.getElementById(`${idPrefix}-final-suggestion-send`);
+    const txtEl  = document.getElementById(`${idPrefix}-final-suggestion-text`);
+    const statEl = document.getElementById(`${idPrefix}-final-suggestion-status`);
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      const message = txtEl.value.trim();
+      if (!message) { statEl.innerHTML = '<span style="color:var(--danger);">Please enter a suggestion.</span>'; return; }
+      btn.disabled = true; btn.textContent = '⏳ Sending…'; statEl.innerHTML = '';
+      try {
+        await API.sendFeedback({
+          feedbackType: 'Suggestion',
+          name:       session.name || '',
+          email:      '',
+          message,
+          leagueId:   session.leagueId,
+          leagueName: session.leagueName,
+        });
+        statEl.innerHTML = '<span style="color:var(--green);">✓ Sent — thank you!</span>';
+        txtEl.value = '';
+      } catch (e) {
+        statEl.innerHTML = `<span style="color:var(--danger);">Failed: ${esc(e.message)}</span>`;
+      } finally {
+        btn.disabled = false; btn.textContent = '📨 Send';
+      }
+    });
   }
 
   function updatePageHeaders() {
@@ -745,12 +831,20 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
       // League Coordinator card
       const coordName  = c.coordinatorName || '';
       const coordEmail = c.replyTo || '';
+      const coordPhone = c.coordinatorPhone || '';
       let coordHtml = '';
       if (coordName || coordEmail) {
         const photosOn  = tierAllows(state.limits?.tier, 'playerPhotos');
         const photoSrc  = photosOn
           ? playerPhotoSrc(coordName || 'Admin', c.coordinatorPhoto || '', 48)
           : generateInitialAvatar(coordName || 'Admin', 48);
+        const phoneHtml = coordPhone
+          ? `<div style="font-size:0.8rem; margin-top:2px;">
+               <a href="sms:${esc(coordPhone)}" style="color:var(--green);text-decoration:none;"
+                  title="Text the coordinator — only works if this app is saved to your phone's home screen"
+               >${esc(coordPhone)}</a>
+             </div>`
+          : '';
         coordHtml = `<div style="display:flex; align-items:center; gap:12px; padding:10px 14px;
             background:rgba(255,255,255,0.03); border-radius:8px;
             border:1px solid rgba(255,255,255,0.08); margin-bottom:12px;">
@@ -761,6 +855,7 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
             ${coordName  ? `<div style="font-size:0.9rem;font-weight:600;color:var(--white);margin-bottom:2px;">${esc(coordName)}</div>` : ''}
             ${coordEmail ? `<div style="font-size:0.8rem;"><a href="mailto:${esc(coordEmail)}"
                 style="color:var(--green);text-decoration:none;">${esc(coordEmail)}</a></div>` : ''}
+            ${phoneHtml}
           </div>
         </div>`;
       }
@@ -1723,6 +1818,20 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
     document.getElementById('player-stand-trend')?.classList.remove('active');
 
     // Wire tabs (guard against duplicate listeners with a flag)
+    // Click player name → navigate to their player report (wired once)
+    const standPageEl = document.getElementById('page-standings');
+    if (standPageEl && !standPageEl.dataset.reportWired) {
+      standPageEl.dataset.reportWired = '1';
+      standPageEl.addEventListener('click', e => {
+        const span = e.target.closest('[data-report-player]');
+        if (!span) return;
+        const name = span.dataset.reportPlayer;
+        document.querySelector('.nav-item[data-page="player-report"]')?.click();
+        const sel = document.getElementById('report-player-select');
+        if (sel) { sel.value = name; renderPlayerReport(name); }
+      });
+    }
+
     const tabsEl = document.getElementById('player-standings-tabs');
     if (tabsEl && !tabsEl.dataset.wired) {
       tabsEl.dataset.wired = '1';
@@ -2248,7 +2357,9 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
         style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;flex-shrink:0;">` : '';
       return `<tr ${isMe ? 'style="background:rgba(94,194,106,0.08);"' : ''}>
         <td class="rank-cell ${top}">${s.rank}</td>
-        <td class="player-name" ${isMe ? 'style="color:var(--green);"' : ''} style="white-space:nowrap;">${avatar}${esc(s.name)}${isMe ? ' ◀' : ''}</td>
+        <td class="player-name" style="white-space:nowrap;">
+          ${avatar}<span data-report-player="${esc(s.name)}" ${isMe ? 'style="color:var(--green); cursor:pointer; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:3px;"' : 'style="cursor:pointer; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:3px;"'} title="View player report">${esc(s.name)}${isMe ? ' ◀' : ''}</span>
+        </td>
         <td>${s.wins}/${s.losses}</td>
         <td>${Reports.pct(s.winPct)}</td>
         ${secCol}
@@ -2318,7 +2429,9 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
         style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;flex-shrink:0;">` : '';
       return `<tr ${isMe ? 'style="background:rgba(94,194,106,0.08);"' : ''}>
         <td class="rank-cell ${top}">${s.rank}</td>
-        <td class="player-name" ${isMe ? 'style="color:var(--green);"' : ''} style="white-space:nowrap;">${avatar}${esc(s.name)}${isMe ? ' ◀' : ''}</td>
+        <td class="player-name" style="white-space:nowrap;">
+          ${avatar}<span data-report-player="${esc(s.name)}" ${isMe ? 'style="color:var(--green); cursor:pointer; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:3px;"' : 'style="cursor:pointer; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:3px;"'} title="View player report">${esc(s.name)}${isMe ? ' ◀' : ''}</span>
+        </td>
         <td style="text-align:center; font-weight:600; color:var(--gold);">${fmt(s.totalPts)}</td>
         <td style="text-align:center;">${fmt(s.attendPts)}</td>
         <td style="text-align:center;">${fmt(s.playPts)}</td>

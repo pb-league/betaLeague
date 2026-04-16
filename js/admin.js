@@ -169,12 +169,17 @@ function showTierInfo(currentTier) {
     { key: 'timers',             label: 'Game Timers' },
     { key: 'tournamentPairings', label: 'Tournament Pairings' },
     { key: 'queuePairings',      label: 'Queue-Based Pairings' },
+    { key: 'ladderLeague',      label: 'Ladder League mode' },
     { key: 'headToHead',         label: 'Head-to-Head Stats' },
     { key: 'playerReport',       label: 'Player Reports' },
     { key: 'playerRegistration', label: 'Player Self-Registration' },
     { key: 'playerLogin',        label: 'Player Login' },
     { key: 'playerScoring',      label: 'Player Score Entry' },
     { key: 'pairingEditor',      label: 'Pairing / Score Editor' },
+    { key: 'finalRoundAnalysis', label: 'Report scenarios for players to place'},
+    { key: 'arrangeGames',       label: 'Admin can setup custom partners or opponents before auto-generate of remaining players'},
+    { key: 'challenges',         label: 'Players can challenge others to matchups in Ladder League'},
+    { key: 'playerPhotos',       label: 'players can provide avatar image'}
   ];
 
   const tierDefs = typeof TIERS !== 'undefined' ? TIERS : [];
@@ -1720,6 +1725,20 @@ const ROLE_COLORS = {
         </table>`;
     }
 
+    // ── Final Session Banner ──────────────────────────────────
+    const finalBannerEl = document.getElementById('dash-final-banner');
+    if (finalBannerEl) {
+      const totalWeeks   = parseInt(state.config.weeks || 0);
+      const currentWeek  = Math.max(state.currentPairWeek || 1, state.currentScoreWeek || 1);
+      const isFinalSession = totalWeeks > 0 && currentWeek >= totalWeeks;
+      if (isFinalSession) {
+        finalBannerEl.innerHTML = buildFinalSessionBanner('admin');
+        wireFinalSessionBanner('admin');
+      } else {
+        finalBannerEl.innerHTML = '';
+      }
+    }
+
     document.getElementById('dash-version').innerHTML =
       `<div style="text-align:right; font-size:0.7rem; color:rgba(255,255,255,0.2); margin-top:10px;">
         v${APP_VERSION} &nbsp;·&nbsp; Built ${APP_BUILD_DATE}
@@ -1735,92 +1754,241 @@ const ROLE_COLORS = {
     }, 0);
   }
 
-  // ── Court names area (shared by renderSetup + dynamic rebuild) ──────────────
-  function renderCourtNamesArea() {
+  // ── Final Session Banner (shared HTML builder + wiring) ─────────────────────
+  function buildFinalSessionBanner(idPrefix) {
+    return `
+      <details id="${idPrefix}-final-banner-details" style="margin-top:10px;">
+        <summary style="list-style:none; cursor:pointer; display:flex; align-items:center;
+            justify-content:space-between; background:rgba(232,184,75,0.13);
+            border:1px solid rgba(232,184,75,0.35); border-radius:8px; padding:10px 16px;
+            user-select:none;">
+          <div style="font-size:0.9rem; font-weight:600; color:var(--gold);">
+            🏆 Final Session! &nbsp; Please leave feedback for the app developer
+          </div>
+          <span style="font-size:0.72rem; color:var(--gold); opacity:0.7; flex-shrink:0; margin-left:10px;">▼</span>
+        </summary>
+        <div style="padding:14px 16px; background:rgba(232,184,75,0.05);
+            border:1px solid rgba(232,184,75,0.25); border-top:none;
+            border-radius:0 0 8px 8px;">
+          <p style="font-size:0.85rem; color:var(--muted); line-height:1.75; margin:0 0 14px;">
+            This app was built to help run your league — completely free. Other apps doing far less
+            often charge significant fees. This helps you keep the cost of running leagues down. It took hundreds of hours to develop, test, and support.
+            If you'd like to show appreciation for the effort, free-will donations can be made on
+            Venmo to <strong style="color:var(--white);">Doug-Tucker-26</strong>
+            &nbsp;<a href="https://venmo.com/Doug-Tucker-26" target="_blank"
+              style="color:var(--green); text-decoration:none; font-size:0.8rem;
+                     border:1px solid rgba(94,194,106,0.3); border-radius:4px; padding:1px 9px;
+                     white-space:nowrap;">💸 Open Venmo</a>.
+            <br>Donations also help cover ongoing costs for tools and hosting, and will enable new features and faster hosting to be added.
+          </p>
+          <div style="border-top:1px solid rgba(255,255,255,0.07); padding-top:12px;">
+            <div style="font-size:0.78rem; font-weight:600; color:var(--muted);
+                text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">
+              💡 Suggestions for the app
+            </div>
+            <textarea id="${idPrefix}-final-suggestion-text"
+                placeholder="What would you like to see improved or added?"
+                style="width:100%; box-sizing:border-box; min-height:80px; padding:8px 10px;
+                       font-size:0.85rem; background:rgba(255,255,255,0.05);
+                       border:1px solid rgba(255,255,255,0.15); border-radius:6px;
+                       color:var(--white); resize:vertical; font-family:inherit;"></textarea>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
+              <button id="${idPrefix}-final-suggestion-send"
+                  class="btn btn-primary" style="font-size:0.82rem; padding:5px 16px;">
+                📨 Send
+              </button>
+              <span id="${idPrefix}-final-suggestion-status" style="font-size:0.82rem;"></span>
+            </div>
+          </div>
+        </div>
+      </details>`;
+  }
+
+  function wireFinalSessionBanner(idPrefix, playerName) {
+    const btn    = document.getElementById(`${idPrefix}-final-suggestion-send`);
+    const txtEl  = document.getElementById(`${idPrefix}-final-suggestion-text`);
+    const statEl = document.getElementById(`${idPrefix}-final-suggestion-status`);
+    if (!btn || !txtEl || !statEl) return;
+    btn.addEventListener('click', async () => {
+      const message = txtEl.value.trim();
+      if (!message) { statEl.innerHTML = '<span style="color:var(--danger);">Please enter a suggestion.</span>'; return; }
+      btn.disabled = true; btn.textContent = '⏳ Sending…'; statEl.innerHTML = '';
+      try {
+        const sess = Auth.getSession();
+        await API.sendFeedback({
+          feedbackType: 'Suggestion',
+          name:    playerName || sess?.leagueName || '',
+          email:   '',
+          message,
+          leagueId:   sess?.leagueId,
+          leagueName: sess?.leagueName,
+        });
+        statEl.innerHTML = '<span style="color:var(--green);">✓ Sent — thank you!</span>';
+        txtEl.value = '';
+      } catch (e) {
+        statEl.innerHTML = `<span style="color:var(--danger);">Failed: ${esc(e.message)}</span>`;
+      } finally {
+        btn.disabled = false; btn.textContent = '📨 Send';
+      }
+    });
+  }
+
+  // ── Session accordion (date, time, title, court names per session) ──────────
+  function renderSessionsAccordion() {
     const c = state.config;
     const numCourts = parseInt(document.getElementById('cfg-courts')?.value || c.courts || 3);
     const weeks = parseInt(document.getElementById('cfg-weeks')?.value || c.weeks || 8);
-    const perSession = c.courtNamesPerSession === true || c.courtNamesPerSession === 'true';
 
     // Preserve values already typed before rebuilding
-    const curGlobal = {}, curPerSess = {};
-    for (let cn = 1; cn <= 8; cn++) {
-      const el = document.getElementById(`cfg-court-name-${cn}`);
-      if (el) curGlobal[cn] = el.value;
-      for (let w = 1; w <= 20; w++) {
-        const el2 = document.getElementById(`cfg-court-name-${cn}-w${w}`);
-        if (el2) curPerSess[`${cn}_${w}`] = el2.value;
+    const saved = {};
+    for (let w = 1; w <= 20; w++) {
+      const dEl  = document.getElementById(`cfg-date-${w}`);
+      const tEl  = document.getElementById(`cfg-time-${w}`);
+      const ttEl = document.getElementById(`cfg-title-${w}`);
+      if (dEl)  saved[`date_${w}`]  = dEl.value;
+      if (tEl)  saved[`time_${w}`]  = tEl.value;
+      if (ttEl) saved[`title_${w}`] = ttEl.value;
+      for (let cn = 1; cn <= 8; cn++) {
+        const cEl = document.getElementById(`cfg-court-name-${cn}-w${w}`);
+        if (cEl) saved[`court_${cn}_${w}`] = cEl.value;
       }
     }
 
-    let html = `
-      <div style="margin-bottom:8px;">
-        <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; cursor:pointer; user-select:none;">
-          <input type="checkbox" id="cfg-court-names-per-session" ${perSession ? 'checked' : ''}>
-          Different court names per session
-        </label>
+    // Remember which sessions are open
+    const expanded = {};
+    for (let w = 1; w <= 20; w++) {
+      const body = document.getElementById(`sess-body-${w}`);
+      if (body) expanded[w] = body.style.display !== 'none';
+    }
+
+    let html = `<div style="margin-top:12px; margin-bottom:4px; font-size:0.85rem; font-weight:600; color:var(--muted);">Per-Session Details</div>`;
+    html += `<div id="session-accordion" style="border:1px solid var(--border); border-radius:6px; overflow:hidden;">`;
+
+    for (let w = 1; w <= weeks; w++) {
+      const dateVal  = saved[`date_${w}`]  !== undefined ? saved[`date_${w}`]  : normalizeDate(c[`date_${w}`] || '');
+      const timeVal  = saved[`time_${w}`]  !== undefined ? saved[`time_${w}`]  : (c[`time_${w}`]  || '');
+      const titleVal = saved[`title_${w}`] !== undefined ? saved[`title_${w}`] : (c[`title_${w}`] || '');
+
+      const summaryParts = [];
+      if (dateVal)  summaryParts.push(dateVal);
+      if (titleVal) summaryParts.push(titleVal);
+      const summary = summaryParts.join('  ·  ');
+
+      const isOpen = !!expanded[w];
+      const borderTop = w > 1 ? 'border-top:1px solid var(--border);' : '';
+
+      html += `<div class="session-acc-item" style="${borderTop}">`;
+
+      // Header
+      html += `
+        <div id="sess-header-${w}" style="display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; background:var(--surface2); user-select:none;" onclick="window._toggleSessionAcc(${w})">
+          <span style="font-size:0.7rem; color:var(--muted); transition:transform 0.15s; display:inline-block; transform:${isOpen ? 'rotate(90deg)' : 'rotate(0deg)'};" id="sess-arrow-${w}">▶</span>
+          <span style="font-size:0.85rem; font-weight:600; min-width:72px;">Session ${w}</span>
+          <span style="font-size:0.82rem; color:var(--muted); flex:1;" id="sess-summary-${w}">${esc(summary)}</span>
+        </div>`;
+
+      // Body
+      html += `<div id="sess-body-${w}" style="display:${isOpen ? '' : 'none'}; padding:12px 14px; border-top:1px solid var(--border);">`;
+
+      // Date + Time + Title row
+      html += `<div class="form-row" style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-bottom:8px;">
+        <div class="form-group" style="margin-bottom:0; flex:0 0 auto;">
+          <label class="form-label">Date</label>
+          <input class="form-control" id="cfg-date-${w}" type="date" value="${dateVal}" style="width:160px;" onchange="window._updateSessionSummary(${w})">
+        </div>
+        <div class="form-group" style="margin-bottom:0; flex:0 0 auto;">
+          <label class="form-label">Time</label>
+          <input class="form-control" id="cfg-time-${w}" type="time" value="${timeVal}" style="width:130px;">
+        </div>
+        <div class="form-group" style="margin-bottom:0; flex:1; min-width:160px;">
+          <label class="form-label">Title <span style="color:var(--muted); font-size:0.75rem;">(optional)</span></label>
+          <input class="form-control" id="cfg-title-${w}" type="text" placeholder="e.g. Finals, Playoffs" value="${esc(titleVal)}" style="width:100%;" oninput="window._updateSessionSummary(${w})">
+        </div>
       </div>`;
 
-    if (!perSession) {
-      html += '<div class="form-row" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;">';
-      for (let cn = 1; cn <= numCourts; cn++) {
-        const val = curGlobal[cn] !== undefined ? curGlobal[cn] : (c['courtName_' + cn] || '');
-        html += `
-          <div class="form-group" style="margin-bottom:0;">
-            <label class="form-label">Court ${cn} Name</label>
-            <input class="form-control" id="cfg-court-name-${cn}" placeholder="Court ${cn}" value="${esc(val)}" style="width:120px;">
-          </div>`;
-      }
-      html += '</div>';
-    } else {
-      for (let w = 1; w <= weeks; w++) {
-        html += `<div style="margin-top:${w === 1 ? '4' : '10'}px;">`;
-        html += `<div class="form-row" style="display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end;">`;
-        html += `<div style="min-width:28px; padding-bottom:6px; font-size:0.8rem; font-weight:600; color:var(--muted);">S${w}</div>`;
+      // Court names
+      if (numCourts > 0) {
+        html += `<div class="form-row" style="display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; margin-bottom:10px;">`;
         for (let cn = 1; cn <= numCourts; cn++) {
-          const key = `${cn}_${w}`;
-          const val = curPerSess[key] !== undefined ? curPerSess[key] : (c[`courtName_${cn}_w${w}`] || '');
-          const fallback = curGlobal[cn] !== undefined ? curGlobal[cn] : (c['courtName_' + cn] || `Court ${cn}`);
+          let courtVal = '';
+          if (saved[`court_${cn}_${w}`] !== undefined) {
+            courtVal = saved[`court_${cn}_${w}`];
+          } else if (c[`courtName_${cn}_w${w}`]) {
+            courtVal = c[`courtName_${cn}_w${w}`];
+          } else if (c[`courtName_${cn}`]) {
+            courtVal = c[`courtName_${cn}`];
+          }
           html += `
             <div class="form-group" style="margin-bottom:0;">
-              ${w === 1 ? `<label class="form-label">Court ${cn}</label>` : ''}
-              <input class="form-control" id="cfg-court-name-${cn}-w${w}" placeholder="${esc(fallback)}" value="${esc(val)}" style="width:110px;">
+              <label class="form-label">Court ${cn} Name</label>
+              <input class="form-control" id="cfg-court-name-${cn}-w${w}" placeholder="Court ${cn}" value="${esc(courtVal)}" style="width:120px;">
             </div>`;
         }
-        if (w === 1) {
-          html += `
-            <div style="padding-bottom:4px;">
-              <button type="button" id="btn-court-names-use-for-all" class="btn" style="font-size:0.78rem; padding:4px 10px; height:auto; white-space:nowrap;">Use for all sessions</button>
-            </div>`;
-        }
-        html += '</div></div>';
+        html += '</div>';
       }
+
+      // Copy to all remaining sessions button
+      html += `
+        <div>
+          <button type="button" class="btn" style="font-size:0.78rem; padding:4px 12px; height:auto;" onclick="window._copySessionToAll(${w})">Copy to all remaining sessions →</button>
+        </div>`;
+
+      html += '</div>'; // end body
+      html += '</div>'; // end session-acc-item
     }
 
-    document.getElementById('cfg-court-names-area').innerHTML = html;
+    html += '</div>'; // end accordion
 
-    const toggleChk = document.getElementById('cfg-court-names-per-session');
-    if (toggleChk) {
-      toggleChk.addEventListener('change', () => {
-        state.config.courtNamesPerSession = toggleChk.checked;
-        renderCourtNamesArea();
-      });
-    }
+    document.getElementById('cfg-dates-area').innerHTML = html;
+    document.getElementById('cfg-court-names-area').innerHTML = '';
 
-    const useAllBtn = document.getElementById('btn-court-names-use-for-all');
-    if (useAllBtn) {
-      useAllBtn.addEventListener('click', () => {
-        const numC = parseInt(document.getElementById('cfg-courts')?.value || state.config.courts || 3);
-        const numW = parseInt(document.getElementById('cfg-weeks')?.value || state.config.weeks || 8);
-        for (let cn = 1; cn <= numC; cn++) {
-          const s1Val = document.getElementById(`cfg-court-name-${cn}-w1`)?.value || '';
-          for (let w = 2; w <= numW; w++) {
-            const el = document.getElementById(`cfg-court-name-${cn}-w${w}`);
-            if (el) el.value = s1Val;
-          }
+    window._toggleSessionAcc = function(w) {
+      const body  = document.getElementById(`sess-body-${w}`);
+      const arrow = document.getElementById(`sess-arrow-${w}`);
+      if (!body) return;
+      const isOpen = body.style.display !== 'none';
+      body.style.display = isOpen ? 'none' : '';
+      if (arrow) arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
+    };
+
+    window._updateSessionSummary = function(w) {
+      const dateEl  = document.getElementById(`cfg-date-${w}`);
+      const titleEl = document.getElementById(`cfg-title-${w}`);
+      const summEl  = document.getElementById(`sess-summary-${w}`);
+      if (!summEl) return;
+      const parts = [];
+      if (dateEl?.value)  parts.push(dateEl.value);
+      if (titleEl?.value) parts.push(titleEl.value);
+      summEl.textContent = parts.join('  ·  ');
+    };
+
+    window._copySessionToAll = function(fromW) {
+      const numC = parseInt(document.getElementById('cfg-courts')?.value || state.config.courts || 3);
+      const numW = parseInt(document.getElementById('cfg-weeks')?.value || state.config.weeks || 8);
+      const baseDateStr = document.getElementById(`cfg-date-${fromW}`)?.value || '';
+      const timeVal     = document.getElementById(`cfg-time-${fromW}`)?.value || '';
+      const titleVal    = document.getElementById(`cfg-title-${fromW}`)?.value || '';
+      const baseDate    = baseDateStr ? new Date(baseDateStr + 'T00:00:00') : null;
+      for (let w = fromW + 1; w <= numW; w++) {
+        const offset = w - fromW;
+        if (baseDate) {
+          const d = new Date(baseDate);
+          d.setDate(d.getDate() + offset * 7);
+          const dEl = document.getElementById(`cfg-date-${w}`);
+          if (dEl) dEl.value = d.toISOString().slice(0, 10);
         }
-      });
-    }
+        const tEl  = document.getElementById(`cfg-time-${w}`);
+        const ttEl = document.getElementById(`cfg-title-${w}`);
+        if (tEl)  tEl.value  = timeVal;
+        if (ttEl) ttEl.value = titleVal;
+        for (let cn = 1; cn <= numC; cn++) {
+          const srcEl = document.getElementById(`cfg-court-name-${cn}-w${fromW}`);
+          const dstEl = document.getElementById(`cfg-court-name-${cn}-w${w}`);
+          if (srcEl && dstEl) dstEl.value = srcEl.value;
+        }
+        window._updateSessionSummary(w);
+      }
+    };
   }
 
   // ── Setup ──────────────────────────────────────────────────
@@ -1917,9 +2085,11 @@ const ROLE_COLORS = {
     const useInitialRankEl = document.getElementById('cfg-use-initial-rank');
     if (useInitialRankEl) useInitialRankEl.checked = c.useInitialRank === true || c.useInitialRank === 'true';
 
-    // Coordinator name + photo
+    // Coordinator name, phone + photo
     const coordNameEl = document.getElementById('cfg-coordinator-name');
     if (coordNameEl) coordNameEl.value = c.coordinatorName || '';
+    const coordPhoneEl = document.getElementById('cfg-coordinator-phone');
+    if (coordPhoneEl) coordPhoneEl.value = c.coordinatorPhone || '';
     const coordPreview = document.getElementById('coordinator-photo-preview');
     if (coordPreview) {
       const cName = c.coordinatorName || 'Admin';
@@ -1940,6 +2110,7 @@ const ROLE_COLORS = {
           const b64 = await resizeImageFile(file);
           const newConfig = { ...state.config,
             coordinatorName:  document.getElementById('cfg-coordinator-name')?.value.trim() || state.config.coordinatorName || '',
+            coordinatorPhone: document.getElementById('cfg-coordinator-phone')?.value.trim() || state.config.coordinatorPhone || '',
             coordinatorPhoto: b64 };
           await API.saveConfig(newConfig);
           state.config = sanitizeConfig(newConfig);
@@ -1950,28 +2121,8 @@ const ROLE_COLORS = {
       });
     }
 
-    // Session dates — each session on its own row, date+time side by side
-    const weeks = parseInt(c.weeks || 8);
-    let datesHtml = '';
-    for (let w = 1; w <= weeks; w++) {
-      datesHtml += `
-        <div class="form-row" style="margin-top:6px; align-items:flex-end;">
-          <div class="form-group" style="flex:0 0 auto;">
-            <label class="form-label">Session ${w}</label>
-            <input class="form-control" id="cfg-date-${w}" type="date" value="${normalizeDate(c['date_' + w])}" style="width:160px;">
-          </div>
-          <div class="form-group" style="flex:0 0 auto;">
-            <label class="form-label" title="Optional — leave blank if time varies">
-              Time <span style="color:var(--muted); font-size:0.75rem; cursor:help;" title="Optional — leave blank if time varies">ℹ</span>
-            </label>
-            <input class="form-control" id="cfg-time-${w}" type="time" value="${c['time_' + w] || ''}" style="width:130px;">
-          </div>
-        </div>`;
-    }
-    document.getElementById('cfg-dates-area').innerHTML = datesHtml;
-
-    // Court names
-    renderCourtNamesArea();
+    // Session accordion — date, time, title, court names per session
+    renderSessionsAccordion();
   }
 
   // ── Players ────────────────────────────────────────────────
@@ -2493,6 +2644,8 @@ function doPost(e) {
         if (!state._attPending) state._attPending = {};
         state._attPending[`${player}|${week}`] = { player, week, status: next };
         setAttDirty(true);
+        // Refresh roster chips + generate button to reflect updated attendance
+        renderPairingsPreview();
       });
     });
 
@@ -3105,7 +3258,8 @@ function doPost(e) {
     const c       = state.config;
     const lName   = Auth.getSession()?.leagueName || c.leagueName || 'League';
     const dateStr = formatDateTime(week, c);
-    const title   = dateStr ? `${lName} — Session ${week} — ${dateStr}` : `${lName} — Session ${week}`;
+    const sessTitle = c[`title_${week}`] ? `: ${c[`title_${week}`]}` : '';
+    const title   = dateStr ? `${lName} — Session ${week}${sessTitle} — ${dateStr}` : `${lName} — Session ${week}${sessTitle}`;
     const loc     = c.location    ? `📍 ${c.location}`    : '';
     const tim     = c.sessionTime ? `🕐 ${c.sessionTime}` : '';
 
@@ -3225,14 +3379,16 @@ function doPost(e) {
 
     renderFinishScenarios();
 
-    // Update card title with session number and date
+    // Update card title with session number, optional title, and date
     const scoresheetTitle = document.querySelector('#page-scores .card-title');
     if (scoresheetTitle) {
       const date = formatDateTime(week, state.config);
       const lName = Auth.getSession()?.leagueName || state.config.leagueName || '';
+      const sessT = state.config[`title_${week}`] ? `: ${state.config[`title_${week}`]}` : '';
+      const sessLabel = `Session ${week}${sessT}`;
       scoresheetTitle.textContent = lName
-        ? (date ? `${lName}  ·  Session ${week}  ·  ${date}` : `${lName}  ·  Session ${week}`)
-        : (date ? `Session ${week}  ·  ${date}` : `Session ${week}`);
+        ? (date ? `${lName}  ·  ${sessLabel}  ·  ${date}` : `${lName}  ·  ${sessLabel}`)
+        : (date ? `${sessLabel}  ·  ${date}` : sessLabel);
     }
 
     const allWeekPairings = state.pairings.filter(p => parseInt(p.week) === week);
@@ -3467,8 +3623,12 @@ function doPost(e) {
           const score1 = parseInt(s1val) || 0;
           const score2 = parseInt(s2val) || 0;
 
-          // Warn on tied scores — non-blocking toast since this is auto-save
-          if (score1 === score2) {
+          // Warn on suspicious scores — non-blocking toast since this is auto-save
+          if (score1 < 0 || score2 < 0) {
+            toast(`Negative score on Round ${round} ${courtName(court)} — correct if this is a mistake.`, 'warn');
+          } else if (score1 > 20 || score2 > 20) {
+            toast(`Score over 20 on Round ${round} ${courtName(court)} — correct if this is a mistake.`, 'warn');
+          } else if (score1 === score2) {
             toast(`Tied score ${score1}–${score2} on Round ${round} ${courtName(court)} — correct if this is a mistake.`, 'warn');
           }
 
@@ -4535,7 +4695,10 @@ function doPost(e) {
         : null;
       document.getElementById('standings-weekly-table').innerHTML = renderStandingsTable(weekStand, false, overallThisWeek, overallPrevWeek);
     }
-    document.getElementById('stand-week-label').textContent = `Session ${state.currentStandWeek}`;
+    const _swTitle = state.config[`title_${state.currentStandWeek}`];
+    document.getElementById('stand-week-label').textContent = _swTitle
+      ? `Session ${state.currentStandWeek}: ${_swTitle}`
+      : `Session ${state.currentStandWeek}`;
     const standWkSel = document.getElementById('stand-week-select');
     if (standWkSel && standWkSel.value != state.currentStandWeek) standWkSel.value = state.currentStandWeek;
 
@@ -4812,7 +4975,9 @@ function doPost(e) {
         style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;flex-shrink:0;">`;
       return `<tr>
         <td class="rank-cell ${top}">${s.rank}</td>
-        <td class="player-name" style="white-space:nowrap;">${avatar}${esc(s.name)}</td>
+        <td class="player-name" style="white-space:nowrap;">
+          ${avatar}<span data-report-player="${esc(s.name)}" style="cursor:pointer; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:3px;" title="View player report">${esc(s.name)}</span>
+        </td>
         <td>${s.wins}/${s.losses}</td>
         <td>${Reports.pct(s.winPct)}</td>
         ${secCol}
@@ -4888,7 +5053,9 @@ function doPost(e) {
         style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;flex-shrink:0;">`;
       return `<tr>
         <td class="rank-cell ${top}">${s.rank}</td>
-        <td class="player-name" style="white-space:nowrap;">${avatar}${esc(s.name)}</td>
+        <td class="player-name" style="white-space:nowrap;">
+          ${avatar}<span data-report-player="${esc(s.name)}" style="cursor:pointer; text-decoration:underline; text-decoration-style:dotted; text-underline-offset:3px;" title="View player report">${esc(s.name)}</span>
+        </td>
         <td style="text-align:center; font-weight:600; color:var(--gold);">${fmt(s.totalPts)}</td>
         <td style="text-align:center;">${fmt(s.attendPts)}</td>
         <td style="text-align:center;">${fmt(s.playPts)}</td>
@@ -5815,33 +5982,9 @@ function doPost(e) {
     });
 
     // Save config
-    // Rebuild session dates rows when number of sessions changes
-    document.getElementById('cfg-weeks')?.addEventListener('change', () => {
-      const weeks = parseInt(document.getElementById('cfg-weeks').value) || 8;
-      let datesHtml = '';
-      for (let w = 1; w <= weeks; w++) {
-        const existingDate = document.getElementById(`cfg-date-${w}`)?.value || '';
-        const existingTime = document.getElementById(`cfg-time-${w}`)?.value || '';
-        datesHtml += `
-          <div class="form-row" style="margin-top:6px; align-items:flex-end;">
-            <div class="form-group" style="flex:0 0 auto;">
-              <label class="form-label">Session ${w}</label>
-              <input class="form-control" id="cfg-date-${w}" type="date" value="${existingDate}" style="width:160px;">
-            </div>
-            <div class="form-group" style="flex:0 0 auto;">
-              <label class="form-label" title="Optional — leave blank if time varies">
-                Time <span style="color:var(--muted); font-size:0.75rem; cursor:help;" title="Optional — leave blank if time varies">ℹ</span>
-              </label>
-              <input class="form-control" id="cfg-time-${w}" type="time" value="${existingTime}" style="width:130px;">
-            </div>
-          </div>`;
-      }
-      document.getElementById('cfg-dates-area').innerHTML = datesHtml;
-      renderCourtNamesArea();
-    });
-
-    // Rebuild court name inputs when number of courts changes
-    document.getElementById('cfg-courts')?.addEventListener('change', renderCourtNamesArea);
+    // Rebuild session accordion when number of sessions or courts changes
+    document.getElementById('cfg-weeks')?.addEventListener('change', renderSessionsAccordion);
+    document.getElementById('cfg-courts')?.addEventListener('change', renderSessionsAccordion);
 
     // Pending config held here while the confirm-current-password modal is open
     let _pendingConfigSave = null;
@@ -5918,6 +6061,7 @@ function doPost(e) {
         sessionTime:       document.getElementById('cfg-time').value.trim(),
         notes:             document.getElementById('cfg-notes').value.trim(),
         coordinatorName:   document.getElementById('cfg-coordinator-name')?.value.trim() || '',
+        coordinatorPhone:  document.getElementById('cfg-coordinator-phone')?.value.trim() || '',
         coordinatorPhoto:  state.config.coordinatorPhoto || '',
         leagueUrl:           document.getElementById('cfg-league-url').value.trim(),
         allowRegistration:   document.getElementById('cfg-allow-registration').checked,
@@ -5971,29 +6115,20 @@ function doPost(e) {
         localImprove:     document.getElementById('cfg-local-improve')?.checked === true,
         swapPasses:       (v => isNaN(v) ? 5 : v)(parseInt(document.getElementById('cfg-swap-passes')?.value)),
       };
-      for (let w = 1; w <= weeks; w++) {
-        const el = document.getElementById('cfg-date-' + w);
-        if (el) config['date_' + w] = el.value;
-        const tel = document.getElementById('cfg-time-' + w);
-        if (tel) config['time_' + w] = tel.value;
-      }
       const numCourts = parseInt(document.getElementById('cfg-courts').value);
-      const perSessionChk = document.getElementById('cfg-court-names-per-session');
-      const courtNamesPerSession = perSessionChk ? perSessionChk.checked : false;
-      config.courtNamesPerSession = courtNamesPerSession;
-      if (!courtNamesPerSession) {
-        for (let cn = 1; cn <= numCourts; cn++) {
-          const el = document.getElementById('cfg-court-name-' + cn);
-          if (el) config['courtName_' + cn] = el.value.trim();
-          // Clear any per-session overrides
-          for (let w = 1; w <= weeks; w++) config[`courtName_${cn}_w${w}`] = '';
-        }
-      } else {
-        for (let cn = 1; cn <= numCourts; cn++) {
-          for (let w = 1; w <= weeks; w++) {
-            const el = document.getElementById(`cfg-court-name-${cn}-w${w}`);
-            if (el) config[`courtName_${cn}_w${w}`] = el.value.trim();
-          }
+      for (let w = 1; w <= weeks; w++) {
+        const el   = document.getElementById(`cfg-date-${w}`);
+        const tel  = document.getElementById(`cfg-time-${w}`);
+        const ttel = document.getElementById(`cfg-title-${w}`);
+        if (el)   config[`date_${w}`]  = el.value;
+        if (tel)  config[`time_${w}`]  = tel.value;
+        if (ttel) config[`title_${w}`] = ttel.value.trim();
+      }
+      config.courtNamesPerSession = true;
+      for (let cn = 1; cn <= numCourts; cn++) {
+        for (let w = 1; w <= weeks; w++) {
+          const el = document.getElementById(`cfg-court-name-${cn}-w${w}`);
+          if (el) config[`courtName_${cn}_w${w}`] = el.value.trim();
         }
       }
       // Validate ladder range min/max
@@ -6402,6 +6537,7 @@ function doPost(e) {
       _prevPairWeek = state.currentPairWeek; // update after confirmed change
       state.pendingPairings = null;
       state.bestGeneration  = null;
+      state._pairSkipPlayers.clear();
       document.getElementById('btn-generate-fresh')?.classList.add('hidden');
       // Sync score selector to match
       state.currentScoreWeek = state.currentPairWeek;
@@ -6525,6 +6661,28 @@ function doPost(e) {
       finally { showLoading(false); }
     });
 
+    // Click player name in any standings table → navigate to their player report
+    document.getElementById('page-standings')?.addEventListener('click', e => {
+      const span = e.target.closest('[data-report-player]');
+      if (!span) return;
+      const name = span.dataset.reportPlayer;
+      document.querySelector('.nav-item[data-page="player-report"]')?.click();
+      const sel = document.getElementById('report-player-select');
+      if (sel) { sel.value = name; renderPlayerReport(name); }
+      document.getElementById('btn-email-player-report').disabled = !name;
+    });
+
+    // Also handle the dashboard standings widget
+    document.getElementById('dash-standings')?.addEventListener('click', e => {
+      const span = e.target.closest('[data-report-player]');
+      if (!span) return;
+      const name = span.dataset.reportPlayer;
+      document.querySelector('.nav-item[data-page="player-report"]')?.click();
+      const sel = document.getElementById('report-player-select');
+      if (sel) { sel.value = name; renderPlayerReport(name); }
+      document.getElementById('btn-email-player-report').disabled = !name;
+    });
+
     setupWeekSelect('stand-week-select', 'currentStandWeek', () => {
       const weekStand = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, state.currentStandWeek, state.config.rankingMethod, state.attendance, state.config.pairingMode);
       const overallThisWeek = Reports.computeStandings(state.scores, state.players, state.pairings, state.currentStandWeek, state.config.rankingMethod, state.attendance, state.config.pairingMode);
@@ -6533,7 +6691,9 @@ function doPost(e) {
         : null;
       document.getElementById('standings-weekly-table').innerHTML = renderStandingsTable(weekStand, false, overallThisWeek, overallPrevWeek);
       const swDate = formatDateTime(state.currentStandWeek, state.config);
-      document.getElementById('stand-week-label').textContent = `Session ${state.currentStandWeek}${swDate ? ' — ' + swDate : ''}`;
+      const _swT2 = state.config[`title_${state.currentStandWeek}`];
+      const _swBase = _swT2 ? `Session ${state.currentStandWeek}: ${_swT2}` : `Session ${state.currentStandWeek}`;
+      document.getElementById('stand-week-label').textContent = _swBase + (swDate ? ' — ' + swDate : '');
     });
 
     // Generate pairings — keep-best across multiple attempts
@@ -7369,7 +7529,17 @@ function doPost(e) {
         if (!confirm(`⚠️ These scores already exist and will be overwritten:\n${msg}\n\nSave anyway?`)) return;
       }
 
-      // Warn on tied scores before saving
+      // Warn on suspicious scores before saving
+      const negatives = scores.filter(s => s.score1 < 0 || s.score2 < 0);
+      if (negatives.length) {
+        const msg = negatives.map(s => `Round ${s.round} ${courtName(s.court)}: ${s.score1}–${s.score2}`).join(', ');
+        if (!confirm(`⚠️ Negative scores detected:\n${msg}\n\nSave anyway?`)) return;
+      }
+      const overMax = scores.filter(s => s.score1 > 20 || s.score2 > 20);
+      if (overMax.length) {
+        const msg = overMax.map(s => `Round ${s.round} ${courtName(s.court)}: ${s.score1}–${s.score2}`).join(', ');
+        if (!confirm(`⚠️ Scores over 20 detected:\n${msg}\n\nSave anyway?`)) return;
+      }
       const ties = scores.filter(s => s.score1 === s.score2);
       if (ties.length) {
         const msg = ties.map(s => `Round ${s.round} ${courtName(s.court)}: ${s.score1}–${s.score2}`).join(', ');
@@ -7517,16 +7687,23 @@ function doPost(e) {
 
     document.getElementById('new-league-storage').addEventListener('change', function() {
       const sheetGroup = document.getElementById('new-league-sheet-group');
+      const pinGroup   = document.getElementById('new-league-pin-group');
       sheetGroup.style.display = this.value === 'supabase' ? 'none' : '';
+      if (pinGroup) pinGroup.classList.toggle('hidden', this.value !== 'supabase');
     });
 
     document.getElementById('btn-save-new-league').addEventListener('click', async () => {
       const leagueId = document.getElementById('new-league-id').value.trim().replace(/\s+/g, '-');
       const name     = document.getElementById('new-league-name').value.trim();
       const sheetId  = document.getElementById('new-league-sheet').value.trim();
+      const storage  = document.getElementById('new-league-storage')?.value || 'google';
+      const adminPin = document.getElementById('new-league-admin-pin')?.value.trim() || '';
 
       if (!leagueId || !name) {
         toast('League ID and Display Name are required.', 'warn'); return;
+      }
+      if (storage === 'supabase' && !adminPin) {
+        toast('Admin PIN is required for Supabase leagues.', 'warn'); return;
       }
 
       showLoading(true);
@@ -7538,8 +7715,7 @@ function doPost(e) {
         const hidden     = document.getElementById('new-league-hidden').checked;
         const customerId  = document.getElementById('new-league-customer-id').value.trim() || null;
         const adminEmail  = document.getElementById('new-league-admin-email').value.trim() || null;
-        const storage     = document.getElementById('new-league-storage')?.value || 'google';
-        const result = await API.addLeague(leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId, adminEmail, storage);
+        const result = await API.addLeague(leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId, adminEmail, storage, adminPin || null);
         if (result.warnings && result.warnings.length) {
           result.warnings.forEach(w => toast('Warning: ' + w, 'warn'));
         }
@@ -7553,6 +7729,8 @@ function doPost(e) {
         document.getElementById('new-league-sheet').value = '';
         document.getElementById('new-league-admin-email').value = '';
         document.getElementById('new-league-customer-id').value = '';
+        const pinEl = document.getElementById('new-league-admin-pin');
+        if (pinEl) pinEl.value = '';
         document.getElementById('add-league-form').classList.add('hidden');
         document.getElementById('btn-show-add-league').classList.remove('hidden');
         renderLeagues();

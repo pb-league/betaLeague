@@ -615,6 +615,16 @@
     selectedLeague = league;
     Auth.setSession('', false, league.leagueId, league.name);
     document.getElementById('selected-league-name').textContent = league.name;
+
+    // If playerLogin is disabled for this tier, skip player login and go straight to admin
+    if (league.tier && typeof TIERS !== 'undefined') {
+      const tierDef = TIERS.find(t => t.version.toLowerCase() === league.tier.toLowerCase());
+      if (tierDef && (tierDef.disableList || []).includes('playerLogin')) {
+        goTo('step-admin');
+        return;
+      }
+    }
+
     const playerSel = document.getElementById('player-select');
     playerSel.innerHTML = '<option value="">— Loading… —</option>';
     goTo('step-player');
