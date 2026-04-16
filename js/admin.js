@@ -787,6 +787,7 @@ const ROLE_COLORS = {
     initAvailUI();
     renderMessaging();
     refreshSendMessageUI();
+    refreshSmsUI();
   }
 
   // ── Head-to-Head ───────────────────────────────────────────
@@ -1046,14 +1047,67 @@ const ROLE_COLORS = {
     }
   }
 
+  // Shared helper — renders a checkbox list into a container div.
+  // First row is "All Players" which acts as select-all.
+  function buildCheckboxList(container, items, labelFn, prevSelected) {
+    const allChecked = !prevSelected || prevSelected.has('__all__');
+    const rowStyle = 'display:flex;align-items:center;gap:10px;padding:7px 12px;cursor:pointer;font-size:0.83rem;border-bottom:1px solid rgba(255,255,255,0.05);';
+    let html = `<label style="${rowStyle}">
+      <input type="checkbox" data-recip="__all__" ${allChecked ? 'checked' : ''} style="width:16px;height:16px;flex-shrink:0;">
+      <span style="font-weight:600;">All Players</span>
+    </label>`;
+    items.forEach(item => {
+      const checked = allChecked || (prevSelected && prevSelected.has(item.value));
+      html += `<label style="${rowStyle}">
+        <input type="checkbox" data-recip="${esc(item.value)}" ${checked ? 'checked' : ''} style="width:16px;height:16px;flex-shrink:0;">
+        <span>${esc(labelFn(item))}</span>
+      </label>`;
+    });
+    container.innerHTML = html;
+
+    // All Players checkbox — check/uncheck all
+    const allBox = container.querySelector('[data-recip="__all__"]');
+    allBox.addEventListener('change', () => {
+      container.querySelectorAll('[data-recip]').forEach(cb => { cb.checked = allBox.checked; });
+    });
+    // Individual checkbox — uncheck All Players if any individual is unchecked
+    container.querySelectorAll('[data-recip]:not([data-recip="__all__"])').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (!cb.checked) allBox.checked = false;
+        const individuals = [...container.querySelectorAll('[data-recip]:not([data-recip="__all__"])')];
+        if (individuals.every(c => c.checked)) allBox.checked = true;
+      });
+    });
+  }
+
+  // Returns selected values from a checkbox list container. Empty set = All Players.
+  function getCheckboxSelections(container) {
+    if (!container) return new Set(['__all__']);
+    const allBox = container.querySelector('[data-recip="__all__"]');
+    if (allBox && allBox.checked) return new Set(['__all__']);
+    return new Set(
+      [...container.querySelectorAll('[data-recip]:not([data-recip="__all__"])')].filter(c => c.checked).map(c => c.dataset.recip)
+    );
+  }
+
   function refreshSendMessageUI() {
     const adminOnly = state.config.adminOnlyEmail === true || state.config.adminOnlyEmail === 'true';
     const replyTo   = state.config.replyTo || '';
     const preview   = document.getElementById('msg-recipient-preview');
     const statusEl  = document.getElementById('msg-status');
+    const container = document.getElementById('msg-recipients');
 
-    // Clear previous send status
     if (statusEl) { statusEl.textContent = ''; statusEl.style.color = ''; }
+
+    if (container) {
+      const prevSelected = getCheckboxSelections(container);
+      const eligible = state.players.filter(p => p.active === true && p.email);
+      buildCheckboxList(container,
+        eligible.map(p => ({ value: p.name, email: p.email })),
+        item => `${item.value} — ${item.email}`,
+        prevSelected
+      );
+    }
 
     if (!preview) return;
     if (adminOnly) {
@@ -1062,11 +1116,30 @@ const ROLE_COLORS = {
         : 'Admin-only mode is on but no Admin Email is set — set it above.';
       preview.style.color = replyTo ? 'var(--gold)' : 'var(--danger)';
     } else {
-      const recips = state.players.filter(p => p.active === true && p.email);
-      preview.textContent = recips.length
-        ? `Will send to ${recips.length} player${recips.length !== 1 ? 's' : ''} with email addresses.`
+      const eligible = state.players.filter(p => p.active === true && p.email);
+      preview.textContent = eligible.length
+        ? `${eligible.length} player${eligible.length !== 1 ? 's' : ''} have email addresses on file.`
         : 'No active players have email addresses on file.';
-      preview.style.color = recips.length ? 'var(--muted)' : 'var(--danger)';
+      preview.style.color = eligible.length ? 'var(--muted)' : 'var(--danger)';
+    }
+  }
+
+  function refreshSmsUI() {
+    const container = document.getElementById('sms-recipients');
+    if (!container) return;
+    const prevSelected = getCheckboxSelections(container);
+    const eligible = state.players.filter(p => p.active === true && p.phone);
+    buildCheckboxList(container,
+      eligible.map(p => ({ value: p.name, phone: p.phone })),
+      item => `${item.value} — ${item.phone}`,
+      prevSelected
+    );
+    const statusEl = document.getElementById('sms-status');
+    if (statusEl) {
+      statusEl.textContent = eligible.length
+        ? `${eligible.length} player${eligible.length !== 1 ? 's' : ''} have phone numbers on file.`
+        : 'No active players have phone numbers on file.';
+      statusEl.style.color = eligible.length ? 'var(--muted)' : 'var(--danger)';
     }
   }
 
@@ -2845,10 +2918,19 @@ function doPost(e) {
 
     const teamLabels = singles ? ['P1','P2'] : ['T1P1','T1P2','T2P1','T2P2'];
 
+    // ── Determine first round being generated (matches round-scope dropdown) ──
+    const scope = document.getElementById('round-scope')?.value || 'all';
+    const lockedRounds = [...new Set(
+      state.pairings.filter(p => parseInt(p.week) === week).map(p => parseInt(p.round))
+    )].sort((a,b) => a-b);
+    const firstRound = scope === 'all' ? 1
+      : scope === 'remaining' ? (lockedRounds.length ? Math.max(...lockedRounds) + 1 : 1)
+      : parseInt(scope);
+
     // ── Toggle button + summary ──
     let html = `<div style="margin:8px 0 4px;display:flex;align-items:center;gap:8px;">
       <button id="btn-toggle-arrange" class="btn btn-secondary" style="font-size:0.77rem;padding:2px 12px;">
-        ${isOpen ? '▲ Hide court arrangement' : '▼ Pre-arrange Round 1'}
+        ${isOpen ? '▲ Hide court arrangement' : `▼ Pre-arrange Round ${firstRound}`}
       </button>`;
     if (!isOpen && hasData)
       html += `<span style="font-size:0.77rem;color:#f5c542;">⚡ ${inGrid.size} pre-set · ${sitOutNames.length} sit-out</span>`;
@@ -2857,7 +2939,7 @@ function doPost(e) {
     if (isOpen) {
       html += `<div id="arrange-games-body" style="margin-bottom:10px;">`;
       html += `<p style="font-size:0.78rem;color:#7a9bb5;margin-bottom:8px;">
-        Drag players into courts to fix <strong style="color:#f0f4f8;">Round 1</strong> assignments.
+        Drag players into courts to fix <strong style="color:#f0f4f8;">Round ${firstRound}</strong> assignments.
         Partial courts (e.g. 3 of ${ppc}) are auto-completed by the optimizer.
         Players dropped in <strong style="color:#e05a5a;">Sit Out</strong> are excluded from all rounds.
       </p>`;
@@ -2876,7 +2958,7 @@ function doPost(e) {
 
       // ── Grid ──
       html += `<div>
-        <div style="font-size:0.72rem;font-weight:600;color:#7a9bb5;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Courts — Round 1</div>`;
+        <div style="font-size:0.72rem;font-weight:600;color:#7a9bb5;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Courts — Round ${firstRound}</div>`;
       if (hiddenCourts > 0)
         html += `<div style="font-size:0.73rem;color:#f0a030;margin-bottom:5px;">
           ⚠ Not enough players for ${hiddenCourts} court${hiddenCourts!==1?'s':''} — showing ${effectiveCourts} of ${configCourts}
@@ -4010,11 +4092,7 @@ function doPost(e) {
       augmentedHistory = [...sessionHistory, ...fakePairings];
     }
 
-    const baseTries = parseInt(state.config.optimizerTries || 100);
-    // Scale tries based on present player count (not total registered)
-    const tries = playersToAssign.length <= 8
-      ? baseTries
-      : Math.max(15, Math.round(baseTries * Math.pow(8 / playersToAssign.length, 1.5)));
+    const tries = parseInt(state.config.optimizerTries || 100);
     const weights = {
       sessionPartnerWeight:  state.config.wSessionPartner  ?? Pairings.DEFAULTS.sessionPartnerWeight,
       sessionOpponentWeight: state.config.wSessionOpponent ?? Pairings.DEFAULTS.sessionOpponentWeight,
@@ -5570,6 +5648,13 @@ function doPost(e) {
         const intOrEmpty = v => (v !== null && v !== undefined && v !== '') ? String(v) : '';
 
         document.getElementById('limits-modal-league').textContent = leagueName;
+        // Populate tier dropdown from TIERS constant in settings.js
+        const tierSel = document.getElementById('lim-tier');
+        tierSel.innerHTML = '<option value="">(no tier)</option>' +
+          (typeof TIERS !== 'undefined' ? TIERS : [])
+            .map(t => `<option value="${esc(t.version)}">${esc(t.version)}</option>`)
+            .join('');
+        tierSel.value = cur.tier || '';
         document.getElementById('lim-expiry').value   = intOrEmpty(cur.expiryDays);
         document.getElementById('lim-players').value  = intOrEmpty(cur.maxPlayers);
         document.getElementById('lim-courts').value   = intOrEmpty(cur.maxCourts);
@@ -5587,7 +5672,9 @@ function doPost(e) {
             return v === '' ? null : parseInt(v);
           };
           const custId = document.getElementById('lim-customer').value.trim();
+          const tierVal = document.getElementById('lim-tier').value.trim();
           const limits = {
+            tier:        tierVal === '' ? null : tierVal,
             expiryDays:  parse('lim-expiry'),
             maxPlayers:  parse('lim-players'),
             maxCourts:   parse('lim-courts'),
@@ -5961,6 +6048,29 @@ function doPost(e) {
     document.querySelector('.card:has(#msg-subject) details')?.addEventListener('toggle', function() {
       if (this.open) refreshSendMessageUI();
     });
+    // Refresh SMS UI when the SMS collapsible is opened
+    document.querySelector('.card:has(#sms-recipients) details')?.addEventListener('toggle', function() {
+      if (this.open) refreshSmsUI();
+    });
+    document.getElementById('btn-open-text')?.addEventListener('click', () => {
+      const selected = getCheckboxSelections(document.getElementById('sms-recipients'));
+      const useAll = selected.has('__all__');
+      const eligible = state.players.filter(p => p.active === true && p.phone);
+      const targets = useAll ? eligible : eligible.filter(p => selected.has(p.name));
+      if (!targets.length) { toast('No selected players have phone numbers on file.', 'warn'); return; }
+      // Normalize numbers: strip everything except digits and leading +
+      const numbers = targets.map(p => p.phone.replace(/[^\d+]/g, '')).filter(Boolean);
+      // Navigate via a hidden link. If the sms: scheme has no handler (e.g. on a laptop),
+      // the window stays focused — detect that after a short delay and show an alert.
+      const a = document.createElement('a');
+      a.href = 'sms:' + numbers.join(',');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => {
+        if (document.hasFocus()) alert('Texting is not supported on this device. Use a phone with the app installed as a PWA.');
+      }, 500);
+    });
 
     document.getElementById('btn-send-avail')?.addEventListener('click', async () => {
       if (isAssistant) { toast('Admin assistants cannot send emails.', 'warn'); return; }
@@ -6048,9 +6158,12 @@ function doPost(e) {
       if (!subject) { toast('Please enter a subject.', 'warn'); return; }
       if (!body)    { toast('Please enter a message.', 'warn'); return; }
 
-      const recipients = state.players.filter(p => p.active === true && p.email);
+      const selected = getCheckboxSelections(document.getElementById('msg-recipients'));
+      const useAll = selected.has('__all__');
+      const eligible = state.players.filter(p => p.active === true && p.email);
+      const recipients = useAll ? eligible : eligible.filter(p => selected.has(p.name));
       if (!recipients.length) {
-        toast('No players have email addresses on file.', 'warn'); return;
+        toast('No selected players have email addresses on file.', 'warn'); return;
       }
       if (!confirm(`Send to ${recipients.length} player(s)?`)) return;
 
@@ -6502,14 +6615,7 @@ function doPost(e) {
         toast(`Round limit exceeded: this league allows up to ${maxR} rounds per session.`, 'warn'); return;
       }
 
-      // Scale tries based on present player count — not total registered.
-      // Larger present pools make each construction heavier (more combinations
-      // to evaluate per court), so reduce outer iterations to keep generation
-      // time reasonable. The inner MAX_COMBOS in pairings.js is now 2000,
-      // giving exhaustive or near-exhaustive per-court search.
-      const tries = presentPlayers.length <= 8
-        ? baseTries
-        : Math.max(15, Math.round(baseTries * Math.pow(8 / presentPlayers.length, 1.5)));
+      const tries = baseTries;
 
       // Input hash — detect when inputs change so best is automatically reset
       const inputHash = JSON.stringify({
@@ -7347,6 +7453,11 @@ function doPost(e) {
       document.getElementById('new-league-customer-id').value = '';
     });
 
+    document.getElementById('new-league-storage').addEventListener('change', function() {
+      const sheetGroup = document.getElementById('new-league-sheet-group');
+      sheetGroup.style.display = this.value === 'supabase' ? 'none' : '';
+    });
+
     document.getElementById('btn-save-new-league').addEventListener('click', async () => {
       const leagueId = document.getElementById('new-league-id').value.trim().replace(/\s+/g, '-');
       const name     = document.getElementById('new-league-name').value.trim();
@@ -7365,7 +7476,8 @@ function doPost(e) {
         const hidden     = document.getElementById('new-league-hidden').checked;
         const customerId  = document.getElementById('new-league-customer-id').value.trim() || null;
         const adminEmail  = document.getElementById('new-league-admin-email').value.trim() || null;
-        const result = await API.addLeague(leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId, adminEmail);
+        const storage     = document.getElementById('new-league-storage')?.value || 'google';
+        const result = await API.addLeague(leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId, adminEmail, storage);
         if (result.warnings && result.warnings.length) {
           result.warnings.forEach(w => toast('Warning: ' + w, 'warn'));
         }
@@ -7410,7 +7522,19 @@ function doPost(e) {
     if (disabled.has('pushNotifications'))  hideEl('push-notif-card');
     if (disabled.has('hostedDb'))           hideEl('new-league-sheet-group');
     if (disabled.has('tournamentPairings')) hideEl('tournament-card');
-    if (disabled.has('queuePairings'))      hideEl('queue-pairing-card');
+    if (disabled.has('queuePairings')) {
+      hideEl('queue-pairing-card');
+      const opt = document.querySelector('#cfg-pairing-mode option[value="queue-based"]');
+      if (opt) { opt.disabled = true; opt.textContent = 'Queue Based (not available on this tier)'; }
+      const sel = document.getElementById('cfg-pairing-mode');
+      if (sel && sel.value === 'queue-based') sel.value = 'round-based';
+    }
+    if (disabled.has('ladderLeague')) {
+      const opt = document.querySelector('#cfg-standings-method option[value="ladder"]');
+      if (opt) { opt.disabled = true; opt.textContent = 'Ladder League (not available on this tier)'; }
+      const sel = document.getElementById('cfg-standings-method');
+      if (sel && sel.value === 'ladder') sel.value = 'standard';
+    }
     if (disabled.has('pairingEditor'))      hideEl('edit-pairing-card');
     if (disabled.has('arrangeGames'))       hideEl('arrange-games-wrap');
     if (disabled.has('challenges')) {
@@ -7512,96 +7636,135 @@ function doPost(e) {
     const thisLeague = leagues.find(l => l.leagueId === currentId);
     const canCreate = isMgr || !thisLeague || thisLeague.canCreateLeagues !== false;
     document.getElementById('btn-show-add-league').style.display = canCreate ? '' : 'none';
-    let html = `<table>
-      <thead><tr>
-        <th>ID</th><th>Name</th><th title="Google Sheet ID — hover for full ID">Sheet</th>
-        <th>Status</th>
-        <th title="Whether this league's admin can create new leagues">Create</th>
-        <th>Visibility</th>
-        <th>Tier</th>
-        ${isMgr ? '<th>Customer</th><th>Created</th><th>Expires</th><th>Limits</th><th></th>' : ''}
-      </tr></thead>
-      <tbody>`;
 
-    if (!leagues.length) {
-      html += '<tr><td colspan="7" class="text-muted">No leagues yet. Add one above.</td></tr>';
-    }
+    const chip = (label, color) =>
+      `<span style="font-size:0.7rem; padding:2px 8px; border-radius:4px; white-space:nowrap;
+        background:${color}22; border:1px solid ${color}55; color:${color};">${label}</span>`;
+
+    let html = leagues.length ? '' : '<p class="text-muted">No leagues yet. Add one above.</p>';
 
     leagues.forEach(l => {
-      const isCurrent  = l.leagueId === currentId;
-      const isActive   = !!l.active;
+      const isCurrent      = l.leagueId === currentId;
+      const isActive       = !!l.active;
+      const isHidden       = !!l.hidden;
       const canToggleCreate = isMgr || canCreate;
+      const canCreateNow   = l.canCreateLeagues !== false;
 
-      // Truncate sheet ID — show first 8 chars, full on hover
-      const sheetShort = l.sheetId ? l.sheetId.substring(0, 8) + '…' : '—';
+      // Storage badge
+      const storageBadge = l.storage === 'supabase'
+        ? chip('Supabase', '#5ec272')
+        : `<code style="font-size:0.7rem; color:var(--muted);" title="${esc(l.sheetId || '')}">${l.sheetId ? l.sheetId.substring(0,10)+'…' : '—'}</code>`;
 
-      // Single toggle buttons: show current state, click to toggle
-      const btnActive = `<button class="btn ${isActive ? 'btn-primary' : 'btn-secondary'}"
-        style="padding:3px 10px; font-size:0.72rem; min-width:76px;"
-        title="${isActive ? 'Click to deactivate' : 'Click to activate'}"
-        data-toggle-league="${esc(l.leagueId)}" data-active="${isActive}"
-        data-league-name="${esc(l.name)}">
-        ${isActive ? '● Active' : '○ Inactive'}
-      </button>`;
+      // Expiry string (manager view)
+      const expiryStr = l.expiryDays !== null && l.expiryDays !== undefined ? (() => {
+        if (!l.createdDate) return l.expiryDays + ' days';
+        const exp = new Date(new Date(l.createdDate).getTime() + l.expiryDays * 86400000);
+        const rem = Math.ceil((exp - new Date()) / 86400000);
+        return rem <= 0 ? '<span style="color:var(--danger);">Expired</span>'
+          : `<span style="color:${rem <= 14 ? 'var(--gold)' : 'var(--muted)'};">${rem}d left</span>`;
+      })() : '<span style="color:var(--muted);">None</span>';
 
-      const canCreateNow = l.canCreateLeagues !== false;
-      const btnCreate = `<button class="btn ${canCreateNow ? 'btn-primary' : 'btn-secondary'}"
-        style="padding:3px 10px; font-size:0.72rem; min-width:60px; ${!canToggleCreate ? 'opacity:0.45; cursor:not-allowed;' : ''}"
-        title="${canCreateNow ? 'Can create leagues — click to disallow' : 'Cannot create leagues — click to allow'}${!canToggleCreate ? ' (no permission)' : ''}"
-        data-toggle-create="${esc(l.leagueId)}" data-can-create="${canCreateNow}"
-        data-league-name="${esc(l.name)}"
-        ${!canToggleCreate ? 'disabled' : ''}>
-        ${canCreateNow ? '● Yes' : '○ No'}
-      </button>`;
+      const limitsStr = [
+        l.maxPlayers  != null ? 'Players: '  + l.maxPlayers  : '',
+        l.maxCourts   != null ? 'Courts: '   + l.maxCourts   : '',
+        l.maxRounds   != null ? 'Rounds: '   + l.maxRounds   : '',
+        l.maxSessions != null ? 'Sessions: ' + l.maxSessions : '',
+      ].filter(Boolean).join(' · ') || 'No limits';
 
-      const isHidden = !!l.hidden;
-      const btnVisible = `<button class="btn ${!isHidden ? 'btn-primary' : 'btn-secondary'}"
-        style="padding:3px 10px; font-size:0.72rem; min-width:72px;"
-        title="${isHidden ? 'Hidden — click to make visible' : 'Visible — click to hide'}"
-        data-toggle-hidden="${esc(l.leagueId)}" data-hidden="${isHidden}"
-        data-league-name="${esc(l.name)}">
-        ${!isHidden ? '● Visible' : '○ Hidden'}
-      </button>`;
+      const btnStyle = 'padding:4px 12px; font-size:0.75rem; min-width:88px;';
 
-      html += `<tr>
-        <td><code style="font-size:0.78rem; color:var(--muted);">${esc(l.leagueId)}</code></td>
-        <td class="player-name">${esc(l.name)}${isCurrent ? ' <span class="badge badge-green">current</span>' : ''}</td>
-        <td><code style="font-size:0.72rem; color:var(--muted);" title="${esc(l.sheetId || '')}">${esc(sheetShort)}</code></td>
-        <td>${btnActive}</td>
-        <td>${btnCreate}</td>
-        <td>${btnVisible}</td>
-        <td>${l.tier
-          ? `<a href="#" onclick="showTierInfo('${esc(l.tier)}'); return false;"
-              style="font-size:0.75rem; color:var(--green); text-decoration:none;
-                     background:rgba(94,194,106,0.1); border:1px solid rgba(94,194,106,0.3);
-                     border-radius:4px; padding:2px 7px; white-space:nowrap;"
-              title="Click to see what's included in the ${esc(l.tier)} tier">${esc(l.tier)}</a>`
-          : '<span style="font-size:0.72rem; color:rgba(255,255,255,0.2);">—</span>'}</td>
-        ${isMgr ? `
-        <td style="font-size:0.75rem; color:var(--muted);">${l.customerId || '<span style="opacity:0.4;">—</span>'}</td>
-        <td style="font-size:0.75rem; color:var(--muted);">${l.createdDate || '—'}</td>
-        <td style="font-size:0.75rem;">${l.expiryDays !== null && l.expiryDays !== undefined ? (() => {
-          if (!l.createdDate) return l.expiryDays + ' days';
-          const exp = new Date(new Date(l.createdDate).getTime() + l.expiryDays * 86400000);
-          const rem = Math.ceil((exp - new Date()) / 86400000);
-          return rem <= 0 ? '<span style="color:var(--danger);">Expired</span>' : `<span style="color:${rem <= 14 ? 'var(--gold)' : 'var(--muted)'};">${rem}d left</span>`;
-        })() : '<span style="color:var(--muted);">None</span>'}</td>
-        <td style="font-size:0.72rem; color:var(--muted); line-height:1.6;">${[
-          l.maxPlayers  !== null && l.maxPlayers  !== undefined ? 'Players: ' + l.maxPlayers  : '',
-          l.maxCourts   !== null && l.maxCourts   !== undefined ? 'Courts: '  + l.maxCourts   : '',
-          l.maxRounds   !== null && l.maxRounds   !== undefined ? 'Rounds: '  + l.maxRounds   : '',
-          l.maxSessions !== null && l.maxSessions !== undefined ? 'Sessions: '+ l.maxSessions : '',
-        ].filter(Boolean).join(' · ') || 'No limits'}</td>
-        <td><button class="btn btn-secondary" style="padding:3px 10px; font-size:0.72rem;"
-          data-edit-limits="${esc(l.leagueId)}"
-          data-league-name="${esc(l.name)}"
-          data-limits='${JSON.stringify({expiryDays:l.expiryDays,maxPlayers:l.maxPlayers,maxCourts:l.maxCourts,maxRounds:l.maxRounds,maxSessions:l.maxSessions,customerId:l.customerId})}'>
-          ✏️ Limits
-        </button></td>` : ''}
-      </tr>`;
+      html += `<details class="league-accordion" style="margin-bottom:6px; border:1px solid rgba(255,255,255,0.08); border-radius:8px; background:rgba(255,255,255,0.02);">
+        <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; user-select:none; flex-wrap:wrap;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600; font-size:0.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+              ${esc(l.name)}${isCurrent ? ' <span style="font-size:0.65rem; background:#5ec27233; border:1px solid #5ec27255; color:#5ec272; border-radius:4px; padding:1px 6px; vertical-align:middle;">current</span>' : ''}
+            </div>
+            <div style="font-size:0.7rem; color:var(--muted); margin-top:2px;">${esc(l.leagueId)}</div>
+          </div>
+          <div style="display:flex; gap:5px; flex-wrap:wrap; align-items:center;">
+            ${chip(isActive ? '● Active' : '○ Inactive', isActive ? '#5ec272' : '#888')}
+            ${l.tier ? chip(l.tier, '#5ec272') : ''}
+            ${isHidden ? chip('Hidden', '#f0a030') : ''}
+          </div>
+          <span style="font-size:0.7rem; color:var(--muted); flex-shrink:0;">▼</span>
+        </summary>
+        <div style="padding:14px 16px; border-top:1px solid rgba(255,255,255,0.06); display:grid; grid-template-columns:1fr 1fr; gap:10px 16px;">
+
+          <div>
+            <div class="label" style="margin-bottom:4px;">Storage</div>
+            ${storageBadge}
+          </div>
+          <div>
+            <div class="label" style="margin-bottom:4px;">Tier</div>
+            ${l.tier
+              ? `<a href="#" onclick="showTierInfo('${esc(l.tier)}'); return false;"
+                  style="font-size:0.75rem; color:var(--green); text-decoration:none;
+                         background:rgba(94,194,106,0.1); border:1px solid rgba(94,194,106,0.3);
+                         border-radius:4px; padding:2px 8px;"
+                  title="Click to see tier features">${esc(l.tier)}</a>`
+              : '<span style="color:var(--muted); font-size:0.8rem;">—</span>'}
+          </div>
+
+          <div>
+            <div class="label" style="margin-bottom:6px;">Status</div>
+            <button class="btn ${isActive ? 'btn-primary' : 'btn-secondary'}"
+              style="${btnStyle}" title="${isActive ? 'Click to deactivate' : 'Click to activate'}"
+              data-toggle-league="${esc(l.leagueId)}" data-active="${isActive}"
+              data-league-name="${esc(l.name)}">
+              ${isActive ? '● Active' : '○ Inactive'}
+            </button>
+          </div>
+          <div>
+            <div class="label" style="margin-bottom:6px;">Visibility</div>
+            <button class="btn ${!isHidden ? 'btn-primary' : 'btn-secondary'}"
+              style="${btnStyle}" title="${isHidden ? 'Hidden — click to make visible' : 'Visible — click to hide'}"
+              data-toggle-hidden="${esc(l.leagueId)}" data-hidden="${isHidden}"
+              data-league-name="${esc(l.name)}">
+              ${!isHidden ? '● Visible' : '○ Hidden'}
+            </button>
+          </div>
+
+          <div style="grid-column:1/-1;">
+            <div class="label" style="margin-bottom:6px;" title="Whether this league's admin can create new leagues">Can Create Leagues</div>
+            <button class="btn ${canCreateNow ? 'btn-primary' : 'btn-secondary'}"
+              style="${btnStyle} ${!canToggleCreate ? 'opacity:0.45; cursor:not-allowed;' : ''}"
+              data-toggle-create="${esc(l.leagueId)}" data-can-create="${canCreateNow}"
+              data-league-name="${esc(l.name)}"
+              ${!canToggleCreate ? 'disabled' : ''}>
+              ${canCreateNow ? '● Yes' : '○ No'}
+            </button>
+          </div>
+
+          ${isMgr ? `
+          <div>
+            <div class="label" style="margin-bottom:4px;">Customer ID</div>
+            <span style="font-size:0.8rem; color:var(--muted);">${esc(l.customerId || '—')}</span>
+          </div>
+          <div>
+            <div class="label" style="margin-bottom:4px;">Created</div>
+            <span style="font-size:0.8rem; color:var(--muted);">${esc(l.createdDate || '—')}</span>
+          </div>
+          <div>
+            <div class="label" style="margin-bottom:4px;">Expires</div>
+            <span style="font-size:0.8rem;">${expiryStr}</span>
+          </div>
+          <div>
+            <div class="label" style="margin-bottom:4px;">Limits</div>
+            <span style="font-size:0.75rem; color:var(--muted);">${limitsStr}</span>
+          </div>
+          <div style="grid-column:1/-1;">
+            <button class="btn btn-secondary" style="padding:5px 14px; font-size:0.78rem;"
+              data-edit-limits="${esc(l.leagueId)}"
+              data-league-name="${esc(l.name)}"
+              data-limits='${JSON.stringify({expiryDays:l.expiryDays,maxPlayers:l.maxPlayers,maxCourts:l.maxCourts,maxRounds:l.maxRounds,maxSessions:l.maxSessions,customerId:l.customerId,tier:l.tier||null})}'>
+              ✏️ Edit Limits &amp; Tier
+            </button>
+          </div>` : ''}
+
+        </div>
+      </details>`;
     });
 
-    html += '</tbody></table>';
     document.getElementById('leagues-table').innerHTML = html;
     applyNavVisibility(); // ensure nav stays correct after async renderLeagues
 

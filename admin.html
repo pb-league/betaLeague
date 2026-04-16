@@ -451,18 +451,19 @@
           </div>
           </details>
         </div>
-        <!-- League Message Composer -->
+        <!-- League Email Composer -->
         <div class="card mt-2">
           <details>
           <summary class="card-header collapsible-header" style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
-            <div class="card-title">📧 Send Message to Players</div>
+            <div class="card-title">📧 Send Email to Players</div>
             <span class="collapse-arrow" style="font-size:0.72rem; color:var(--green); opacity:0.6;">▼</span>
           </summary>
           <div class="collapsible-body">
-          <p style="font-size:0.82rem; color:var(--muted); margin-top:10px; margin-bottom:14px;">
-            Sends to all active players who have provided an email address.
-          </p>
-          <div class="form-group">
+          <div class="form-group" style="margin-top:10px;">
+            <label class="form-label">Recipients</label>
+            <div id="msg-recipients" style="max-height:180px; overflow-y:auto; border:1px solid rgba(255,255,255,0.12); border-radius:6px; padding:4px 0; background:var(--input-bg, #0d1b2a);"></div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
             <label class="form-label">Subject</label>
             <input class="form-control" id="msg-subject" placeholder="e.g. League Update">
           </div>
@@ -508,7 +509,28 @@
           </div>
           <div id="msg-status" style="font-size:0.8rem; margin-top:8px;"></div>
           <div id="msg-recipient-preview" style="font-size:0.78rem; color:var(--muted); margin-top:6px;"></div>
-          <button class="btn btn-primary mt-1" id="btn-send-message">📧 Send Message</button>
+          <button class="btn btn-primary mt-1" id="btn-send-message">📧 Send Email</button>
+          </div>
+          </details>
+        </div>
+
+        <!-- SMS Composer -->
+        <div class="card mt-2">
+          <details>
+          <summary class="card-header collapsible-header" style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+            <div class="card-title">💬 Send Text to Players</div>
+            <span class="collapse-arrow" style="font-size:0.72rem; color:var(--green); opacity:0.6;">▼</span>
+          </summary>
+          <div class="collapsible-body">
+          <p style="font-size:0.82rem; color:var(--muted); margin-top:10px; margin-bottom:14px;">
+            Opens your phone's messaging app with the selected players' numbers pre-filled. Works best when using the app as a PWA on your phone.
+          </p>
+          <div class="form-group">
+            <label class="form-label">Recipients</label>
+            <div id="sms-recipients" style="max-height:180px; overflow-y:auto; border:1px solid rgba(255,255,255,0.12); border-radius:6px; padding:4px 0; background:var(--input-bg, #0d1b2a);"></div>
+          </div>
+          <div id="sms-status" style="font-size:0.8rem; margin-top:8px;"></div>
+          <button class="btn btn-primary mt-1" id="btn-open-text">💬 Open Text App</button>
           </div>
           </details>
         </div>
@@ -954,28 +976,20 @@
             Generate a seeded elimination bracket. Top seeds get byes if needed.
             After each round, enter scores then click <strong style="color:var(--white);">Advance Round</strong> to generate the next round.
           </p>
-          <div class="form-row" style="align-items:flex-end; gap:12px;">
-            <div class="form-group">
-              <label class="form-label">Format</label>
-              <select class="form-control" id="tourn-mode" style="width:260px;">
-                <option value="single">Single Elimination</option>
-                <option value="double">Double Elimination</option>
-                <option value="rr">Round Robin Doubles (reseeded)</option>
-                <option value="rr-singles">Round Robin Singles (reseeded)</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-top:20px;">
-              <button class="btn btn-gold" id="btn-tourn-generate">🏆 Generate Bracket</button>
-            </div>
-            <div class="form-group" style="margin-top:20px;">
-              <button class="btn btn-primary hidden" id="btn-tourn-advance">▶ Advance Round</button>
-            </div>
-            <div class="form-group" style="margin-top:20px;">
-              <button class="btn btn-secondary hidden" id="btn-tourn-lock">🔒 Lock &amp; Save Round</button>
-            </div>
-            <div class="form-group" style="margin-top:20px;">
-              <button class="btn btn-danger hidden" id="btn-tourn-reset">✕ Reset Tournament</button>
-            </div>
+          <div class="form-group">
+            <label class="form-label">Format</label>
+            <select class="form-control" id="tourn-mode" style="width:260px;">
+              <option value="single">Single Elimination</option>
+              <option value="double">Double Elimination</option>
+              <option value="rr">Round Robin Doubles (reseeded)</option>
+              <option value="rr-singles">Round Robin Singles (reseeded)</option>
+            </select>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;">
+            <button class="btn btn-gold" id="btn-tourn-generate">🏆 Generate Bracket</button>
+            <button class="btn btn-primary hidden" id="btn-tourn-advance">▶ Advance Round</button>
+            <button class="btn btn-secondary hidden" id="btn-tourn-lock">🔒 Lock &amp; Save Round</button>
+            <button class="btn btn-danger hidden" id="btn-tourn-reset">✕ Reset Tournament</button>
           </div>
           <div id="tourn-status" style="margin-top:10px; font-size:0.85rem;"></div>
           </div>
@@ -1209,6 +1223,13 @@
               <label class="form-label">Customer ID <span style="color:var(--muted); font-weight:400;\">(optional — filters leagues visible to this customer)</span></label>
               <input class="form-control" id="new-league-customer-id" placeholder="e.g. doug123">
             </div>
+            <div class="form-group">
+              <label class="form-label">Storage Backend</label>
+              <select class="form-control" id="new-league-storage" style="max-width:260px;">
+                <option value="google">Google Sheets</option>
+                <option value="supabase">Supabase</option>
+              </select>
+            </div>
             <div class="form-group" id="new-league-sheet-group">
               <label class="form-label">Google Sheet ID <span style="color:var(--muted); font-weight:400;">(optional — leave blank to auto-create)</span></label>
               <input class="form-control" id="new-league-sheet" placeholder="Leave blank to auto-create">
@@ -1419,36 +1440,28 @@
       style="position:absolute; top:12px; right:14px; background:none; border:none;
              color:rgba(255,255,255,0.35); font-size:1.3rem; cursor:pointer; line-height:1;">✕</button>
     <div style="font-weight:600; font-size:0.95rem; color:var(--white); margin-bottom:4px;">Edit Limits</div>
-    <div id="limits-modal-league" style="font-size:0.78rem; color:var(--muted); margin-bottom:18px;"></div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Expiry Days <span style="color:var(--muted);font-weight:400;">(blank = no expiry)</span></label>
-        <input class="form-control" id="lim-expiry" type="number" min="0" placeholder="e.g. 365">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Max Players <span style="color:var(--muted);font-weight:400;">(blank = no limit)</span></label>
-        <input class="form-control" id="lim-players" type="number" min="1" placeholder="e.g. 20">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Max Courts <span style="color:var(--muted);font-weight:400;">(blank = no limit)</span></label>
-        <input class="form-control" id="lim-courts" type="number" min="1" placeholder="e.g. 4">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Max Rounds/Session <span style="color:var(--muted);font-weight:400;">(blank = no limit)</span></label>
-        <input class="form-control" id="lim-rounds" type="number" min="1" placeholder="e.g. 7">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Max Sessions <span style="color:var(--muted);font-weight:400;">(blank = no limit)</span></label>
-        <input class="form-control" id="lim-sessions" type="number" min="1" placeholder="e.g. 12">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Customer ID <span style="color:var(--muted);font-weight:400;">(blank to clear)</span></label>
-        <input class="form-control" id="lim-customer" type="text" placeholder="optional">
-      </div>
+    <div id="limits-modal-league" style="font-size:0.78rem; color:var(--muted); margin-bottom:14px;"></div>
+    <div style="display:grid; grid-template-columns:130px 1fr; align-items:center; gap:8px 12px;">
+      <label style="font-size:0.78rem; color:var(--muted); text-align:right;">Tier</label>
+      <select class="form-control" id="lim-tier" style="padding:5px 8px; font-size:0.82rem;"></select>
+
+      <label style="font-size:0.78rem; color:var(--muted); text-align:right;">Expiry Days</label>
+      <input class="form-control" id="lim-expiry" type="number" min="0" placeholder="blank = no expiry" style="padding:5px 8px; font-size:0.82rem;">
+
+      <label style="font-size:0.78rem; color:var(--muted); text-align:right;">Max Players</label>
+      <input class="form-control" id="lim-players" type="number" min="1" placeholder="blank = no limit" style="padding:5px 8px; font-size:0.82rem;">
+
+      <label style="font-size:0.78rem; color:var(--muted); text-align:right;">Max Courts</label>
+      <input class="form-control" id="lim-courts" type="number" min="1" placeholder="blank = no limit" style="padding:5px 8px; font-size:0.82rem;">
+
+      <label style="font-size:0.78rem; color:var(--muted); text-align:right;">Max Rounds/Session</label>
+      <input class="form-control" id="lim-rounds" type="number" min="1" placeholder="blank = no limit" style="padding:5px 8px; font-size:0.82rem;">
+
+      <label style="font-size:0.78rem; color:var(--muted); text-align:right;">Max Sessions</label>
+      <input class="form-control" id="lim-sessions" type="number" min="1" placeholder="blank = no limit" style="padding:5px 8px; font-size:0.82rem;">
+
+      <label style="font-size:0.78rem; color:var(--muted); text-align:right;">Customer ID</label>
+      <input class="form-control" id="lim-customer" type="text" placeholder="blank to clear" style="padding:5px 8px; font-size:0.82rem;">
     </div>
     <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
       <button class="btn btn-secondary" onclick="document.getElementById('limits-modal').style.display='none'"
@@ -1571,7 +1584,7 @@
   }, true);
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="js/settings.js?v=1.4.17"></script>
+<script src="js/settings.js?v=1.5.0"></script>
   <!-- Google Analytics — loads only if GA_MEASUREMENT_ID is set in settings.js -->
   <script>
     window.__gaReady = false;
@@ -1593,15 +1606,15 @@
       window.__gaReady = true;
     });
   </script>
-<script src="js/api.js?v=1.4.17"></script>
-<script src="js/push.js?v=1.4.17"></script>
-<script src="js/auth.js?v=1.4.17"></script>
-<script src="js/pairings.js?v=1.4.17"></script>
-<script src="js/reports.js?v=1.4.17"></script>
-<script src="js/tournament.js?v=1.4.17"></script>
-<script src="js/changelog.js?v=1.4.17"></script>
-<script src="js/timers.js?v=1.4.17"></script>
-<script src="js/admin.js?v=1.4.17"></script>
+<script src="js/api.js?v=1.5.0"></script>
+<script src="js/push.js?v=1.5.0"></script>
+<script src="js/auth.js?v=1.5.0"></script>
+<script src="js/pairings.js?v=1.5.0"></script>
+<script src="js/reports.js?v=1.5.0"></script>
+<script src="js/tournament.js?v=1.5.0"></script>
+<script src="js/changelog.js?v=1.5.0"></script>
+<script src="js/timers.js?v=1.5.0"></script>
+<script src="js/admin.js?v=1.5.0"></script>
 <script>
 (function() {
   const toggle   = document.getElementById('nav-toggle');

@@ -6,6 +6,18 @@
 
 const CHANGELOG = [
 {
+  version: '1.5.0',
+  date: '2026-04-14',
+  changes: [
+    'Add Supabase storage backend — individual leagues can now be stored in Supabase instead of Google Sheets',
+    'League registry stays in Google Sheets; per-league storage is chosen at creation time',
+    'New league form: Storage Backend selector (Google Sheets / Supabase); Sheet ID field hides when Supabase is selected',
+    'Leagues table: shows "Supabase" badge for Supabase-backed leagues instead of Sheet ID',
+    'Migration functions: copy all league data between Google Sheets and Supabase in either direction',
+    'All data operations (config, players, attendance, pairings, scores, queue, timers, push subscriptions, challenges, chat) supported in Supabase',
+  ]
+},
+{
   version: '1.4.17',
   date: '2026-04-14',
   changes: [

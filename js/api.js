@@ -62,9 +62,11 @@ const API = (() => {
     getLeagues:             (customerId) => get('getLeagues', customerId ? { customerId } : {}),
     getLeaguesAll:          ()           => get('getLeagues', { includeHidden: true }),
     getLeagueAndPlayers:    (leagueId, customerId) => get('getLeagueAndPlayers', customerId ? { leagueId, customerId } : { leagueId }),
-    addLeague:        (leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId, adminEmail) => post({ action: 'addLeague', leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId, adminEmail }),
-    updateLeague:          (leagueId, name, sheetId, active, canCreateLeagues, hidden, adminEmail, limits) => post({ action: 'updateLeague', leagueId, name, sheetId, active, canCreateLeagues, hidden, adminEmail, limits }),
+    addLeague:        (leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId, adminEmail, storage) => post({ action: 'addLeague', leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId, adminEmail, storage }),
+    updateLeague:          (leagueId, name, sheetId, active, canCreateLeagues, hidden, adminEmail, limits, storage) => post({ action: 'updateLeague', leagueId, name, sheetId, active, canCreateLeagues, hidden, adminEmail, limits, storage }),
     updateLeagueWithCaller: (leagueId, name, sheetId, active, canCreateLeagues, callerLeagueId, adminEmail) => post({ action: 'updateLeague', leagueId, name, sheetId, active, canCreateLeagues, callerLeagueId, adminEmail }),
+    migrateLeague:     () => post({ action: 'migrateLeague' }),
+    migrateLeagueBack: () => post({ action: 'migrateLeagueBack' }),
 
     // League-scoped (leagueId auto-injected from session)
     getAllData:        (sinceWeek)      => get('getAllData', sinceWeek ? { sinceWeek } : {}),
