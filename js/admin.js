@@ -6051,6 +6051,20 @@ function doPost(e) {
     // Refresh SMS UI when the SMS collapsible is opened
     document.querySelector('.card:has(#sms-recipients) details')?.addEventListener('toggle', function() {
       if (this.open) refreshSmsUI();
+      else { // hide number box when card is collapsed
+        const box = document.getElementById('sms-number-box');
+        if (box) box.style.display = 'none';
+      }
+    });
+    document.getElementById('btn-copy-numbers')?.addEventListener('click', () => {
+      const listEl = document.getElementById('sms-number-list');
+      if (!listEl) return;
+      navigator.clipboard.writeText(listEl.value).then(() => {
+        const btn = document.getElementById('btn-copy-numbers');
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 2000);
+      });
     });
     document.getElementById('btn-open-text')?.addEventListener('click', () => {
       const selected = getCheckboxSelections(document.getElementById('sms-recipients'));
@@ -6060,16 +6074,19 @@ function doPost(e) {
       if (!targets.length) { toast('No selected players have phone numbers on file.', 'warn'); return; }
       // Normalize numbers: strip everything except digits and leading +
       const numbers = targets.map(p => p.phone.replace(/[^\d+]/g, '')).filter(Boolean);
-      // Navigate via a hidden link. If the sms: scheme has no handler (e.g. on a laptop),
-      // the window stays focused — detect that after a short delay and show an alert.
+      // Show the numbers in a copyable field — multi-recipient sms: URIs
+      // are unreliable across platforms, so the user can paste them manually.
+      const box = document.getElementById('sms-number-box');
+      const listEl = document.getElementById('sms-number-list');
+      if (box && listEl) {
+        listEl.value = numbers.join(', ');
+        box.style.display = '';
+      }
       const a = document.createElement('a');
-      a.href = 'sms:' + numbers.join(',');
+      a.href = 'sms:' + numbers[0]; // open app with first number; user pastes the rest
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setTimeout(() => {
-        if (document.hasFocus()) alert('Texting is not supported on this device. Use a phone with the app installed as a PWA.');
-      }, 500);
     });
 
     document.getElementById('btn-send-avail')?.addEventListener('click', async () => {
@@ -6248,6 +6265,51 @@ function doPost(e) {
         statusEl.textContent = 'Send failed: ' + e.message;
         statusEl.style.color = 'var(--danger)';
       } finally { showLoading(false); }
+    });
+
+    document.getElementById('btn-open-email')?.addEventListener('click', () => {
+      if (isAssistant) { toast('Admin assistants cannot send league messages.', 'warn'); return; }
+      const subject = document.getElementById('msg-subject').value.trim();
+      const body    = document.getElementById('msg-body').value.trim();
+      if (!subject) { toast('Please enter a subject.', 'warn'); return; }
+      if (!body)    { toast('Please enter a message.', 'warn'); return; }
+
+      const selected = getCheckboxSelections(document.getElementById('msg-recipients'));
+      const useAll = selected.has('__all__');
+      const eligible = state.players.filter(p => p.active === true && p.email);
+      const recipients = useAll ? eligible : eligible.filter(p => selected.has(p.name));
+      if (!recipients.length) { toast('No selected players have email addresses on file.', 'warn'); return; }
+
+      // Build plain-text footer from checked include options
+      const c = state.config;
+      const lines = [];
+      if (document.getElementById('msg-inc-name').checked    && c.leagueName)    lines.push('League: ' + c.leagueName);
+      if (document.getElementById('msg-inc-location').checked && c.location)      lines.push('Location: ' + c.location);
+      if (document.getElementById('msg-inc-time').checked    && c.sessionTime)    lines.push('Session time: ' + c.sessionTime);
+      if (document.getElementById('msg-inc-url').checked     && c.leagueUrl)      lines.push('App: ' + c.leagueUrl);
+      if (document.getElementById('msg-inc-rules').checked   && c.rules)          lines.push('\nRules:\n' + c.rules);
+      if (document.getElementById('msg-inc-dates').checked) {
+        const weeks = parseInt(c.weeks || 8);
+        for (let w = 1; w <= weeks; w++) {
+          if (c['date_' + w] || c['time_' + w])
+            lines.push(`Session ${w}: ${c['date_' + w] || ''} ${c['time_' + w] || ''}`.trim());
+        }
+      }
+      if (document.getElementById('msg-inc-players').checked) {
+        const names = state.players.filter(p => p.active === true).map(p => p.name);
+        if (names.length) lines.push('\nPlayers:\n' + names.join(', '));
+      }
+
+      const fullBody = lines.length ? body + '\n\n' + lines.join('\n') : body;
+      const mailto = 'mailto:' + recipients.map(p => encodeURIComponent(p.email)).join(',')
+        + '?subject=' + encodeURIComponent(subject)
+        + '&body='    + encodeURIComponent(fullBody);
+
+      const a = document.createElement('a');
+      a.href = mailto;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     });
 
     // Generate random invite code

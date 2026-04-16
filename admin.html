@@ -509,7 +509,13 @@
           </div>
           <div id="msg-status" style="font-size:0.8rem; margin-top:8px;"></div>
           <div id="msg-recipient-preview" style="font-size:0.78rem; color:var(--muted); margin-top:6px;"></div>
-          <button class="btn btn-primary mt-1" id="btn-send-message">📧 Send Email</button>
+          <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;">
+            <button class="btn btn-primary" id="btn-send-message">📧 Send via App Script</button>
+            <button class="btn btn-secondary" id="btn-open-email">✉️ Open Email App</button>
+          </div>
+          <div style="font-size:0.72rem; color:var(--muted); margin-top:6px;">
+            "Open Email App" sends from your own email address using your phone or desktop mail app.
+          </div>
           </div>
           </details>
         </div>
@@ -522,14 +528,25 @@
             <span class="collapse-arrow" style="font-size:0.72rem; color:var(--green); opacity:0.6;">▼</span>
           </summary>
           <div class="collapsible-body">
-          <p style="font-size:0.82rem; color:var(--muted); margin-top:10px; margin-bottom:14px;">
-            Opens your phone's messaging app with the selected players' numbers pre-filled. Works best when using the app as a PWA on your phone.
+          <p style="font-size:0.82rem; color:var(--muted); margin-top:10px; margin-bottom:6px;">
+            Opens your phone's messaging app with the selected players' numbers pre-filled.
+          </p>
+          <p style="font-size:0.78rem; color:var(--gold); margin-bottom:14px;">
+            ⚠ Only works on a phone with the app saved to the home screen (PWA).
           </p>
           <div class="form-group">
             <label class="form-label">Recipients</label>
             <div id="sms-recipients" style="max-height:180px; overflow-y:auto; border:1px solid rgba(255,255,255,0.12); border-radius:6px; padding:4px 0; background:var(--input-bg, #0d1b2a);"></div>
           </div>
           <div id="sms-status" style="font-size:0.8rem; margin-top:8px;"></div>
+          <div id="sms-number-box" style="display:none; margin-top:12px;">
+            <label class="form-label">Phone numbers — paste into your messaging app's To: field</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input id="sms-number-list" class="form-control" readonly
+                style="font-size:0.82rem; color:var(--white); cursor:text; flex:1;">
+              <button class="btn btn-secondary" id="btn-copy-numbers" style="white-space:nowrap; padding:6px 14px; font-size:0.8rem;">📋 Copy</button>
+            </div>
+          </div>
           <button class="btn btn-primary mt-1" id="btn-open-text">💬 Open Text App</button>
           </div>
           </details>
