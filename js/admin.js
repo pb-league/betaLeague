@@ -2010,8 +2010,13 @@ const ROLE_COLORS = {
     const idDisplay = document.getElementById('cfg-league-id-display');
     if (idDisplay) idDisplay.value = leagueId;
     document.getElementById('cfg-allow-registration').checked = c.allowRegistration === true || c.allowRegistration === 'true';
-    document.getElementById('cfg-reg-code').value         = c.registrationCode   || '';
-    document.getElementById('cfg-reg-max-pending').value  = c.maxPendingReg      || 10;
+    document.getElementById('cfg-reg-code').value              = c.registrationCode   || '';
+    document.getElementById('cfg-reg-max-pending').value       = c.maxPendingReg      || 10;
+    document.getElementById('cfg-reg-max-participants').value  = c.maxParticipants    != null && c.maxParticipants !== '' ? c.maxParticipants : '';
+    document.getElementById('cfg-reg-fee').value               = c.registrationFee    != null ? c.registrationFee : '';
+    document.getElementById('cfg-stripe-pub-key').value        = c.stripePubKey            || '';
+    document.getElementById('cfg-stripe-payment-link').value   = c.stripePaymentLinkUrl    || '';
+    document.getElementById('cfg-reg-payment-required').checked = c.registrationPaymentRequired === true || c.registrationPaymentRequired === 'true';
     // Show/hide registration options based on checkbox
     document.getElementById('cfg-registration-options').style.display =
       (c.allowRegistration === true || c.allowRegistration === 'true') ? '' : 'none';
@@ -2025,6 +2030,12 @@ const ROLE_COLORS = {
     document.getElementById('cfg-courts').value  = c.courts || 3;
     document.getElementById('cfg-games').value   = c.gamesPerSession || 7;
     document.getElementById('cfg-tries').value   = c.optimizerTries || 100;
+    document.getElementById('cfg-event-type').value     = c.eventType     || 'league';
+    // Update event-type-sensitive labels throughout the admin UI
+    const evtLabel = (c.eventType === 'tournament') ? 'Tournament' : 'League';
+    const setTxt = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    setTxt('admin-setup-heading',    evtLabel + ' Setup');
+    setTxt('admin-league-name-label', evtLabel + ' Name');
     document.getElementById('cfg-game-mode').value      = c.gameMode      || 'doubles';
     document.getElementById('cfg-ranking-method').value = c.rankingMethod || 'avgptdiff';
     const standMethEl = document.getElementById('cfg-standings-method');
@@ -2149,6 +2160,13 @@ const ROLE_COLORS = {
           : `<span class="summary-chip-score" style="font-size:0.68rem; padding:1px 7px; border-radius:8px; background:rgba(255,255,255,0.05); color:var(--muted); white-space:nowrap;">No Score</span>`)
       : '';
 
+    const hasFee = parseFloat(state.config.registrationFee) > 0;
+    const paidChip = hasFee
+      ? (p.stripePaid
+          ? `<span class="summary-chip-paid" style="font-size:0.68rem; padding:1px 7px; border-radius:8px; background:rgba(94,194,106,0.18); color:var(--green); white-space:nowrap;">Paid</span>`
+          : `<span class="summary-chip-paid" style="font-size:0.68rem; padding:1px 7px; border-radius:8px; background:rgba(255,80,80,0.15); color:var(--danger); white-space:nowrap;">Unpaid</span>`)
+      : '';
+
     const displayName = p.name
       ? esc(p.name)
       : `<em style="color:var(--muted);">New ${isFixedPairs ? 'Team' : 'Player'}</em>`;
@@ -2166,7 +2184,7 @@ const ROLE_COLORS = {
         </button>
         <span class="player-accordion-name" style="font-weight:600; font-size:0.9rem; min-width:80px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${displayName}</span>
         <div style="display:flex; align-items:center; gap:4px; flex:1; flex-wrap:wrap;">
-          ${groupChip}${rankChipHtml}${scoreChip}${statusBadge}
+          ${groupChip}${rankChipHtml}${scoreChip}${statusBadge}${paidChip}
         </div>
         <span style="font-size:0.7rem; color:var(--muted); flex-shrink:0;">▼</span>
       </summary>
@@ -2231,6 +2249,24 @@ const ROLE_COLORS = {
             <option value="false" ${p.active===false?'selected':''}>Inactive</option>
           </select>
         </div>
+        ${hasFee ? `
+        <div style="grid-column:1/-1; padding-top:10px; border-top:1px solid rgba(255,255,255,0.06); margin-top:2px;">
+          <label class="label" style="display:block; margin-bottom:6px; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted);">Payment</label>
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.85rem;">
+              <input type="checkbox" data-field="stripePaid" data-idx="${i}" ${p.stripePaid ? 'checked' : ''} style="width:15px;height:15px;">
+              <span>Paid</span>
+            </label>
+            <div class="form-group" style="margin:0; min-width:130px;">
+              <label class="label" style="font-size:0.75rem; margin-bottom:2px;">Payment Date</label>
+              <input class="form-control" data-field="stripePaymentDate" data-idx="${i}" type="date" value="${esc(p.stripePaymentDate || '')}" style="font-size:0.82rem; padding:4px 8px;">
+            </div>
+            <div class="form-group" style="margin:0; flex:1; min-width:160px;">
+              <label class="label" style="font-size:0.75rem; margin-bottom:2px;">Payment Reference</label>
+              <input class="form-control" data-field="stripeRef" data-idx="${i}" type="text" value="${esc(p.stripeRef || '')}" placeholder="Stripe session ID" style="font-size:0.82rem; padding:4px 8px;">
+            </div>
+          </div>
+        </div>` : ''}
         <div style="grid-column:1/-1; padding-top:4px; border-top:1px solid rgba(255,255,255,0.06); margin-top:2px;">
           <button class="btn btn-danger" data-remove="${i}" style="font-size:0.82rem;">Delete ${isFixedPairs ? 'Team' : 'Player'}</button>
         </div>
@@ -6064,11 +6100,16 @@ function doPost(e) {
         coordinatorPhone:  document.getElementById('cfg-coordinator-phone')?.value.trim() || '',
         coordinatorPhoto:  state.config.coordinatorPhoto || '',
         leagueUrl:           document.getElementById('cfg-league-url').value.trim(),
-        allowRegistration:   document.getElementById('cfg-allow-registration').checked,
-        challengesEnabled:   document.getElementById('cfg-challenges-enabled')?.checked || false,
-        adminOnlyEmail:      state.config.adminOnlyEmail || false,
-        registrationCode:    document.getElementById('cfg-reg-code').value.trim(),
-        maxPendingReg:       parseInt(document.getElementById('cfg-reg-max-pending').value) || 10,
+        allowRegistration:            document.getElementById('cfg-allow-registration').checked,
+        challengesEnabled:            document.getElementById('cfg-challenges-enabled')?.checked || false,
+        adminOnlyEmail:               state.config.adminOnlyEmail || false,
+        registrationCode:             document.getElementById('cfg-reg-code').value.trim(),
+        maxPendingReg:                parseInt(document.getElementById('cfg-reg-max-pending').value) || 10,
+        maxParticipants:              document.getElementById('cfg-reg-max-participants').value !== '' ? parseInt(document.getElementById('cfg-reg-max-participants').value) : null,
+        registrationFee:              parseFloat(document.getElementById('cfg-reg-fee').value) || 0,
+        stripePubKey:                 document.getElementById('cfg-stripe-pub-key').value.trim(),
+        stripePaymentLinkUrl:         document.getElementById('cfg-stripe-payment-link').value.trim(),
+        registrationPaymentRequired:  document.getElementById('cfg-reg-payment-required').checked,
         rules:          document.getElementById('cfg-rules').value.trim(),
         adminPin:       document.getElementById('cfg-admin-pin').value || state.config.adminPin,
         replyTo:        state.config.replyTo || '',
@@ -6076,6 +6117,7 @@ function doPost(e) {
         courts:         parseInt(document.getElementById('cfg-courts').value),
         gamesPerSession:parseInt(document.getElementById('cfg-games').value),
         optimizerTries: parseInt(document.getElementById('cfg-tries').value),
+        eventType:      document.getElementById('cfg-event-type').value,
         gameMode:       document.getElementById('cfg-game-mode').value,
         pairingMode:      document.getElementById('cfg-pairing-mode').value,
         queueWinnerStay:  parseInt(document.getElementById('cfg-queue-winner-stay')?.value) || 0,

@@ -30,7 +30,7 @@
     <!-- Step 1: Select League -->
     <div id="step-league">
       <div class="form-group">
-        <label class="form-label">Select Your League</label>
+        <label class="form-label">Select Your League or Tournament</label>
         <select class="form-control" id="league-select">
           <option value="">— Loading leagues… —</option>
         </select>
@@ -76,7 +76,7 @@
     <!-- Step 2: Select Player -->
     <div id="step-player" class="hidden">
       <div style="margin-bottom:16px;">
-        <div class="label">League</div>
+        <div class="label js-event-label">League</div>
         <div id="selected-league-name" style="font-weight:600; color:var(--green); font-size:1rem;"></div>
       </div>
       <div class="form-group">
@@ -93,8 +93,11 @@
 
       <button class="btn btn-secondary w-full hidden" id="btn-show-register"
               style="border-color:rgba(94,194,106,0.4); color:var(--green); margin-top:4px;">
-        + Register as New Player
+        + Register as New <span id="reg-btn-participant-label">Player</span>
       </button>
+      <div id="reg-full-message" style="display:none; margin-top:8px; padding:10px 12px; border-radius:8px;
+           background:rgba(255,165,0,0.08); border:1px solid rgba(255,165,0,0.25);
+           font-size:0.8rem; color:rgba(240,244,240,0.75); line-height:1.6;"></div>
 
       <button class="btn btn-secondary w-full mt-1" id="btn-back-league" style="margin-top:8px; opacity:0.6; font-size:0.75rem;">← Change League</button>
     </div>
@@ -102,14 +105,14 @@
     <!-- Step: Register -->
     <div id="step-register" class="hidden">
       <div style="margin-bottom:14px;">
-        <div class="label">League</div>
+        <div class="label js-event-label">League</div>
         <div id="reg-league-name" style="font-weight:600; color:var(--green); font-size:1rem;"></div>
       </div>
       <div style="background:rgba(45,122,58,0.08); border:1px solid rgba(45,122,58,0.2);
         border-radius:8px; padding:10px 14px; margin-bottom:16px; font-size:0.8rem;
         color:rgba(240,244,240,0.7); line-height:1.6;">
         Fill in the form below. Your account will be <strong style="color:var(--white);">pending approval</strong>
-        by the league admin before you can log in. If you provide an email address, you'll
+        by the <span class="js-event-label-lc">league</span> admin before you can log in. If you provide an email address, you'll
         receive a notification when your account is approved with instructions on how to log in.
       </div>
       <div class="form-group">
@@ -117,13 +120,23 @@
         <input class="form-control" id="reg-code" placeholder="Enter the code provided by your league admin" autocomplete="off">
       </div>
       <div class="form-group">
-        <label class="form-label">Player Handle <span style="color:var(--danger);">*</span></label>
+        <label class="form-label"><span id="reg-handle-label-text">Player Handle</span> <span style="color:var(--danger);">*</span></label>
         <input class="form-control" id="reg-name" placeholder="Name others will recognise you by" autocomplete="nickname">
-        <div style="font-size:0.72rem; color:var(--muted); margin-top:4px;">Must be unique in the league. Doesn't have to be your full name.</div>
+        <div id="reg-handle-tip" style="font-size:0.72rem; color:var(--muted); margin-top:4px;">Must be unique in the league. Doesn't have to be your full name.</div>
       </div>
-      <div class="form-group">
+      <div id="reg-fullname-group" class="form-group">
         <label class="form-label">Full Name <span style="color:var(--muted); font-weight:400;">(optional)</span></label>
         <input class="form-control" id="reg-fullname" placeholder="First Last" autocomplete="name">
+      </div>
+      <div id="reg-player2-section" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">Player 1 Full Name <span style="color:var(--muted); font-weight:400;">(optional)</span></label>
+          <input class="form-control" id="reg-player1-fullname" placeholder="First Last" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Player 2 Full Name <span style="color:var(--muted); font-weight:400;">(optional)</span></label>
+          <input class="form-control" id="reg-player2-fullname" placeholder="First Last" autocomplete="off">
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">Cell Phone <span style="color:var(--muted); font-weight:400;">(optional)</span></label>
@@ -144,6 +157,30 @@
           <option value="F">Female</option>
           <option value="Either">Either</option>
         </select>
+      </div>
+      <div class="form-group" id="reg-rating-group">
+        <label class="form-label">Skill Rating <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+        <select class="form-control" id="reg-rating" style="max-width:160px;">
+          <option value="">— Select —</option>
+          <option value="2.0">2.0</option>
+          <option value="2.25">2.25</option>
+          <option value="2.5">2.5</option>
+          <option value="2.75">2.75</option>
+          <option value="3.0">3.0</option>
+          <option value="3.25">3.25</option>
+          <option value="3.5">3.5</option>
+          <option value="3.75">3.75</option>
+          <option value="4.0">4.0</option>
+          <option value="4.25">4.25</option>
+          <option value="4.5">4.5</option>
+          <option value="4.75">4.75</option>
+          <option value="5.0">5.0</option>
+          <option value="5.25">5.25</option>
+          <option value="5.5">5.5</option>
+          <option value="5.75">5.75</option>
+          <option value="6.0">6.0</option>
+        </select>
+        <div style="font-size:0.72rem; color:var(--muted); margin-top:4px;">Self-assessed skill level (2.0 = beginner, 5.0 = advanced)</div>
       </div>
       <div class="form-group">
         <label class="form-label">I am registering as a</label>
@@ -171,6 +208,20 @@
         </div>
       </div>
       <div class="form-group">
+        <label class="form-label">Profile Photo <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+        <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+          <img id="reg-photo-preview" src="" alt=""
+            style="width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid var(--border); display:none;">
+          <div>
+            <label class="btn btn-outline" style="cursor:pointer; font-size:0.85rem; margin:0;">
+              📷 Take / Choose Photo
+              <input type="file" id="reg-photo-input" accept="image/*" capture="environment" style="display:none;">
+            </label>
+            <div id="reg-photo-status" style="font-size:0.8rem; margin-top:6px; color:var(--muted);"></div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
         <label class="form-label">Choose a Password <span style="color:var(--danger);">*</span></label>
         <input class="form-control" id="reg-pin" type="password" maxlength="20"
                inputmode="text" placeholder="Letters and numbers" autocomplete="new-password">
@@ -179,6 +230,20 @@
         <label class="form-label">Confirm Password</label>
         <input class="form-control" id="reg-pin2" type="password" maxlength="20"
                inputmode="text" placeholder="Re-enter password" autocomplete="new-password">
+      </div>
+      <!-- Payment section — shown when league has a registration fee -->
+      <div id="reg-payment-section" style="display:none; margin-bottom:16px; padding:14px; border-radius:8px; background:rgba(94,194,106,0.06); border:1px solid rgba(94,194,106,0.25);">
+        <div style="font-size:0.88rem; font-weight:600; margin-bottom:10px;">
+          Registration Fee: <strong id="reg-fee-display" style="color:var(--green);">$0.00</strong>
+        </div>
+        <div id="reg-payment-confirmed" style="display:none; color:var(--green); font-size:0.88rem; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+          ✓ Payment confirmed
+          <span id="reg-payment-ref" style="font-size:0.75rem; color:var(--muted);"></span>
+        </div>
+        <div id="reg-payment-buttons" style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-primary" id="btn-reg-pay-stripe" style="font-size:0.85rem;">💳 Pay via Stripe</button>
+          <button class="btn btn-secondary" id="btn-reg-pay-later" style="font-size:0.85rem; display:none;">Pay Later</button>
+        </div>
       </div>
       <div id="reg-error" style="color:var(--danger); font-size:0.82rem; margin-bottom:10px; display:none;"></div>
       <div class="btn-group">
@@ -190,7 +255,7 @@
     <!-- Step: Admin Login -->
     <div id="step-admin" class="hidden">
       <div style="margin-bottom:14px;">
-        <div class="label">League</div>
+        <div class="label js-event-label">League</div>
         <div id="admin-league-name" style="font-weight:600; color:var(--green); font-size:1rem;"></div>
       </div>
       <div id="admin-role-tabs" style="display:flex; gap:8px; margin-bottom:20px;">
@@ -213,7 +278,7 @@
     <!-- Step 3: Enter PIN -->
     <div id="step-pin" class="hidden">
       <div style="margin-bottom:16px;">
-        <div class="label">League</div>
+        <div class="label js-event-label">League</div>
         <div id="pin-league-name" style="font-weight:600; color:var(--green); font-size:0.95rem; margin-bottom:8px;"></div>
         <div class="label">Player</div>
         <div id="pin-player-name" style="font-weight:600; color:var(--white); font-size:1rem;"></div>
@@ -342,6 +407,15 @@
         <button id="btn-apply-submit" class="btn btn-primary w-full" style="font-size:0.9rem;">Submit Application</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Pay Later modal -->
+<div id="reg-pay-later-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.65); z-index:2000; align-items:center; justify-content:center;">
+  <div style="background:#1a2a3a; border-radius:12px; padding:24px; max-width:360px; margin:16px; border:1px solid rgba(255,255,255,0.12);">
+    <div style="font-weight:700; font-size:1rem; margin-bottom:10px; color:var(--gold);">⚠ Payment Needed for Approval</div>
+    <div id="reg-pay-later-msg" style="font-size:0.85rem; color:rgba(240,244,240,0.85); line-height:1.6; margin-bottom:16px;"></div>
+    <button class="btn btn-secondary w-full" id="btn-pay-later-dismiss">I Understand</button>
   </div>
 </div>
 
@@ -633,15 +707,53 @@
       // Use prefetched data if available, otherwise fetch now
       const prefetch = playerPrefetch[league.leagueId];
       const data = prefetch ? await prefetch : await API.getPlayers();
-      const players = (data ? data.players || [] : []).filter(p => p.active === true); // exclude inactive and pending
+      const allPlayerData = data ? data.players || [] : [];
+      const players = allPlayerData.filter(p => p.active === true); // exclude inactive and pending
       leaguePlayers = players; // store for PIN recovery email check
+      const activeCnt  = allPlayerData.filter(p => p.active === true).length;
+      const pendingCnt = allPlayerData.filter(p => p.active === 'pend').length;
 
       // Show register button if league allows it — fetch config
       document.getElementById('btn-show-register').classList.add('hidden');
+      document.getElementById('reg-full-message').style.display = 'none';
       API.getConfig().then(cfg => {
-        const rawReg = cfg && cfg.config && cfg.config.allowRegistration;
+        const c = (cfg && cfg.config) ? cfg.config : {};
+
+        // Apply event-type label everywhere
+        eventTypeLabel = (c.eventType === 'tournament') ? 'Tournament' : 'League';
+        document.querySelectorAll('.js-event-label').forEach(el => el.textContent = eventTypeLabel);
+        document.querySelectorAll('.js-event-label-lc').forEach(el => el.textContent = eventTypeLabel.toLowerCase());
+        const partLabel = c.eventType === 'tournament' ? 'Participant' : 'Player';
+        const partLabelEl = document.getElementById('reg-btn-participant-label');
+        if (partLabelEl) partLabelEl.textContent = partLabel;
+
+        const rawReg = c.allowRegistration;
         registrationEnabled = rawReg === true || rawReg === 'true';
-        document.getElementById('btn-show-register').classList.toggle('hidden', !registrationEnabled);
+
+        if (!registrationEnabled) return; // registration off — button stays hidden
+
+        // Capacity check
+        const maxPart = parseInt(c.maxParticipants) || 0;
+        if (maxPart > 0 && (activeCnt + pendingCnt) >= maxPart) {
+          const coord = (c.coordinatorName || '').trim();
+          const phone = (c.coordinatorPhone || '').trim();
+          const email = (c.replyTo || '').trim();
+          const contact = [coord, phone, email].filter(Boolean).join(' · ');
+          document.getElementById('reg-full-message').innerHTML =
+            `This ${eventTypeLabel.toLowerCase()} is currently full — ` +
+            `<strong>${activeCnt}</strong> registered ${activeCnt === 1 ? 'player' : 'players'} and ` +
+            `<strong>${pendingCnt}</strong> pending ${pendingCnt === 1 ? 'registration' : 'registrations'}. ` +
+            (contact
+              ? `Contact the ${eventTypeLabel.toLowerCase()} administrator` +
+                (phone || email
+                  ? ` at <strong>${contact}</strong>`
+                  : ` (${coord})`) +
+                ` if you would like to be notified if a spot opens up.`
+              : `Contact the ${eventTypeLabel.toLowerCase()} administrator if you would like to be notified if a spot opens up.`);
+          document.getElementById('reg-full-message').style.display = '';
+        } else {
+          document.getElementById('btn-show-register').classList.remove('hidden');
+        }
       }).catch(() => {});
       playerSel.innerHTML = '<option value="">— Choose Player —</option>';
       players.forEach(p => {
@@ -669,26 +781,219 @@
 
   // ── Registration ─────────────────────────────────────────
   let registrationEnabled = false;
+  let eventTypeLabel = 'League';
+  let regPhotoB64 = '';
+  let regStripePaid = false;
+  let regStripeRef = '';
+  let regLeagueConfig = {};
 
-  function showRegister() {
+  function resizeImageFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = e => {
+        const img = new Image();
+        img.onerror = reject;
+        img.onload = () => {
+          const MAX = 200;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+            else        { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.75).split(',')[1]);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function showRegister() {
+    regPhotoB64 = '';
+    regStripePaid = false;
+    regStripeRef = '';
+    regLeagueConfig = {};
+
     document.getElementById('reg-league-name').textContent =
       selectedLeague ? selectedLeague.name : '';
     document.getElementById('reg-error').style.display = 'none';
-    ['reg-code','reg-name','reg-fullname','reg-phone','reg-email','reg-pin','reg-pin2'].forEach(id => {
+    ['reg-code','reg-name','reg-fullname','reg-player1-fullname','reg-player2-fullname',
+     'reg-phone','reg-email','reg-pin','reg-pin2'].forEach(id => {
       document.getElementById(id).value = '';
     });
     document.getElementById('reg-notify').checked = false;
     document.getElementById('reg-role-player').checked = true;
+    document.getElementById('reg-rating').value = '';
+    document.getElementById('reg-photo-preview').style.display = 'none';
+    document.getElementById('reg-photo-preview').src = '';
+    document.getElementById('reg-photo-status').textContent = '';
+    document.getElementById('reg-payment-section').style.display = 'none';
+    document.getElementById('reg-payment-confirmed').style.display = 'none';
+    document.getElementById('reg-payment-buttons').style.display = 'flex';
+
+    // Check if returning from Stripe payment
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get('payment_success') === '1') {
+      const saved = sessionStorage.getItem('reg_form_state');
+      if (saved) {
+        try {
+          const s = JSON.parse(saved);
+          ['reg-code','reg-name','reg-fullname','reg-player1-fullname','reg-player2-fullname',
+           'reg-phone','reg-email','reg-pin','reg-pin2'].forEach(id => {
+            if (s[id] != null) document.getElementById(id).value = s[id];
+          });
+          if (s['reg-notify']) document.getElementById('reg-notify').checked = s['reg-notify'];
+          if (s['reg-rating']) document.getElementById('reg-rating').value = s['reg-rating'];
+          if (s['reg-group']) document.getElementById('reg-group').value = s['reg-group'];
+          if (s['reg-role']) {
+            const roleEl = document.querySelector(`input[name="reg-role"][value="${s['reg-role']}"]`);
+            if (roleEl) roleEl.checked = true;
+          }
+          regPhotoB64 = s.photo || '';
+          if (regPhotoB64) {
+            const prev = document.getElementById('reg-photo-preview');
+            prev.src = 'data:image/jpeg;base64,' + regPhotoB64;
+            prev.style.display = '';
+          }
+          regStripeRef = sp.get('payment_ref') || s.stripeRef || '';
+          regStripePaid = true;
+          sessionStorage.removeItem('reg_form_state');
+          // Clean URL without reload
+          history.replaceState({}, '', window.location.pathname + window.location.hash);
+        } catch(e) {}
+      }
+    }
+
     goTo('step-register');
+
+    // Fetch config to configure form for this league
+    try {
+      const cfg = await API.getConfig();
+      const c = (cfg && cfg.config) ? cfg.config : {};
+      regLeagueConfig = c;
+      const isFixedPairs = (c.gameMode || '') === 'fixed-pairs';
+
+      // Handle/team label
+      document.getElementById('reg-handle-label-text').textContent =
+        isFixedPairs ? 'Team Handle' : 'Player Handle';
+      document.getElementById('reg-handle-tip').textContent = isFixedPairs
+        ? 'Unique team name — should reflect both players\' names, e.g. "Doug & Kim".'
+        : 'Must be unique in the league. Doesn\'t have to be your full name.';
+      document.getElementById('reg-fullname-group').style.display = isFixedPairs ? 'none' : '';
+      document.getElementById('reg-player2-section').style.display = isFixedPairs ? '' : 'none';
+      document.getElementById('reg-rating-group').style.display = isFixedPairs ? 'none' : '';
+
+      // Payment section
+      const fee = parseFloat(c.registrationFee) || 0;
+      const hasStripe = !!(c.stripePaymentLinkUrl || '').trim();
+      if (fee > 0 && hasStripe) {
+        const fmtFee = fee.toLocaleString('en-US', { style:'currency', currency:'USD' });
+        document.getElementById('reg-fee-display').textContent = fmtFee;
+        document.getElementById('btn-reg-pay-stripe').textContent = `💳 Pay ${fmtFee} via Stripe`;
+        document.getElementById('reg-payment-section').style.display = '';
+        const payRequired = c.registrationPaymentRequired === true || c.registrationPaymentRequired === 'true';
+        document.getElementById('btn-reg-pay-later').style.display = payRequired ? 'none' : '';
+        if (regStripePaid) {
+          document.getElementById('reg-payment-confirmed').style.display = 'flex';
+          document.getElementById('reg-payment-ref').textContent = regStripeRef ? `(ref: ${regStripeRef})` : '';
+          document.getElementById('reg-payment-buttons').style.display = 'none';
+        }
+      }
+    } catch(e) {}
   }
 
   document.getElementById('btn-show-register').addEventListener('click', showRegister);
   document.getElementById('btn-reg-back').addEventListener('click', () => goTo('step-player'));
 
+  // Photo upload
+  document.getElementById('reg-photo-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const status = document.getElementById('reg-photo-status');
+    const preview = document.getElementById('reg-photo-preview');
+    status.textContent = 'Processing…';
+    status.style.color = 'var(--muted)';
+    try {
+      regPhotoB64 = await resizeImageFile(file);
+      preview.src = 'data:image/jpeg;base64,' + regPhotoB64;
+      preview.style.display = '';
+      status.textContent = '✓ Photo ready';
+      status.style.color = 'var(--green)';
+    } catch(err) {
+      status.textContent = 'Could not process photo.';
+      status.style.color = 'var(--danger)';
+    }
+    e.target.value = '';
+  });
+
+  // Stripe pay button
+  document.getElementById('btn-reg-pay-stripe').addEventListener('click', () => {
+    const handle = document.getElementById('reg-name').value.trim();
+    const email  = document.getElementById('reg-email').value.trim();
+    if (!handle) {
+      const errEl = document.getElementById('reg-error');
+      errEl.textContent = 'Please enter your handle before paying.';
+      errEl.style.display = 'block';
+      return;
+    }
+    const c = regLeagueConfig;
+    const fee = parseFloat(c.registrationFee) || 0;
+    const linkUrl = (c.stripePaymentLinkUrl || '').trim();
+    if (!linkUrl) return;
+
+    // Save form state so it can be restored after Stripe redirect
+    const state = {};
+    ['reg-code','reg-name','reg-fullname','reg-player1-fullname','reg-player2-fullname',
+     'reg-phone','reg-email','reg-pin','reg-pin2'].forEach(id => {
+      state[id] = document.getElementById(id).value;
+    });
+    state['reg-notify'] = document.getElementById('reg-notify').checked;
+    state['reg-rating'] = document.getElementById('reg-rating').value;
+    state['reg-group']  = document.getElementById('reg-group').value;
+    state['reg-role']   = document.querySelector('input[name="reg-role"]:checked')?.value || 'player';
+    state.photo = regPhotoB64;
+    sessionStorage.setItem('reg_form_state', JSON.stringify(state));
+
+    const ref = encodeURIComponent(
+      (selectedLeague ? selectedLeague.leagueId : '') + '|' + handle + '|' + fee
+    );
+    const sep = linkUrl.includes('?') ? '&' : '?';
+    let url = linkUrl + sep + 'client_reference_id=' + ref;
+    if (email) url += '&prefilled_email=' + encodeURIComponent(email);
+    window.location.href = url;
+  });
+
+  // Pay later button
+  document.getElementById('btn-reg-pay-later').addEventListener('click', () => {
+    const c = regLeagueConfig;
+    const coordName  = (c.coordinatorName  || '').trim();
+    const coordPhone = (c.coordinatorPhone || '').trim();
+    let contact = coordName || coordPhone
+      ? `Contact: <strong>${coordName || 'the league admin'}</strong>` +
+        (coordPhone ? ` at <strong>${coordPhone}</strong>` : '')
+      : 'Contact the league admin directly.';
+    document.getElementById('reg-pay-later-msg').innerHTML =
+      `Your registration will be submitted as <strong>unpaid</strong>. ` +
+      `Payment must be arranged with the league admin before your account will be approved.<br><br>${contact}`;
+    const modal = document.getElementById('reg-pay-later-modal');
+    modal.style.display = 'flex';
+  });
+
+  document.getElementById('btn-pay-later-dismiss').addEventListener('click', () => {
+    document.getElementById('reg-pay-later-modal').style.display = 'none';
+  });
+
   document.getElementById('btn-reg-submit').addEventListener('click', async () => {
     const code     = document.getElementById('reg-code').value.trim();
     const name     = document.getElementById('reg-name').value.trim();
-    const fullName = document.getElementById('reg-fullname').value.trim();
+    const isFixedPairs = (regLeagueConfig.gameMode || '') === 'fixed-pairs';
+    const fullName = isFixedPairs ? '' : document.getElementById('reg-fullname').value.trim();
+    const player1  = isFixedPairs ? document.getElementById('reg-player1-fullname').value.trim() : '';
+    const player2  = isFixedPairs ? document.getElementById('reg-player2-fullname').value.trim() : '';
     const phone    = document.getElementById('reg-phone').value.trim();
     const email    = document.getElementById('reg-email').value.trim();
     const group    = document.getElementById('reg-group').value;
@@ -696,26 +1001,58 @@
     const role     = document.querySelector('input[name="reg-role"]:checked')?.value || 'player';
     const pin      = document.getElementById('reg-pin').value.trim();
     const pin2     = document.getElementById('reg-pin2').value.trim();
+    const ratingVal = document.getElementById('reg-rating').value;
+    const initialRank = ratingVal ? parseFloat(ratingVal) : null;
     const errEl = document.getElementById('reg-error');
 
     errEl.style.display = 'none';
 
     if (!code) { errEl.textContent = 'Invite code is required.'; errEl.style.display = 'block'; return; }
-    if (!name) { errEl.textContent = 'Player name is required.'; errEl.style.display = 'block'; return; }
+    if (!name) { errEl.textContent = (isFixedPairs ? 'Team handle' : 'Player handle') + ' is required.'; errEl.style.display = 'block'; return; }
     if (!pin)  { errEl.textContent = 'Password is required.'; errEl.style.display = 'block'; return; }
     if (pin !== pin2) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block'; return; }
     if (pin.length < 4) { errEl.textContent = 'Password must be at least 4 characters.'; errEl.style.display = 'block'; return; }
+
+    // Block submission if payment is required but not yet made
+    const fee = parseFloat(regLeagueConfig.registrationFee) || 0;
+    const payRequired = regLeagueConfig.registrationPaymentRequired === true ||
+                        regLeagueConfig.registrationPaymentRequired === 'true';
+    const hasStripe = !!(regLeagueConfig.stripePaymentLinkUrl || '').trim();
+    if (fee > 0 && hasStripe && payRequired && !regStripePaid) {
+      errEl.textContent = 'Payment is required before you can register. Please pay via Stripe above.';
+      errEl.style.display = 'block';
+      return;
+    }
 
     const btn = document.getElementById('btn-reg-submit');
     btn.disabled = true; btn.textContent = 'Registering…';
 
     try {
-      // Temporarily store leagueId for the API call without creating a real session
       sessionStorage.setItem('pb_reg_league', selectedLeague.leagueId);
-      const result = await API.registerPlayer({ playerName: name, fullName, phone, email, group, notify, pin, inviteCode: code, role, leagueId: selectedLeague.leagueId });
+      const result = await API.registerPlayer({
+        playerName: name,
+        fullName: isFixedPairs ? (player1 + (player2 ? ' / ' + player2 : '')) : fullName,
+        player1FullName: player1,
+        player2FullName: player2,
+        phone, email, group, notify, pin,
+        inviteCode: code, role,
+        leagueId: selectedLeague.leagueId,
+        initialRank,
+        photo: regPhotoB64 || '',
+        stripePaid: regStripePaid,
+        stripeRef:  regStripeRef,
+        stripePaymentDate: regStripePaid ? new Date().toISOString().slice(0,10) : '',
+      });
       sessionStorage.removeItem('pb_reg_league');
       if (result.success) {
-        // Show success message in place of form
+        const fmtFee = fee > 0
+          ? fee.toLocaleString('en-US', { style:'currency', currency:'USD' })
+          : null;
+        const paidNote = regStripePaid && fmtFee
+          ? `<div style="margin-top:8px; color:var(--green); font-size:0.82rem;">✓ Payment of ${fmtFee} recorded.</div>`
+          : (fee > 0 && !regStripePaid && fmtFee
+              ? `<div style="margin-top:8px; color:#f0a500; font-size:0.82rem;">⚠ Payment of ${fmtFee} not yet received — contact the admin before your account is approved.</div>`
+              : '');
         document.getElementById('step-register').innerHTML = `
           <div style="text-align:center; padding:20px 0;">
             <div style="font-size:2rem; margin-bottom:12px;">&#10003;</div>
@@ -723,10 +1060,11 @@
               Registration submitted!
             </div>
             <div style="color:var(--muted); font-size:0.85rem; line-height:1.6;">
-              Your account has been created but is <strong style="color:var(--white);">pending approval</strong>
-              by the league admin. If you provided an email address, you'll receive a notification
-              with login instructions as soon as your account is activated.
+              Your account is <strong style="color:var(--white);">pending approval</strong>
+              by the league admin. If you provided an email address, you'll be notified
+              when your account is activated.
             </div>
+            ${paidNote}
             <button class="btn btn-secondary w-full" style="margin-top:20px;"
               onclick="window.location.reload()">&#8592; Back to Login</button>
           </div>`;
