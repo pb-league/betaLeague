@@ -132,7 +132,10 @@
 
       <!-- ═══ SETUP ═══ -->
       <section id="page-setup" class="tab-panel">
-        <div class="page-header"><h2 id="admin-setup-heading">League Setup</h2></div>
+        <div class="page-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+          <h2 id="admin-setup-heading">League Setup</h2>
+          <button class="btn btn-secondary" id="btn-gen-promo" style="font-size:0.82rem; white-space:nowrap;">🎯 Generate Promo Page</button>
+        </div>
         <div class="card">
           <div class="card-header"><div class="card-title">Configuration</div></div>
           <div class="form-row">
@@ -272,16 +275,10 @@
                   <label class="form-label">Registration fee <span style="color:var(--muted);font-weight:400;">(USD)</span></label>
                   <input class="form-control" id="cfg-reg-fee" type="number" min="0" step="0.01" placeholder="0.00" style="max-width:100px;">
                 </div>
-                <div class="form-group" style="flex:1; min-width:220px;">
-                  <label class="form-label">Stripe publishable key</label>
-                  <input class="form-control" id="cfg-stripe-pub-key" type="text" placeholder="pk_live_..." style="max-width:400px; font-family:monospace; font-size:0.82rem;">
-                </div>
-              </div>
-              <div class="form-row" style="flex-wrap:wrap; gap:12px 24px; margin-bottom:10px;">
-                <div class="form-group" style="flex:1; min-width:220px;">
-                  <label class="form-label">Stripe Payment Link URL</label>
-                  <input class="form-control" id="cfg-stripe-payment-link" type="text" placeholder="https://buy.stripe.com/…" style="max-width:420px; font-size:0.82rem;">
-                  <div style="font-size:0.72rem; color:var(--muted); margin-top:3px;">Create in Stripe Dashboard → Payment Links. Set the link's success URL to your app URL + <code style="color:var(--muted);">?payment_success=1&amp;payment_ref={CHECKOUT_SESSION_ID}</code></div>
+                <div class="form-group" style="flex:1; min-width:260px;">
+                  <label class="form-label">Stripe secret key <span style="color:var(--muted);font-weight:400;">(stored securely in league config)</span></label>
+                  <input class="form-control" id="cfg-stripe-secret-key" type="password" placeholder="sk_live_… or sk_test_…" autocomplete="off" style="font-family:monospace; font-size:0.82rem;">
+                  <div style="font-size:0.72rem; color:var(--muted); margin-top:3px;">Used server-side only — never sent to the browser. Find it in your <a href="https://dashboard.stripe.com/apikeys" target="_blank" style="color:var(--info);">Stripe Dashboard → API keys</a>.</div>
                 </div>
               </div>
               <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.85rem; margin-top:4px;">
@@ -1656,7 +1653,7 @@
   }, true);
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="js/settings.js?v=1.5.0"></script>
+<script src="js/settings.js?v=1.5.1"></script>
   <!-- Google Analytics — loads only if GA_MEASUREMENT_ID is set in settings.js -->
   <script>
     window.__gaReady = false;
@@ -1678,15 +1675,15 @@
       window.__gaReady = true;
     });
   </script>
-<script src="js/api.js?v=1.5.0"></script>
-<script src="js/push.js?v=1.5.0"></script>
-<script src="js/auth.js?v=1.5.0"></script>
-<script src="js/pairings.js?v=1.5.0"></script>
-<script src="js/reports.js?v=1.5.0"></script>
-<script src="js/tournament.js?v=1.5.0"></script>
-<script src="js/changelog.js?v=1.5.0"></script>
-<script src="js/timers.js?v=1.5.0"></script>
-<script src="js/admin.js?v=1.5.0"></script>
+<script src="js/api.js?v=1.5.1"></script>
+<script src="js/push.js?v=1.5.1"></script>
+<script src="js/auth.js?v=1.5.1"></script>
+<script src="js/pairings.js?v=1.5.1"></script>
+<script src="js/reports.js?v=1.5.1"></script>
+<script src="js/tournament.js?v=1.5.1"></script>
+<script src="js/changelog.js?v=1.5.1"></script>
+<script src="js/timers.js?v=1.5.1"></script>
+<script src="js/admin.js?v=1.5.1"></script>
 <script>
 (function() {
   const toggle   = document.getElementById('nav-toggle');
@@ -1764,5 +1761,48 @@
     }
   });
 </script>
+
+<!-- ── Promo Page Modal ─────────────────────────────────────── -->
+<div id="promo-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65);
+     z-index:3000; align-items:center; justify-content:center; padding:16px;">
+  <div style="background:#1a2a3a; border-radius:14px; width:100%; max-width:480px;
+       border:1px solid rgba(255,255,255,0.12); overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,0.5);">
+    <div style="padding:18px 22px 14px; border-bottom:1px solid rgba(255,255,255,0.08);
+         display:flex; align-items:center; justify-content:space-between;">
+      <span style="font-weight:700; font-size:1rem;">🎯 Generate Promo Page</span>
+      <button id="btn-promo-close" style="background:none; border:none; color:var(--muted);
+              font-size:1.2rem; cursor:pointer; padding:0 4px; line-height:1;">✕</button>
+    </div>
+    <div style="padding:20px 22px;">
+      <p style="font-size:0.82rem; color:var(--muted); margin-bottom:18px; line-height:1.5;">
+        Creates a standalone HTML flyer you can print, save, or share — pre-filled from your league settings.
+      </p>
+      <div class="form-group">
+        <label class="form-label">Skill Range <span style="color:var(--danger);">*</span></label>
+        <input class="form-control" id="promo-skill-range" placeholder="e.g. 3.0 – 4.5 · All levels welcome"
+               style="max-width:300px;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Event Dates / Schedule</label>
+        <input class="form-control" id="promo-dates" placeholder="e.g. Starting Jan 15 · Thursdays 6–9 pm">
+        <div style="font-size:0.72rem; color:var(--muted); margin-top:3px;">
+          Pre-filled from Session Time if left blank.
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tagline <span style="color:var(--muted); font-weight:400;">(optional)</span></label>
+        <input class="form-control" id="promo-tagline" placeholder="e.g. Fun, competitive pickleball for all levels!">
+      </div>
+      <div id="promo-error" style="color:var(--danger); font-size:0.82rem; margin-bottom:10px; display:none;"></div>
+      <div class="btn-group" style="margin-top:8px;">
+        <button class="btn btn-secondary" id="btn-promo-cancel">Cancel</button>
+        <button class="btn btn-primary" id="btn-promo-generate" style="flex:1;">
+          🖨 Generate &amp; Open
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

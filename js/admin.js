@@ -2014,8 +2014,7 @@ const ROLE_COLORS = {
     document.getElementById('cfg-reg-max-pending').value       = c.maxPendingReg      || 10;
     document.getElementById('cfg-reg-max-participants').value  = c.maxParticipants    != null && c.maxParticipants !== '' ? c.maxParticipants : '';
     document.getElementById('cfg-reg-fee').value               = c.registrationFee    != null ? c.registrationFee : '';
-    document.getElementById('cfg-stripe-pub-key').value        = c.stripePubKey            || '';
-    document.getElementById('cfg-stripe-payment-link').value   = c.stripePaymentLinkUrl    || '';
+    document.getElementById('cfg-stripe-secret-key').value     = c.stripeSecretKey     || '';
     document.getElementById('cfg-reg-payment-required').checked = c.registrationPaymentRequired === true || c.registrationPaymentRequired === 'true';
     // Show/hide registration options based on checkbox
     document.getElementById('cfg-registration-options').style.display =
@@ -2342,14 +2341,30 @@ const ROLE_COLORS = {
         if (field === 'active') {
           const prev = state.players[idx].active;
           val = val === 'true' ? true : val === 'pend' ? 'pend' : false;
-          // Trigger approval email when transitioning pend → active
+          // When approving a pending player, clear the legacy 'player' string role to ''
+          // (registered players get role='player' stored; '' is the correct standard-player value)
           if (prev === 'pend' && val === true) {
+            if (!state.players[idx].role || state.players[idx].role === 'player') {
+              state.players[idx].role = '';
+            }
             const pName = state.players[idx].name;
             API.approvePlayer(pName, getRelayConfig()).then(r => {
               if (r.emailSent) toast(`${esc(pName)} approved — approval email sent.`);
               else toast(`${esc(pName)} approved (no email on file).`);
             }).catch(err => toast(`${esc(pName)} approved but approval email failed: ` + err.message, 'warn'));
           }
+          state.players[idx][field] = val;
+          // Re-render so the player card moves to the correct group section
+          const movedName = state.players[idx].name;
+          renderPlayers();
+          // Re-open and scroll to the moved player
+          document.querySelectorAll('#player-list .player-accordion').forEach(acc => {
+            if (acc.querySelector('.player-accordion-name')?.textContent === movedName) {
+              acc.open = true;
+              acc.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+          });
+          return;
         }
         if (field === 'initialRank') val = val ? parseInt(val) : null;
         state.players[idx][field] = val;
@@ -6107,8 +6122,7 @@ function doPost(e) {
         maxPendingReg:                parseInt(document.getElementById('cfg-reg-max-pending').value) || 10,
         maxParticipants:              document.getElementById('cfg-reg-max-participants').value !== '' ? parseInt(document.getElementById('cfg-reg-max-participants').value) : null,
         registrationFee:              parseFloat(document.getElementById('cfg-reg-fee').value) || 0,
-        stripePubKey:                 document.getElementById('cfg-stripe-pub-key').value.trim(),
-        stripePaymentLinkUrl:         document.getElementById('cfg-stripe-payment-link').value.trim(),
+        stripeSecretKey:              document.getElementById('cfg-stripe-secret-key').value.trim(),
         registrationPaymentRequired:  document.getElementById('cfg-reg-payment-required').checked,
         rules:          document.getElementById('cfg-rules').value.trim(),
         adminPin:       document.getElementById('cfg-admin-pin').value || state.config.adminPin,
@@ -8302,4 +8316,351 @@ function doPost(e) {
   function showLoading(show) {
     document.getElementById('loading').classList.toggle('hidden', !show);
   }
+
+  // ── Promo Page Generator ───────────────────────────────────
+  (function () {
+    const openModal = () => {
+      const c = state.config || {};
+      document.getElementById('promo-skill-range').value = '';
+      document.getElementById('promo-dates').value       = c.sessionTime || '';
+      document.getElementById('promo-tagline').value     = '';
+      document.getElementById('promo-error').style.display = 'none';
+      const modal = document.getElementById('promo-modal');
+      modal.style.display = 'flex';
+      setTimeout(() => document.getElementById('promo-skill-range').focus(), 80);
+    };
+    const closeModal = () => {
+      document.getElementById('promo-modal').style.display = 'none';
+    };
+
+    document.getElementById('btn-gen-promo')?.addEventListener('click', openModal);
+    document.getElementById('btn-promo-close')?.addEventListener('click', closeModal);
+    document.getElementById('btn-promo-cancel')?.addEventListener('click', closeModal);
+    document.getElementById('promo-modal')?.addEventListener('click', e => {
+      if (e.target === document.getElementById('promo-modal')) closeModal();
+    });
+
+    document.getElementById('btn-promo-generate')?.addEventListener('click', () => {
+      const skillRange = document.getElementById('promo-skill-range').value.trim();
+      const errEl = document.getElementById('promo-error');
+      if (!skillRange) {
+        errEl.textContent = 'Please enter a skill range (e.g. 3.0 – 4.5).';
+        errEl.style.display = 'block';
+        document.getElementById('promo-skill-range').focus();
+        return;
+      }
+      errEl.style.display = 'none';
+      const promoData = {
+        skillRange,
+        dates:   document.getElementById('promo-dates').value.trim(),
+        tagline: document.getElementById('promo-tagline').value.trim(),
+      };
+      const html = buildPromoHtml(state.config || {}, promoData);
+      const blob = new Blob([html], { type: 'text/html' });
+      const url  = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      closeModal();
+    });
+  })();
+
+  function buildPromoHtml(c, pd) {
+    const evtType    = c.eventType === 'tournament' ? 'Tournament' : 'League';
+    const evtName    = esc(c.leagueName  || evtType + ' Event');
+    const location   = esc(c.location   || '');
+    const dates      = esc(pd.dates     || c.sessionTime || '');
+    const tagline    = esc(pd.tagline   || '');
+    const skillRange = esc(pd.skillRange || '');
+    const coordName  = esc(c.coordinatorName  || '');
+    const coordPhone = esc(c.coordinatorPhone || '');
+    const coordEmail = esc(c.replyTo          || '');
+    const regUrl     = c.leagueUrl           || '';
+    const regCode    = esc(c.registrationCode || '');
+    const regFee     = parseFloat(c.registrationFee) || 0;
+    const feeStr     = regFee > 0 ? regFee.toLocaleString('en-US',{style:'currency',currency:'USD'}) : 'Free';
+    const allowReg   = c.allowRegistration === true || c.allowRegistration === 'true';
+    const courts     = parseInt(c.courts) || 0;
+    const weeks      = parseInt(c.weeks)  || 0;
+    const gps        = parseInt(c.gamesPerSession) || 0;
+    const maxPart    = parseInt(c.maxParticipants) || 0;
+
+    const formatLabel = { doubles:'Doubles', 'mixed-doubles':'Mixed Doubles',
+                          singles:'Singles', 'fixed-pairs':'Fixed Pairs' }[c.gameMode] || 'Doubles';
+    const styleLabel  = { standard:'Round Robin', ladder:'Ladder' }[c.standingsMethod] || 'Round Robin';
+
+    const coordPhoto = c.coordinatorPhoto || '';
+
+    // ── SVG Assets ──────────────────────────────────────────
+    const paddleSvg = `<svg viewBox="0 0 120 190" xmlns="http://www.w3.org/2000/svg">
+      <rect x="44" y="124" width="32" height="62" rx="9" fill="#4a2e14"/>
+      <rect x="46" y="132" width="28" height="3.5" rx="1.8" fill="#7a5232" opacity=".7"/>
+      <rect x="46" y="141" width="28" height="3.5" rx="1.8" fill="#7a5232" opacity=".7"/>
+      <rect x="46" y="150" width="28" height="3.5" rx="1.8" fill="#7a5232" opacity=".7"/>
+      <rect x="46" y="159" width="28" height="3.5" rx="1.8" fill="#7a5232" opacity=".7"/>
+      <rect x="44" y="118" width="32" height="12" rx="4" fill="#3d2510"/>
+      <rect x="8" y="8" width="104" height="122" rx="52" fill="#2d7a3a"/>
+      <rect x="8" y="8" width="104" height="122" rx="52" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="3"/>
+      <g fill="rgba(255,255,255,.25)">
+        <circle cx="40" cy="36" r="4.5"/><circle cx="57" cy="36" r="4.5"/><circle cx="74" cy="36" r="4.5"/>
+        <circle cx="31" cy="52" r="4.5"/><circle cx="48" cy="52" r="4.5"/><circle cx="65" cy="52" r="4.5"/><circle cx="82" cy="52" r="4.5"/>
+        <circle cx="26" cy="68" r="4.5"/><circle cx="43" cy="68" r="4.5"/><circle cx="60" cy="68" r="4.5"/><circle cx="77" cy="68" r="4.5"/><circle cx="94" cy="68" r="4.5"/>
+        <circle cx="31" cy="84" r="4.5"/><circle cx="48" cy="84" r="4.5"/><circle cx="65" cy="84" r="4.5"/><circle cx="82" cy="84" r="4.5"/>
+        <circle cx="38" cy="100" r="4.5"/><circle cx="55" cy="100" r="4.5"/><circle cx="72" cy="100" r="4.5"/><circle cx="89" cy="100" r="4.5"/>
+        <circle cx="46" cy="115" r="4.5"/><circle cx="63" cy="115" r="4.5"/><circle cx="80" cy="115" r="4.5"/>
+      </g>
+      <ellipse cx="54" cy="40" rx="22" ry="9" fill="white" opacity=".13" transform="rotate(-6,54,40)"/>
+    </svg>`;
+
+    const ballSvg = `<svg viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="45" cy="45" r="40" fill="#f2de30"/>
+      <circle cx="45" cy="45" r="40" fill="none" stroke="#c8b000" stroke-width="2"/>
+      <path d="M10 45 Q45 22 80 45" stroke="#c8aa00" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <path d="M10 45 Q45 68 80 45" stroke="#c8aa00" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <g fill="#b8a000" opacity=".85">
+        <circle cx="31" cy="23" r="3.5"/><circle cx="45" cy="18" r="3.5"/><circle cx="59" cy="23" r="3.5"/>
+        <circle cx="20" cy="38" r="3.5"/><circle cx="34" cy="32" r="3.5"/><circle cx="56" cy="32" r="3.5"/><circle cx="70" cy="38" r="3.5"/>
+        <circle cx="18" cy="54" r="3.5"/><circle cx="33" cy="60" r="3.5"/><circle cx="57" cy="60" r="3.5"/><circle cx="72" cy="54" r="3.5"/>
+        <circle cx="31" cy="67" r="3.5"/><circle cx="45" cy="72" r="3.5"/><circle cx="59" cy="67" r="3.5"/>
+      </g>
+      <ellipse cx="33" cy="28" rx="11" ry="7" fill="white" opacity=".38" transform="rotate(-25,33,28)"/>
+    </svg>`;
+
+    const netSvg = `<svg viewBox="0 0 400 80" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+      <rect x="0" y="8" width="400" height="64" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1.5"
+            style="stroke-dasharray:18 10"/>
+      <line x1="0" y1="8"  x2="400" y2="8"  stroke="rgba(255,255,255,.4)" stroke-width="3"/>
+      <line x1="0" y1="72" x2="400" y2="72" stroke="rgba(255,255,255,.4)" stroke-width="3"/>
+      <line x1="0" y1="40" x2="400" y2="40" stroke="rgba(255,255,255,.2)" stroke-width="1.5"/>
+      <line x1="4"   y1="0" x2="4"   y2="80" stroke="rgba(255,255,255,.55)" stroke-width="5" stroke-linecap="round"/>
+      <line x1="396" y1="0" x2="396" y2="80" stroke="rgba(255,255,255,.55)" stroke-width="5" stroke-linecap="round"/>
+    </svg>`;
+
+    // ── Sections ─────────────────────────────────────────────
+    const detailRows = [
+      location   ? `<tr><td class="dl">📍</td><td class="dk">Location</td><td class="dv">${location}</td></tr>`   : '',
+      dates      ? `<tr><td class="dl">📅</td><td class="dk">When</td><td class="dv">${dates}</td></tr>`          : '',
+      courts > 0 ? `<tr><td class="dl">🏟</td><td class="dk">Courts</td><td class="dv">${courts}</td></tr>`       : '',
+      weeks  > 0 ? `<tr><td class="dl">📋</td><td class="dk">Sessions</td>
+                    <td class="dv">${weeks}${gps > 0 ? ` sessions · ${gps} games each` : ''}</td></tr>`           : '',
+    ].filter(Boolean).join('');
+
+    const formatChips = [
+      `<span class="chip">${formatLabel}</span>`,
+      `<span class="chip">${styleLabel}</span>`,
+      skillRange ? `<span class="chip gold">⭐ ${skillRange}</span>` : '',
+      maxPart > 0 ? `<span class="chip slate">👥 ${maxPart} spots</span>` : '',
+    ].filter(Boolean).join('');
+
+    const regSection = allowReg ? `
+      <div class="reg-box">
+        <div class="reg-title">🎟 Registration</div>
+        <div class="reg-items">
+          <div class="reg-item"><div class="reg-lbl">Entry Fee</div><div class="reg-val">${feeStr}</div></div>
+          ${regCode ? `<div class="reg-item"><div class="reg-lbl">Invite Code</div>
+            <div class="reg-val" style="letter-spacing:.1em;font-family:monospace;">${regCode}</div></div>` : ''}
+        </div>
+        ${regUrl ? `<div class="reg-url-wrap">
+          <div class="reg-url-lbl">Register Online</div>
+          <div class="reg-url-val">${esc(regUrl)}</div>
+        </div>` : ''}
+      </div>` : '';
+
+    const avatarHtml = coordPhoto
+      ? `<img src="data:image/jpeg;base64,${coordPhoto}" class="avatar-img" alt="${coordName}">`
+      : `<div class="avatar-init">${coordName ? coordName.charAt(0).toUpperCase() : '🎾'}</div>`;
+
+    const contactSection = (coordName || coordPhone || coordEmail) ? `
+      <div class="contact-box">
+        <div class="section-label">Contact</div>
+        <div class="contact-row">
+          <div class="avatar">${avatarHtml}</div>
+          <div>
+            ${coordName  ? `<div class="contact-name">${coordName}</div>` : ''}
+            <div class="contact-details">
+              ${coordPhone ? `<span class="contact-detail">📞&nbsp;${coordPhone}</span>` : ''}
+              ${coordEmail ? `<span class="contact-detail">✉️&nbsp;${coordEmail}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>` : '';
+
+    // ── Full HTML ─────────────────────────────────────────────
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${evtName} — ${evtType} Promo</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,Arial,sans-serif;background:#e8f0e8;min-height:100vh;
+     display:flex;align-items:flex-start;justify-content:center;padding:24px 16px}
+.page{width:760px;background:#fff;border-radius:18px;overflow:hidden;
+      box-shadow:0 12px 48px rgba(0,0,0,.18)}
+
+/* ── Header ── */
+.hdr{background:linear-gradient(140deg,#1b5e2b 0%,#2d7a3a 55%,#1f6e34 100%);
+     padding:44px 48px 38px;position:relative;overflow:hidden;color:#fff}
+.hdr-bg{position:absolute;inset:0;opacity:.06;pointer-events:none}
+.hdr-inner{position:relative;z-index:1;display:flex;align-items:flex-start;
+           justify-content:space-between;gap:20px}
+.hdr-text{flex:1;min-width:0}
+.evt-badge{display:inline-flex;align-items:center;gap:6px;
+           background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.32);
+           color:rgba(255,255,255,.92);font-size:11px;font-weight:700;
+           letter-spacing:.12em;text-transform:uppercase;padding:4px 13px;
+           border-radius:20px;margin-bottom:14px}
+.evt-name{font-size:44px;font-weight:900;line-height:1.05;letter-spacing:-.02em;
+          text-shadow:0 2px 10px rgba(0,0,0,.22);margin-bottom:10px;word-break:break-word}
+.evt-tag{font-size:15px;color:rgba(255,255,255,.8);line-height:1.5;max-width:440px}
+.hdr-graphics{display:flex;gap:10px;align-items:flex-end;flex-shrink:0}
+.hdr-paddle{width:68px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.3))}
+.hdr-ball{width:52px;margin-bottom:8px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.25))}
+
+/* ── Net divider ── */
+.net-bar{height:56px;background:linear-gradient(180deg,#1b5e2b,#174f24);
+         display:flex;align-items:center;padding:0}
+.net-bar svg{width:100%;height:100%}
+
+/* ── Gold accent ── */
+.accent{height:5px;background:linear-gradient(90deg,#e08000,#f5c020,#f0a500,#e08000)}
+
+/* ── Body ── */
+.body{padding:36px 48px 40px}
+
+/* ── Two-col grid ── */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:24px}
+.card{background:#f6faf6;border:1px solid #d8ecd8;border-radius:12px;padding:20px 22px}
+.section-label{font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+               color:#2d7a3a;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.section-label::after{content:'';flex:1;height:1px;background:#c4dfc4}
+
+/* ── Detail table ── */
+table.details{border-collapse:collapse;width:100%}
+table.details td{padding:5px 0;vertical-align:top;font-size:13.5px}
+td.dl{width:24px;font-size:16px;padding-right:6px}
+td.dk{color:#666;font-size:10.5px;font-weight:600;text-transform:uppercase;
+      letter-spacing:.07em;padding-right:12px;white-space:nowrap;padding-top:7px}
+td.dv{font-weight:600;color:#1a2e1a;line-height:1.4}
+
+/* ── Chips ── */
+.chip-row{display:flex;flex-wrap:wrap;gap:7px}
+.chip{background:#2d7a3a;color:#fff;font-size:12px;font-weight:600;
+      padding:5px 13px;border-radius:20px}
+.chip.gold{background:linear-gradient(135deg,#e08000,#f5c020);color:#1a0e00}
+.chip.slate{background:#4a5568;color:#fff}
+
+/* ── Registration ── */
+.reg-box{background:linear-gradient(140deg,#1b5e2b,#2d7a3a);border-radius:12px;
+         padding:24px 26px;color:#fff;margin-bottom:24px;position:relative;overflow:hidden}
+.reg-box::after{content:'🏓';position:absolute;right:20px;top:50%;transform:translateY(-50%);
+                font-size:72px;opacity:.08;pointer-events:none}
+.reg-title{font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+           color:rgba(255,255,255,.65);margin-bottom:16px}
+.reg-items{display:flex;gap:32px;flex-wrap:wrap;margin-bottom:14px}
+.reg-item{}
+.reg-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
+         color:rgba(255,255,255,.6);margin-bottom:3px}
+.reg-val{font-size:20px;font-weight:800;color:#fff}
+.reg-url-wrap{border-top:1px solid rgba(255,255,255,.18);padding-top:12px}
+.reg-url-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
+             color:rgba(255,255,255,.6);margin-bottom:4px}
+.reg-url-val{font-size:12.5px;font-weight:600;color:#90eea8;word-break:break-all}
+
+/* ── Contact ── */
+.contact-box{background:#f6faf6;border:1px solid #d8ecd8;border-radius:12px;padding:20px 22px}
+.contact-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.avatar{width:54px;height:54px;border-radius:50%;overflow:hidden;flex-shrink:0;
+        background:#2d7a3a;display:flex;align-items:center;justify-content:center;
+        font-size:22px;border:2px solid #d8ecd8}
+.avatar-img{width:100%;height:100%;object-fit:cover;display:block}
+.avatar-init{font-size:22px;font-weight:700;color:#fff}
+.contact-name{font-size:17px;font-weight:700;color:#1a2e1a;margin-bottom:5px}
+.contact-details{display:flex;gap:16px;flex-wrap:wrap}
+.contact-detail{font-size:13px;color:#444;display:flex;align-items:center;gap:4px}
+
+/* ── Footer ── */
+.footer{border-top:2px solid #e4f0e4;padding:16px 48px;background:#f6faf6;
+        display:flex;justify-content:space-between;align-items:center}
+.footer-balls{display:flex;gap:6px}
+.fb{width:14px;height:14px;border-radius:50%;background:#f2de30;border:1.5px solid #c8aa00}
+.footer-text{font-size:11px;color:#aaa}
+.footer-brand{font-size:11px;font-weight:700;color:#2d7a3a;letter-spacing:.06em}
+
+/* ── Print ── */
+@media print{
+  body{background:#fff;padding:0}
+  .page{box-shadow:none;border-radius:0;width:100%}
+  @page{margin:.4in;size:letter portrait}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="hdr">
+    <div class="hdr-bg">
+      <svg viewBox="0 0 760 200" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" preserveAspectRatio="none">
+        <rect x="30" y="10" width="700" height="180" fill="none" stroke="white" stroke-width="3.5" rx="4"/>
+        <line x1="30" y1="100" x2="730" y2="100" stroke="white" stroke-width="2"/>
+        <line x1="380" y1="10" x2="380" y2="190" stroke="white" stroke-width="2"/>
+        <rect x="30" y="10" width="175" height="90" fill="none" stroke="white" stroke-width="2"/>
+        <rect x="555" y="10" width="175" height="90" fill="none" stroke="white" stroke-width="2"/>
+        <rect x="30" y="100" width="175" height="90" fill="none" stroke="white" stroke-width="2"/>
+        <rect x="555" y="100" width="175" height="90" fill="none" stroke="white" stroke-width="2"/>
+      </svg>
+    </div>
+    <div class="hdr-inner">
+      <div class="hdr-text">
+        <div class="evt-badge">🏓 ${evtType}</div>
+        <div class="evt-name">${evtName}</div>
+        ${tagline ? `<div class="evt-tag">${tagline}</div>` : ''}
+      </div>
+      <div class="hdr-graphics">
+        <div class="hdr-paddle">${paddleSvg}</div>
+        <div class="hdr-ball">${ballSvg}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="net-bar">${netSvg}</div>
+  <div class="accent"></div>
+
+  <div class="body">
+    <div class="grid2">
+
+      <div class="card">
+        <div class="section-label">Event Details</div>
+        ${detailRows ? `<table class="details"><tbody>${detailRows}</tbody></table>`
+                     : `<p style="font-size:13px;color:#999;">No details configured.</p>`}
+      </div>
+
+      <div class="card">
+        <div class="section-label">Format &amp; Skill</div>
+        <div class="chip-row">${formatChips}</div>
+        ${c.rules ? `<div style="margin-top:16px;font-size:12px;color:#555;line-height:1.6;
+          border-top:1px solid #d8ecd8;padding-top:12px;">${esc(c.rules).replace(/\n/g,'<br>')}</div>` : ''}
+      </div>
+
+    </div>
+
+    ${regSection}
+    ${contactSection}
+  </div>
+
+  <div class="footer">
+    <div class="footer-balls">
+      <div class="fb"></div><div class="fb"></div><div class="fb"></div>
+      <div class="fb" style="background:#2d7a3a;border-color:#1b5e2b"></div>
+    </div>
+    <div class="footer-text">Generated by League Manager · ${new Date().toLocaleDateString()}</div>
+    <div class="footer-brand">PICKLEBALL</div>
+  </div>
+
+</div>
+</body>
+</html>`;
+  }
+
 })();

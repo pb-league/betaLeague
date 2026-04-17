@@ -421,7 +421,7 @@
 
 <div id="toast-container"></div>
 
-<script src="js/settings.js?v=1.5.0"></script>
+<script src="js/settings.js?v=1.5.1"></script>
   <!-- Google Analytics — loads only if GA_MEASUREMENT_ID is set in settings.js -->
   <script>
     window.__gaReady = false;
@@ -443,8 +443,8 @@
       window.__gaReady = true;
     });
   </script>
-<script src="js/api.js?v=1.5.0"></script>
-<script src="js/auth.js?v=1.5.0"></script>
+<script src="js/api.js?v=1.5.1"></script>
+<script src="js/auth.js?v=1.5.1"></script>
 <script>
 (async function init() {
   // If already logged in with a valid league, redirect
@@ -466,6 +466,12 @@
   const urlLeague     = urlParams.get('league');
   const urlPlayer     = urlParams.get('player');
   const urlCustomerId = urlParams.get('id') || null;
+
+  // Detect Stripe payment return before any other flow runs
+  const _stripeReturn  = urlParams.get('payment_success') === '1';
+  const _stripeSession = _stripeReturn ? (urlParams.get('session_id') || '') : '';
+  let   _stripeRef     = _stripeSession; // updated to paymentIntent after server confirmation
+  if (_stripeReturn) history.replaceState({}, '', window.location.pathname);
 
   // ── Step 1: Load leagues ────────────────────────────────────
   const leagueSel = document.getElementById('league-select');
@@ -512,6 +518,36 @@
       document.getElementById('step-league').appendChild(setupBtn);
     } else {
       populateLeagueSelect(leagues);
+      // Auto-restore registration form if returning from Stripe payment
+      if (_stripeReturn) {
+        const saved = sessionStorage.getItem('reg_form_state');
+        if (saved) {
+          try {
+            const s = JSON.parse(saved);
+            const savedLeagueId = s['leagueId'];
+            const match = leagues.find(l => l.leagueId === savedLeagueId);
+            if (match) {
+              leagueSel.value = match.leagueId;
+              btnLeagueNext.disabled = false;
+              await selectLeague(match, null);
+              // Server-verify the payment and get the paymentIntent ref
+              if (_stripeSession) {
+                try {
+                  const confirmation = await API.post({
+                    action:    'confirmPayment',
+                    leagueId:  savedLeagueId,
+                    sessionId: _stripeSession,
+                  });
+                  if (confirmation.success) {
+                    _stripeRef = confirmation.paymentIntent || _stripeSession;
+                  }
+                } catch(_) {}
+              }
+              showRegister();
+            }
+          } catch(e2) {}
+        }
+      }
     }
   } catch (e) {
     leagueSel.innerHTML = '<option value="">Could not load leagues</option>';
@@ -836,8 +872,7 @@
     document.getElementById('reg-payment-buttons').style.display = 'flex';
 
     // Check if returning from Stripe payment
-    const sp = new URLSearchParams(window.location.search);
-    if (sp.get('payment_success') === '1') {
+    if (_stripeReturn) {
       const saved = sessionStorage.getItem('reg_form_state');
       if (saved) {
         try {
@@ -859,11 +894,9 @@
             prev.src = 'data:image/jpeg;base64,' + regPhotoB64;
             prev.style.display = '';
           }
-          regStripeRef = sp.get('payment_ref') || s.stripeRef || '';
+          regStripeRef = _stripeRef || s.stripeRef || '';
           regStripePaid = true;
           sessionStorage.removeItem('reg_form_state');
-          // Clean URL without reload
-          history.replaceState({}, '', window.location.pathname + window.location.hash);
         } catch(e) {}
       }
     }
@@ -889,8 +922,7 @@
 
       // Payment section
       const fee = parseFloat(c.registrationFee) || 0;
-      const hasStripe = !!(c.stripePaymentLinkUrl || '').trim();
-      if (fee > 0 && hasStripe) {
+      if (fee > 0) {
         const fmtFee = fee.toLocaleString('en-US', { style:'currency', currency:'USD' });
         document.getElementById('reg-fee-display').textContent = fmtFee;
         document.getElementById('btn-reg-pay-stripe').textContent = `💳 Pay ${fmtFee} via Stripe`;
@@ -930,20 +962,20 @@
     e.target.value = '';
   });
 
-  // Stripe pay button
-  document.getElementById('btn-reg-pay-stripe').addEventListener('click', () => {
+  // Stripe pay button — creates a hosted Checkout Session via GAS
+  document.getElementById('btn-reg-pay-stripe').addEventListener('click', async () => {
     const handle = document.getElementById('reg-name').value.trim();
     const email  = document.getElementById('reg-email').value.trim();
+    const errEl  = document.getElementById('reg-error');
+    errEl.style.display = 'none';
     if (!handle) {
-      const errEl = document.getElementById('reg-error');
       errEl.textContent = 'Please enter your handle before paying.';
       errEl.style.display = 'block';
       return;
     }
-    const c = regLeagueConfig;
+    const c   = regLeagueConfig;
     const fee = parseFloat(c.registrationFee) || 0;
-    const linkUrl = (c.stripePaymentLinkUrl || '').trim();
-    if (!linkUrl) return;
+    if (fee <= 0) return;
 
     // Save form state so it can be restored after Stripe redirect
     const state = {};
@@ -956,15 +988,32 @@
     state['reg-group']  = document.getElementById('reg-group').value;
     state['reg-role']   = document.querySelector('input[name="reg-role"]:checked')?.value || 'player';
     state.photo = regPhotoB64;
+    state['leagueId']   = selectedLeague ? selectedLeague.leagueId : '';
+    state['leagueName'] = selectedLeague ? selectedLeague.name : '';
     sessionStorage.setItem('reg_form_state', JSON.stringify(state));
 
-    const ref = encodeURIComponent(
-      (selectedLeague ? selectedLeague.leagueId : '') + '|' + handle + '|' + fee
-    );
-    const sep = linkUrl.includes('?') ? '&' : '?';
-    let url = linkUrl + sep + 'client_reference_id=' + ref;
-    if (email) url += '&prefilled_email=' + encodeURIComponent(email);
-    window.location.href = url;
+    const btn = document.getElementById('btn-reg-pay-stripe');
+    btn.disabled = true;
+    btn.textContent = '⏳ Redirecting to Stripe…';
+    try {
+      const result = await API.post({
+        action:      'createCheckoutSession',
+        leagueId:    selectedLeague ? selectedLeague.leagueId : '',
+        amount:      fee,
+        productName: (selectedLeague ? selectedLeague.name : 'League') + ' Registration',
+        description: handle,
+        email:       email,
+        playerHandle: handle,
+        appUrl:      window.location.origin + window.location.pathname,
+      });
+      if (result.error) throw new Error(result.error);
+      window.location.href = result.url;
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = `💳 Pay $${fee.toFixed(2)} via Stripe`;
+      errEl.textContent = 'Could not start payment: ' + err.message;
+      errEl.style.display = 'block';
+    }
   });
 
   // Pay later button
