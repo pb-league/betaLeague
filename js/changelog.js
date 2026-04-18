@@ -6,6 +6,32 @@
 
 const CHANGELOG = [
 {
+  version: '1.5.2',
+  date: '2026-04-18',
+  changes: [
+    'Self-hosted Supabase: league admins can now use their own Supabase account as storage — select "Self-hosted Supabase" when creating a league',
+    'Self-hosted Supabase: SQL setup script provided in the creation form — copy to clipboard and run in your Supabase SQL Editor',
+    'Self-hosted Supabase: Validate Connection button checks all 11 required tables before saving',
+    'Self-hosted Supabase: storage badge shows "Own Supabase" (blue) in the All Leagues list',
+    'Self-hosted Supabase: migration to/from self-hosted Supabase fully supported',
+    'Bug fix: Stripe pay button gave "API.post is not a function" — fixed by adding named createCheckoutSession and confirmPayment methods to API',
+    'League URL on admin dashboard now always shows correct ?id= when league has a Customer ID, even when navigated directly without it in the URL',
+    '"Edit Limits & Tier" modal renamed to "Edit Limits, Tier & Customer ID" to surface that field',
+  ]
+},
+{
+  version: '1.5.1',
+  date: '2026-04-17',
+  changes: [
+    'Stripe checkout automated — admin provides their Stripe secret key in Setup; app creates hosted Checkout Sessions server-side (no manual payment link setup needed)',
+    'After Stripe payment, registration form auto-restores and confirms payment via session ID',
+    'APP_BASE_URL constant in settings.js and Code.gs — single place to update if the hosting URL changes',
+    'League URLs now correctly include ?id=<customerID> when a league belongs to a customer org',
+    'All Leagues view: customerID-scoped leagues now visible to their own admin; app manager sees all leagues',
+    'Tournament promotion page can be saved as a standalone HTML file for external hosting',
+  ]
+},
+{
   version: '1.5.0',
   date: '2026-04-14',
   changes: [
