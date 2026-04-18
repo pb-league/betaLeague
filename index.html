@@ -252,6 +252,11 @@
       </div>
     </div>
 
+    <!-- Step: Stripe Payment Success (auto-registration complete) -->
+    <div id="step-stripe-success" class="hidden">
+      <!-- Populated dynamically by showStripeSuccess() -->
+    </div>
+
     <!-- Step: Admin Login -->
     <div id="step-admin" class="hidden">
       <div style="margin-bottom:14px;">
@@ -518,7 +523,9 @@
       document.getElementById('step-league').appendChild(setupBtn);
     } else {
       populateLeagueSelect(leagues);
-      // Auto-restore registration form if returning from Stripe payment
+      // Auto-complete registration when returning from a successful Stripe payment.
+      // We have all the form data in sessionStorage (saved before redirect) so we
+      // call registerPlayer directly — the user never needs to see the form again.
       if (_stripeReturn) {
         const saved = sessionStorage.getItem('reg_form_state');
         if (saved) {
@@ -527,19 +534,93 @@
             const savedLeagueId = s['leagueId'];
             const match = leagues.find(l => l.leagueId === savedLeagueId);
             if (match) {
-              leagueSel.value = match.leagueId;
-              btnLeagueNext.disabled = false;
-              await selectLeague(match, null);
-              // Server-verify the payment and get the paymentIntent ref
+              // Set up league session context so API calls are scoped correctly
+              selectedLeague = match;
+              Auth.setSession('', false, match.leagueId, match.name);
+
+              // Show a processing indicator while we confirm + register
+              goTo('step-stripe-success');
+              document.getElementById('step-stripe-success').innerHTML =
+                '<div style="text-align:center; padding:40px 0; color:var(--muted);">⏳ Completing your registration…</div>';
+
+              // Server-verify the payment
+              let stripeRef = _stripeSession;
+              let paymentConfirmed = false;
               if (_stripeSession) {
                 try {
-                  const confirmation = await API.confirmPayment(_stripeSession);
-                  if (confirmation.success) {
-                    _stripeRef = confirmation.paymentIntent || _stripeSession;
+                  const conf = await API.confirmPayment(_stripeSession);
+                  if (conf.success) {
+                    stripeRef = conf.paymentIntent || _stripeSession;
+                    paymentConfirmed = true;
                   }
                 } catch(_) {}
               }
-              showRegister();
+
+              // Fetch league config so we can build fullName correctly and show event details
+              let cfg = {};
+              try {
+                const cfgData = await API.getConfig();
+                cfg = (cfgData && cfgData.config) ? cfgData.config : {};
+              } catch(_) {}
+
+              const isFixedPairs = (cfg.gameMode || '') === 'fixed-pairs';
+              const p1 = s['reg-player1-fullname'] || '';
+              const p2 = s['reg-player2-fullname'] || '';
+              const fullName = isFixedPairs
+                ? (p1 + (p2 ? ' / ' + p2 : ''))
+                : (s['reg-fullname'] || '');
+              const fee = parseFloat(cfg.registrationFee || 0);
+              const fmtFee = fee > 0
+                ? fee.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+                : null;
+
+              // Auto-submit registration with saved form data + confirmed payment
+              try {
+                const result = await API.registerPlayer({
+                  playerName:       s['reg-name']             || '',
+                  fullName,
+                  player1FullName:  p1,
+                  player2FullName:  p2,
+                  phone:            s['reg-phone']            || '',
+                  email:            s['reg-email']            || '',
+                  group:            s['reg-group']            || '',
+                  notify:           s['reg-notify']           || false,
+                  pin:              s['reg-pin']              || '',
+                  inviteCode:       s['reg-code']             || '',
+                  role:             s['reg-role']             || 'player',
+                  leagueId:         match.leagueId,
+                  initialRank:      s['reg-rating'] ? parseFloat(s['reg-rating']) : null,
+                  photo:            s.photo                   || '',
+                  stripePaid:       paymentConfirmed,
+                  stripeRef,
+                  stripePaymentDate: paymentConfirmed ? new Date().toISOString().slice(0, 10) : '',
+                });
+                sessionStorage.removeItem('reg_form_state');
+
+                if (result.success) {
+                  showStripeSuccess(match.name, s['reg-name'], fmtFee, stripeRef, cfg, paymentConfirmed);
+                } else {
+                  // Validation failed (e.g. name taken) — fall back to form so player can correct
+                  _stripeRef = stripeRef;
+                  await showRegister();
+                  if (result.error === 'taken') {
+                    document.getElementById('reg-error').textContent =
+                      'That handle is already taken — please choose a different one.';
+                    document.getElementById('reg-error').style.display = 'block';
+                  } else if (result.error) {
+                    document.getElementById('reg-error').textContent = result.error;
+                    document.getElementById('reg-error').style.display = 'block';
+                  }
+                }
+              } catch(regErr) {
+                // Network / server error — fall back to form with payment preserved
+                _stripeRef = stripeRef;
+                await showRegister();
+                document.getElementById('reg-error').textContent =
+                  'Registration could not be completed automatically: ' + regErr.message +
+                  ' — your payment was received. Please submit the form to finish registering.';
+                document.getElementById('reg-error').style.display = 'block';
+              }
             }
           } catch(e2) {}
         }
@@ -934,6 +1015,66 @@
     } catch(e) {}
   }
 
+  // ── Stripe success page (shown after auto-registration on payment return) ──
+  function showStripeSuccess(leagueName, playerName, fmtFee, stripeRef, cfg, paymentConfirmed) {
+    const coordName   = (cfg.coordinatorName  || '').trim();
+    const coordEmail  = (cfg.replyTo          || '').trim();
+    const location    = (cfg.location         || '').trim();
+    const sessionTime = (cfg.sessionTime      || '').trim();
+    const eventType   = cfg.eventType === 'tournament' ? 'tournament' : 'league';
+    const eventLabel  = cfg.eventType === 'tournament' ? 'Tournament' : 'League';
+
+    const payBadge = paymentConfirmed && fmtFee ? `
+      <div style="margin:12px auto 0; display:inline-flex; align-items:center; gap:8px;
+                  background:rgba(39,174,96,0.15); border:1px solid rgba(39,174,96,0.4);
+                  border-radius:8px; padding:8px 18px;">
+        <span style="color:var(--green); font-size:1rem;">✓</span>
+        <span style="color:var(--green); font-weight:600;">Payment confirmed — ${fmtFee}</span>
+      </div>` : '';
+
+    const refLine = stripeRef
+      ? `<div style="font-size:0.72rem; color:var(--muted); margin-top:5px;">Payment ref: ${stripeRef}</div>`
+      : '';
+
+    const approvalMsg = coordEmail
+      ? `When approved, you'll receive a confirmation at <strong style="color:var(--white);">${coordEmail}</strong> with instructions on how to log in.`
+      : coordName
+        ? `Contact <strong style="color:var(--white);">${coordName}</strong> if you have questions. You'll be notified when your account is activated.`
+        : `You'll be notified when your account is activated — then you can log in with the password you chose.`;
+
+    const eventDetails = (location || sessionTime) ? `
+      <div style="display:flex; flex-direction:column; gap:4px; font-size:0.82rem;
+                  color:var(--muted); text-align:center; margin:10px 0 0;">
+        ${location    ? `<div>📍 ${location}</div>`    : ''}
+        ${sessionTime ? `<div>🕐 ${sessionTime}</div>` : ''}
+      </div>` : '';
+
+    goTo('step-stripe-success');
+    document.getElementById('step-stripe-success').innerHTML = `
+      <div style="text-align:center; padding:14px 0 6px;">
+        <div style="font-size:2.4rem; margin-bottom:8px;">🎉</div>
+        <div style="font-weight:700; color:var(--green); font-size:1.15rem; margin-bottom:4px;">
+          You're registered!
+        </div>
+        <div style="color:var(--white); font-size:0.95rem;">${leagueName}</div>
+        ${payBadge}
+        ${refLine}
+      </div>
+
+      <div style="background:rgba(255,255,255,0.05); border-radius:8px; padding:14px 16px;
+                  margin:16px 0 0; font-size:0.85rem; line-height:1.7; color:var(--muted);">
+        <div style="font-weight:600; color:var(--white); margin-bottom:6px;">What happens next?</div>
+        Your registration is <strong style="color:#f0a500;">pending approval</strong> by the
+        ${eventLabel.toLowerCase()} coordinator. ${approvalMsg}
+      </div>
+
+      ${eventDetails}
+
+      <button class="btn btn-secondary w-full" style="margin-top:20px; font-size:0.85rem;"
+        onclick="window.location.href=window.location.pathname">← Return to Login</button>
+    `;
+  }
+
   document.getElementById('btn-show-register').addEventListener('click', showRegister);
   document.getElementById('btn-reg-back').addEventListener('click', () => goTo('step-player'));
 
@@ -973,7 +1114,7 @@
     const fee = parseFloat(c.registrationFee) || 0;
     if (fee <= 0) return;
 
-    // Save form state so it can be restored after Stripe redirect
+    // Save form state so registration can be auto-completed after Stripe redirect
     const state = {};
     ['reg-code','reg-name','reg-fullname','reg-player1-fullname','reg-player2-fullname',
      'reg-phone','reg-email','reg-pin','reg-pin2'].forEach(id => {
@@ -991,14 +1132,27 @@
     const btn = document.getElementById('btn-reg-pay-stripe');
     btn.disabled = true;
     btn.textContent = '⏳ Redirecting to Stripe…';
+
+    // Build the event description for the Stripe checkout page
+    const _eventType  = (c.eventType === 'tournament') ? 'Tournament' : 'League';
+    const _location   = (c.location       || '').trim();
+    const _time       = (c.sessionTime    || '').trim();
+    const _coord      = (c.coordinatorName|| '').trim();
+    const _notes      = (c.notes          || '').trim().slice(0, 120);
+
     try {
       const result = await API.createCheckoutSession({
-        leagueId:    selectedLeague ? selectedLeague.leagueId : '',
-        amount:      fee,
-        productName: (selectedLeague ? selectedLeague.name : 'League') + ' Registration',
-        description: handle,
-        email:       email,
-        playerHandle: handle,
+        leagueId:        selectedLeague ? selectedLeague.leagueId : '',
+        amount:          fee,
+        productName:     (selectedLeague ? selectedLeague.name : _eventType) + ' Registration',
+        playerHandle:    handle,
+        email:           email,
+        // Extra context shown on the Stripe checkout page
+        eventType:       _eventType,
+        location:        _location,
+        sessionTime:     _time,
+        coordinatorName: _coord,
+        notes:           _notes,
         appUrl:      (() => {
           // Preserve league + customer-ID params so Stripe can redirect back
           // to the correct league context (esp. for customer-scoped leagues).
@@ -1444,7 +1598,7 @@
   }
 
   function goTo(stepId) {
-    ['step-league', 'step-player', 'step-pin', 'step-register', 'step-admin'].forEach(id => {
+    ['step-league', 'step-player', 'step-pin', 'step-register', 'step-admin', 'step-stripe-success'].forEach(id => {
       document.getElementById(id).classList.toggle('hidden', id !== stepId);
     });
   }

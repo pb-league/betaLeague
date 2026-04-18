@@ -9,8 +9,11 @@ const CHANGELOG = [
   version: '1.5.3',
   date: '2026-04-18',
   changes: [
-    'Bug fix: Stripe return URL now preserves ?league= and ?id= parameters so the app correctly restores the registration form after payment — previously the league could not be found on return for customer-scoped leagues',
-    'Bug fix: ?league= URL parameter auto-select is now skipped when returning from Stripe to prevent it from overwriting the restored registration state',
+    'Stripe registration: after payment, the app now auto-completes registration using the saved form data — no manual form submission required',
+    'Stripe registration: on successful payment and registration, a dedicated confirmation page is shown ("You\'re registered — pending approval") instead of returning to the login page',
+    'Stripe registration: if auto-registration fails (e.g. handle taken), the form is pre-filled with payment confirmed so the player can correct and resubmit',
+    'Stripe checkout page now shows richer event details — location, session time, coordinator name — in the product description',
+    'Bug fix: Stripe return URL now preserves ?league= and ?id= parameters so the correct league is loaded on return (customer-scoped leagues were not being found)',
     'Bug fix: GAS now correctly appends payment_success and session_id with & when the return URL already contains query parameters (was generating double-? URLs)',
   ]
 },
