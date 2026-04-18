@@ -342,6 +342,21 @@ const ROLE_COLORS = {
     };
   }
 
+  // Helper: build the canonical league URL including ?id= when the league has a customerID.
+  // Uses three sources in priority order so it is correct even when config.leagueUrl is stale
+  // (e.g. customerID was assigned after the league was created).
+  function getLeagueUrl() {
+    const c   = state.config;
+    const lid = Auth.getSession()?.leagueId || '';
+    const cid = state.currentLeagueCustomerId
+      || sessionStorage.getItem('pb_customer_id')
+      || (c.leagueUrl || '').match(/[?&]id=([^&]+)/)?.[1]
+      || '';
+    return lid
+      ? APP_BASE_URL + 'index.html?league=' + encodeURIComponent(lid) + (cid ? '&id=' + encodeURIComponent(cid) : '')
+      : (c.leagueUrl || APP_BASE_URL + 'index.html');
+  }
+
   // ── Load persisted week selections from localStorage ────────
   const PREFS_KEY = `pb_week_prefs_${session.leagueId}`;
   function saveWeekPrefs() {
@@ -6431,7 +6446,7 @@ function doPost(e) {
         location:    incLocation ? (c.location    || '') : '',
         sessionTime: incTime     ? (c.sessionTime || '') : '',
         rules:       incRules    ? (c.rules       || '') : '',
-        leagueUrl:   incUrl      ? (c.leagueUrl || '') : '',
+        leagueUrl:   incUrl      ? getLeagueUrl() : '',
         isLadder,
         ladderRanges: emailActiveRanges,
         players:     incPlayers  ? state.players.filter(p => p.active === true)
@@ -6489,7 +6504,7 @@ function doPost(e) {
       if (document.getElementById('msg-inc-name').checked    && c.leagueName)    lines.push('League: ' + c.leagueName);
       if (document.getElementById('msg-inc-location').checked && c.location)      lines.push('Location: ' + c.location);
       if (document.getElementById('msg-inc-time').checked    && c.sessionTime)    lines.push('Session time: ' + c.sessionTime);
-      if (document.getElementById('msg-inc-url').checked     && c.leagueUrl)      lines.push('App: ' + c.leagueUrl);
+      if (document.getElementById('msg-inc-url').checked)                          lines.push('App: ' + getLeagueUrl());
       if (document.getElementById('msg-inc-rules').checked   && c.rules)          lines.push('\nRules:\n' + c.rules);
       if (document.getElementById('msg-inc-dates').checked) {
         const weeks = parseInt(c.weeks || 8);
@@ -6716,7 +6731,7 @@ function doPost(e) {
           weekDate,
           leagueName: Auth.getSession()?.leagueName || state.config.leagueName || 'League',
           replyTo:    state.config.replyTo    || '',
-          leagueUrl:  state.config.leagueUrl  || '',
+          leagueUrl:  getLeagueUrl(),
           weekScores,
           weekPairings,
           recipients: (state.config.adminOnlyEmail === true || state.config.adminOnlyEmail === 'true') && state.config.replyTo
@@ -7664,7 +7679,7 @@ function doPost(e) {
           sessionTime:  state.config.sessionTime || '',
           notes:        state.config.notes       || '',
           replyTo:      state.config.replyTo     || '',
-          leagueUrl:    state.config.leagueUrl    || '',
+          leagueUrl:    getLeagueUrl(),
           weekScores,
           weekPairings,
           weekStandings:  weekStand,

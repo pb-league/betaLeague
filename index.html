@@ -421,7 +421,7 @@
 
 <div id="toast-container"></div>
 
-<script src="js/settings.js?v=1.5.2"></script>
+<script src="js/settings.js?v=1.5.3"></script>
   <!-- Google Analytics — loads only if GA_MEASUREMENT_ID is set in settings.js -->
   <script>
     window.__gaReady = false;
@@ -443,8 +443,8 @@
       window.__gaReady = true;
     });
   </script>
-<script src="js/api.js?v=1.5.2"></script>
-<script src="js/auth.js?v=1.5.2"></script>
+<script src="js/api.js?v=1.5.3"></script>
+<script src="js/auth.js?v=1.5.3"></script>
 <script>
 (async function init() {
   // If already logged in with a valid league, redirect
@@ -999,7 +999,15 @@
         description: handle,
         email:       email,
         playerHandle: handle,
-        appUrl:      window.location.origin + window.location.pathname,
+        appUrl:      (() => {
+          // Preserve league + customer-ID params so Stripe can redirect back
+          // to the correct league context (esp. for customer-scoped leagues).
+          const _base = window.location.origin + window.location.pathname;
+          const _qs   = new URLSearchParams();
+          if (urlLeague)     _qs.set('league', urlLeague);
+          if (urlCustomerId) _qs.set('id', urlCustomerId);
+          return _base + (_qs.toString() ? '?' + _qs.toString() : '');
+        })(),
       });
       if (result.error) throw new Error(result.error);
       window.location.href = result.url;
@@ -1241,8 +1249,9 @@
   // ── URL parameter pre-selection ─────────────────────────────
   // (urlParams, urlLeague, urlPlayer, urlCustomerId declared above)
 
-  if (urlLeague) {
+  if (urlLeague && !_stripeReturn) {
     // Use combined endpoint — fetches league list AND players in one round-trip
+    // Skip when returning from Stripe — the restore block above already called selectLeague/showRegister.
     try {
       const combined = await API.getLeagueAndPlayers(urlLeague, urlCustomerId);
 
