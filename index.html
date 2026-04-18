@@ -47,7 +47,7 @@
         </div>
         <div class="form-group" style="margin-bottom:8px;">
           <label class="form-label" style="font-size:0.78rem;">Organization ID <span style="color:var(--muted); font-weight:400;">(provided by your league admin)</span></label>
-          <input class="form-control" id="lookup-org-id" placeholder="e.g. springfield-league" autocomplete="off" style="font-size:0.88rem;">
+          <input class="form-control" id="lookup-org-id" placeholder="e.g. springfield-league" autocomplete="new-password" style="font-size:0.88rem;">
         </div>
         <div style="display:flex; align-items:center; gap:10px; margin:6px 0;">
           <div style="flex:1; height:1px; background:rgba(255,255,255,0.08);"></div>
@@ -56,7 +56,7 @@
         </div>
         <div class="form-group" style="margin-bottom:10px;">
           <label class="form-label" style="font-size:0.78rem;">League name <span style="color:var(--muted); font-weight:400;">(or part of it)</span></label>
-          <input class="form-control" id="lookup-league-name" placeholder="e.g. Tuesday Doubles" autocomplete="off" style="font-size:0.88rem;">
+          <input class="form-control" id="lookup-league-name" placeholder="e.g. Tuesday Doubles" autocomplete="new-password" style="font-size:0.88rem;">
         </div>
         <button class="btn btn-secondary w-full" id="btn-lookup-league" style="font-size:0.82rem;">🔍 Find My League</button>
         <div id="lookup-error" style="font-size:0.78rem; color:var(--danger); margin-top:8px; display:none;"></div>
@@ -66,7 +66,7 @@
       <div style="margin-top:12px; border-top:1px solid rgba(255,255,255,0.08); padding-top:12px;">
         <div style="font-size:0.75rem; color:var(--muted); margin-bottom:8px; text-align:center;">Know your league ID? Go directly:</div>
         <div style="display:flex; gap:8px;">
-          <input class="form-control" id="direct-league-id" placeholder="league-id" autocomplete="off" style="font-size:0.88rem; flex:1;">
+          <input class="form-control" id="direct-league-id" placeholder="league-id" autocomplete="new-password" style="font-size:0.88rem; flex:1;">
           <button class="btn btn-secondary" id="btn-direct-login" style="white-space:nowrap; font-size:0.82rem;">Go →</button>
         </div>
         <div id="direct-login-error" style="font-size:0.78rem; color:var(--danger); margin-top:6px; display:none;"></div>
@@ -85,19 +85,32 @@
           <option value="">— Choose Player —</option>
         </select>
       </div>
+
+      <!-- Registration area: sits directly below player dropdown.
+           Shows a spinner while config loads, then the register button (or full message). -->
+      <div id="reg-availability" style="margin-bottom:8px;">
+        <div id="reg-availability-loading" style="display:none; font-size:0.78rem;
+             color:var(--muted); padding:5px 2px; align-items:center; gap:7px;">
+          <span style="display:inline-block; width:11px; height:11px;
+                       border:2px solid rgba(255,255,255,0.12);
+                       border-top-color:var(--muted); border-radius:50%;
+                       animation:spin 0.8s linear infinite; flex-shrink:0;"></span>
+          Checking registration availability…
+        </div>
+        <button class="btn btn-secondary w-full hidden" id="btn-show-register"
+                style="border-color:rgba(94,194,106,0.4); color:var(--green);">
+          + Register as New <span id="reg-btn-participant-label">Player</span>
+        </button>
+        <div id="reg-full-message" style="display:none; margin-top:8px; padding:10px 12px; border-radius:8px;
+             background:rgba(255,165,0,0.08); border:1px solid rgba(255,165,0,0.25);
+             font-size:0.8rem; color:rgba(240,244,240,0.75); line-height:1.6;"></div>
+      </div>
+
       <button class="btn btn-primary w-full" id="btn-player-next" disabled>Continue →</button>
 
       <div class="login-divider">or</div>
 
       <button class="btn btn-secondary w-full" id="btn-admin-entry" style="border-color:rgba(45,122,58,0.4);">🔐 Admin Login</button>
-
-      <button class="btn btn-secondary w-full hidden" id="btn-show-register"
-              style="border-color:rgba(94,194,106,0.4); color:var(--green); margin-top:4px;">
-        + Register as New <span id="reg-btn-participant-label">Player</span>
-      </button>
-      <div id="reg-full-message" style="display:none; margin-top:8px; padding:10px 12px; border-radius:8px;
-           background:rgba(255,165,0,0.08); border:1px solid rgba(255,165,0,0.25);
-           font-size:0.8rem; color:rgba(240,244,240,0.75); line-height:1.6;"></div>
 
       <button class="btn btn-secondary w-full mt-1" id="btn-back-league" style="margin-top:8px; opacity:0.6; font-size:0.75rem;">← Change League</button>
     </div>
@@ -426,7 +439,7 @@
 
 <div id="toast-container"></div>
 
-<script src="js/settings.js?v=1.5.3"></script>
+<script src="js/settings.js?v=1.5.7"></script>
   <!-- Google Analytics — loads only if GA_MEASUREMENT_ID is set in settings.js -->
   <script>
     window.__gaReady = false;
@@ -448,8 +461,8 @@
       window.__gaReady = true;
     });
   </script>
-<script src="js/api.js?v=1.5.3"></script>
-<script src="js/auth.js?v=1.5.3"></script>
+<script src="js/api.js?v=1.5.7"></script>
+<script src="js/auth.js?v=1.5.7"></script>
 <script>
 (async function init() {
   // If already logged in with a valid league, redirect
@@ -482,8 +495,9 @@
   const leagueSel = document.getElementById('league-select');
   const btnLeagueNext = document.getElementById('btn-league-next');
 
-  // Prefetch map: leagueId -> players promise (starts fetching when user selects)
+  // Prefetch maps: leagueId -> promise (both start when user selects a league)
   const playerPrefetch = {};
+  const configPrefetch = {};
 
   // Disable the dropdown while loading so the user can't interact prematurely.
   // Wire the change handler immediately — before the async load — so selecting
@@ -493,11 +507,12 @@
 
   leagueSel.addEventListener('change', () => {
     btnLeagueNext.disabled = !leagueSel.value;
-    // Start fetching players eagerly as soon as a league is selected
+    // Start fetching players AND config in parallel as soon as a league is selected
     const lid = leagueSel.value;
     if (lid && !playerPrefetch[lid]) {
-      Auth.setSession('', false, lid, ''); // set leagueId so getPlayers works
+      Auth.setSession('', false, lid, ''); // set leagueId so API calls work
       playerPrefetch[lid] = API.getPlayers().catch(() => null);
+      configPrefetch[lid] = API.getConfig().catch(() => null);
     }
   });
 
@@ -763,7 +778,10 @@
       }
 
       if (!found.length) {
-        errEl.textContent = 'No leagues found. Check your Organization ID or league name and try again.';
+        const hint = orgId
+          ? `No leagues found for Organization ID "${orgId}"${leagueName ? ` with name containing "${leagueName}"` : ''}.`
+          : `No leagues found matching "${leagueName}".`;
+        errEl.textContent = hint + ' Check the Organization ID or league name and try again.';
         errEl.style.display = 'block';
         return;
       }
@@ -826,10 +844,17 @@
       const activeCnt  = allPlayerData.filter(p => p.active === true).length;
       const pendingCnt = allPlayerData.filter(p => p.active === 'pend').length;
 
-      // Show register button if league allows it — fetch config
+      // Show register button if league allows it.
+      // Config may already be prefetched (started when user selected the league);
+      // otherwise fire a fresh request.  Show a spinner in the registration area
+      // immediately so the user knows something is coming.
       document.getElementById('btn-show-register').classList.add('hidden');
       document.getElementById('reg-full-message').style.display = 'none';
-      API.getConfig().then(cfg => {
+      const regLoadingEl = document.getElementById('reg-availability-loading');
+      if (regLoadingEl) { regLoadingEl.style.display = 'flex'; }
+      const _cfgPromise = configPrefetch[league.leagueId] || API.getConfig();
+      _cfgPromise.then(cfg => {
+        if (regLoadingEl) regLoadingEl.style.display = 'none';
         const c = (cfg && cfg.config) ? cfg.config : {};
 
         // Apply event-type label everywhere
@@ -867,7 +892,7 @@
         } else {
           document.getElementById('btn-show-register').classList.remove('hidden');
         }
-      }).catch(() => {});
+      }).catch(() => { if (regLoadingEl) regLoadingEl.style.display = 'none'; });
       playerSel.innerHTML = '<option value="">— Choose Player —</option>';
       players.forEach(p => {
         const opt = document.createElement('option');

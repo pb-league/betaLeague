@@ -6,6 +6,33 @@
 
 const CHANGELOG = [
 {
+  version: '1.5.7',
+  date: '2026-04-18',
+  changes: [
+    'Login page: Register button moved to appear directly below the player name dropdown, before the Admin Login button',
+    'Login page: a small spinning indicator now appears immediately in the registration area while availability is being checked, so players know something is loading',
+    'Login page: config (registration availability) is now pre-fetched in parallel with the player list as soon as a league is selected — in most cases the Register button appears at the same time as the player list instead of several seconds later',
+    'Login page: league name, org ID, and direct league ID fields now use autocomplete="new-password" to prevent Edge/Chrome from filling them with saved profile data',
+  ]
+},
+{
+  version: '1.5.6',
+  date: '2026-04-18',
+  changes: [
+    'Bug fix: player dashboard personal login URL now correctly includes ?id=<customerID> for org-scoped leagues — previously relied only on the stored leagueUrl field, which is not always populated; now also checks the session-stored customer ID saved at login time',
+  ]
+},
+{
+  version: '1.5.5',
+  date: '2026-04-18',
+  changes: [
+    'Ladder league: win % standings table now shown below the ladder points table on both the Season and Session tabs — pairings still use ladder points for ranking',
+    'Ladder league: new session ranking bonus — configurable extra points for finishing 1st / 2nd / 3rd in a session by win % (set in Setup → Ladder League → Point Schedule)',
+    'Ladder standings table: new "S.Rnk" column shows session ranking bonus points per player (column appears only when any bonus is configured)',
+    'Ladder points legend now lists the session ranking bonus rates alongside attend/play/range points',
+  ]
+},
+{
   version: '1.5.3',
   date: '2026-04-18',
   changes: [

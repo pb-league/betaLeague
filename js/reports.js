@@ -498,12 +498,39 @@ const Reports = (() => {
       });
     });
 
+    // Session ranking bonus — award extra pts to top 1/2/3 finishers in each session's win% standings
+    const rank1Pts = parseFloat(cfg.ladderRank1Pts) || 0;
+    const rank2Pts = parseFloat(cfg.ladderRank2Pts) || 0;
+    const rank3Pts = parseFloat(cfg.ladderRank3Pts) || 0;
+    Object.keys(stats).forEach(n => { stats[n].sessionRankPts = 0; });
+    if (rank1Pts || rank2Pts || rank3Pts) {
+      const rankBonusArr = [rank1Pts, rank2Pts, rank3Pts];
+      const distinctWeeks = new Set();
+      scores.forEach(s => {
+        if (upToWeek !== null && upToWeek !== undefined && parseInt(s.week) > upToWeek) return;
+        if (s.score1 !== '' && s.score1 != null && s.score2 !== '' && s.score2 != null) {
+          distinctWeeks.add(parseInt(s.week));
+        }
+      });
+      distinctWeeks.forEach(wk => {
+        const wkScores   = scores.filter(s => parseInt(s.week) === wk);
+        const wkPairings = pairings.filter(p => parseInt(p.week) === wk);
+        const wkStands   = computeStandings(wkScores, players, wkPairings, null,
+          cfg.rankingMethod || 'avgptdiff', [], cfg.pairingMode || 'round-based');
+        wkStands.forEach(s => {
+          if (!s.games || !stats[s.name]) return;
+          const bonus = rankBonusArr[s.rank - 1];
+          if (bonus) stats[s.name].sessionRankPts += bonus;
+        });
+      });
+    }
+
     // Compute points and build result list
     const list = Object.values(stats).map(s => {
       const rAttend   = s.sessionsAttended * attendPts;
       const rPlay     = s.gamesPlayed      * playPts;
       const rRange    = s.rangeWins.map((w, i) => w * ranges[i].pts);
-      const totalPts  = rAttend + rPlay + rRange.reduce((a, b) => a + b, 0);
+      const totalPts  = rAttend + rPlay + rRange.reduce((a, b) => a + b, 0) + (s.sessionRankPts || 0);
       return { ...s, attendPts: rAttend, playPts: rPlay, rangePts: rRange, totalPts };
     });
 

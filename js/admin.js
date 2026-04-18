@@ -2096,6 +2096,9 @@ const ROLE_COLORS = {
       if (lv(`cfg-ladder-range${i}-max`)) lv(`cfg-ladder-range${i}-max`).value = c[`ladderRange${i}Max`] ?? dfMax;
       if (lv(`cfg-ladder-range${i}-pts`)) lv(`cfg-ladder-range${i}-pts`).value = c[`ladderRange${i}Pts`] ?? dfPts;
     });
+    if (lv('cfg-ladder-rank1-pts')) lv('cfg-ladder-rank1-pts').value = c.ladderRank1Pts ?? 0;
+    if (lv('cfg-ladder-rank2-pts')) lv('cfg-ladder-rank2-pts').value = c.ladderRank2Pts ?? 0;
+    if (lv('cfg-ladder-rank3-pts')) lv('cfg-ladder-rank3-pts').value = c.ladderRank3Pts ?? 0;
     document.getElementById('cfg-pairing-mode').value   = c.pairingMode   || 'round-based';
     document.getElementById('cfg-min-participation').value = c.minParticipation !== undefined ? c.minParticipation : '';
     // Cap inputs per registry limits
@@ -4755,11 +4758,20 @@ function doPost(e) {
         null, state.attendance, state.config, rankMap);
       const topThree = season.filter(s => s.totalPts !== undefined).slice(0, 3);
       document.getElementById('season-podium').innerHTML = buildPodiumHTML(topThree, podiumPhotoMap, podiumPhotosOn, seasonDone, podiumFullNameMap);
-      document.getElementById('standings-season-table').innerHTML = renderLadderStandingsTable(season, state.config);
+
+      const winPctSubhead = '<div style="font-size:0.78rem; font-weight:700; text-transform:uppercase; ' +
+        'color:var(--muted); letter-spacing:0.07em; margin:20px 0 8px;">Season Win&nbsp;% Standings</div>';
+      document.getElementById('standings-season-table').innerHTML =
+        renderLadderStandingsTable(season, state.config) + winPctSubhead + renderStandingsTable(stdAll);
 
       const weekStand = Reports.computeWeeklyLadderStandings(state.scores, state.players, state.pairings,
         state.currentStandWeek, state.attendance, state.config, rankMap);
-      document.getElementById('standings-weekly-table').innerHTML = renderLadderStandingsTable(weekStand, state.config);
+      const weekWinPct = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings,
+        state.currentStandWeek, state.config.rankingMethod, state.attendance, state.config.pairingMode);
+      const sessionWinPctSubhead = '<div style="font-size:0.78rem; font-weight:700; text-transform:uppercase; ' +
+        'color:var(--muted); letter-spacing:0.07em; margin:20px 0 8px;">Session Win&nbsp;% Standings</div>';
+      document.getElementById('standings-weekly-table').innerHTML =
+        renderLadderStandingsTable(weekStand, state.config) + sessionWinPctSubhead + renderStandingsTable(weekWinPct);
     } else {
       const season = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance, state.config.pairingMode);
       const topThree = season.filter(s => s.games > 0).slice(0, 3);
@@ -5101,6 +5113,11 @@ function doPost(e) {
     // A range is active when max > min (also handles negative ranges)
     const activeRanges = ranges.map((r, i) => ({ ...r, idx: i })).filter(r => r.max > r.min);
 
+    const rank1Pts = parseFloat(cfg.ladderRank1Pts) || 0;
+    const rank2Pts = parseFloat(cfg.ladderRank2Pts) || 0;
+    const rank3Pts = parseFloat(cfg.ladderRank3Pts) || 0;
+    const hasRankBonus = !!(rank1Pts || rank2Pts || rank3Pts);
+
     const ladderPhotoMap = {};
     if (!state._tierDisablePhotos) state.players.forEach(p => { if (p.photo) ladderPhotoMap[p.name] = p.photo; });
 
@@ -5114,6 +5131,9 @@ function doPost(e) {
       const typeLabel = isUpset ? 'Upset win' : isFavored ? 'Favored win' : 'Win';
       legendRows.push(`<tr><td><strong>R${r.idx + 1}:</strong> ${typeLabel} <span style="color:var(--muted); font-size:0.78rem;">(rank adv ${r.min} to ${r.max})</span></td><td style="text-align:right; font-weight:600; color:var(--gold);">${fmt(r.pts)} pt${r.pts !== 1 ? 's' : ''}</td></tr>`);
     });
+    if (rank1Pts) legendRows.push(`<tr><td>🥇 Finish 1st in a session (win&nbsp;%)</td><td style="text-align:right; font-weight:600; color:var(--gold);">${fmt(rank1Pts)} pt${rank1Pts !== 1 ? 's' : ''}</td></tr>`);
+    if (rank2Pts) legendRows.push(`<tr><td>🥈 Finish 2nd in a session (win&nbsp;%)</td><td style="text-align:right; font-weight:600; color:var(--gold);">${fmt(rank2Pts)} pt${rank2Pts !== 1 ? 's' : ''}</td></tr>`);
+    if (rank3Pts) legendRows.push(`<tr><td>🥉 Finish 3rd in a session (win&nbsp;%)</td><td style="text-align:right; font-weight:600; color:var(--gold);">${fmt(rank3Pts)} pt${rank3Pts !== 1 ? 's' : ''}</td></tr>`);
     const legendHtml = legendRows.length ? `
       <div style="margin-bottom:14px; display:inline-block; min-width:260px;">
         <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); margin-bottom:6px;">Points Legend</div>
@@ -5127,6 +5147,9 @@ function doPost(e) {
       let rangeCols = activeRanges.map(r =>
         `<td style="text-align:center;">${fmt(s.rangePts[r.idx])}</td>`
       ).join('');
+      const rankBonusCol = hasRankBonus
+        ? `<td style="text-align:center;">${fmt(s.sessionRankPts || 0)}</td>`
+        : '';
       const avatar = state._tierDisablePhotos ? '' : `<img src="${playerPhotoSrc(s.name, ladderPhotoMap[s.name], 24)}"
         style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;flex-shrink:0;">`;
       return `<tr>
@@ -5137,7 +5160,7 @@ function doPost(e) {
         <td style="text-align:center; font-weight:600; color:var(--gold);">${fmt(s.totalPts)}</td>
         <td style="text-align:center;">${fmt(s.attendPts)}</td>
         <td style="text-align:center;">${fmt(s.playPts)}</td>
-        ${rangeCols}
+        ${rangeCols}${rankBonusCol}
       </tr>`;
     });
 
@@ -5147,6 +5170,9 @@ function doPost(e) {
       const typeLabel = isUpset ? 'Upset' : isFavored ? 'Favored' : 'Win';
       return `<th title="${typeLabel} win: rank advantage ${r.min} to ${r.max} → ${fmt(r.pts)} pts each" style="cursor:help; text-align:center;">R${r.idx+1}</th>`;
     }).join('');
+    const rankBonusHeader = hasRankBonus
+      ? `<th style="text-align:center;" title="Session ranking bonus (1st/2nd/3rd by win %)">S.Rnk</th>`
+      : '';
 
     return `${legendHtml}<table class="compact-table">
       <thead><tr>
@@ -5154,7 +5180,7 @@ function doPost(e) {
         <th style="text-align:center;" title="Total ladder points">Total</th>
         <th style="text-align:center;" title="Points for attending sessions">Attend</th>
         <th style="text-align:center;" title="Points for playing games">Play</th>
-        ${rangeHeaders}
+        ${rangeHeaders}${rankBonusHeader}
       </tr></thead>
       <tbody>${rows.join('')}</tbody>
     </table>`;
@@ -6186,6 +6212,9 @@ function doPost(e) {
         ladderRange6Min:    parseFloat(document.getElementById('cfg-ladder-range6-min')?.value)    || 0,
         ladderRange6Max:    parseFloat(document.getElementById('cfg-ladder-range6-max')?.value)    || 0,
         ladderRange6Pts:    parseFloat(document.getElementById('cfg-ladder-range6-pts')?.value)    || 0,
+        ladderRank1Pts:     parseFloat(document.getElementById('cfg-ladder-rank1-pts')?.value)     || 0,
+        ladderRank2Pts:     parseFloat(document.getElementById('cfg-ladder-rank2-pts')?.value)     || 0,
+        ladderRank3Pts:     parseFloat(document.getElementById('cfg-ladder-rank3-pts')?.value)     || 0,
         minParticipation: document.getElementById('cfg-min-participation').value !== '' ? parseFloat(document.getElementById('cfg-min-participation').value) : null,
         wSessionPartner:  parseFloat(document.getElementById('cfg-w-session-partner').value),
         wSessionOpponent: parseFloat(document.getElementById('cfg-w-session-opponent').value),

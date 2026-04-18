@@ -806,8 +806,11 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
       let urlHtml = '';
       const lid = session.leagueId || '';
       if (lid) {
-        // Extract customerId from stored leagueUrl (written by Code.gs when league was created)
-        const _storedCid = (c.leagueUrl || '').match(/[?&]id=([^&]+)/)?.[1] || '';
+        // Resolve customerId: sessionStorage set at login time (most reliable),
+        // then fall back to the ?id= embedded in the stored leagueUrl.
+        const _storedCid = sessionStorage.getItem('pb_customer_id')
+                        || (c.leagueUrl || '').match(/[?&]id=([^&]+)/)?.[1]
+                        || '';
         const leagueUrl  = APP_BASE_URL + 'index.html?league=' + encodeURIComponent(lid)
                          + (_storedCid ? '&id=' + _storedCid : '');
         const personalUrl = leagueUrl + '&player=' + encodeURIComponent(playerName);

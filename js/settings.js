@@ -22,7 +22,7 @@
 const APP_BASE_URL = 'https://pb-league.github.io/league/';
 
 // App version — bump when deploying changes
-const APP_VERSION    = '1.5.3';
+const APP_VERSION    = '1.5.7';
 const APP_BUILD_DATE = '2026-04-18';
 
 const TIERS = [
@@ -165,6 +165,9 @@ function sanitizeConfig(raw) {
   c.ladderRange6Min    = flt(c.ladderRange6Min,     0);
   c.ladderRange6Max    = flt(c.ladderRange6Max,     0);
   c.ladderRange6Pts    = flt(c.ladderRange6Pts,     0);
+  c.ladderRank1Pts   = flt(c.ladderRank1Pts,   0);
+  c.ladderRank2Pts   = flt(c.ladderRank2Pts,   0);
+  c.ladderRank3Pts   = flt(c.ladderRank3Pts,   0);
   c.queueWinnerStay  = int(c.queueWinnerStay,  0);
   c.queueWinnerSplit = str(c.queueWinnerSplit  ?? 'none',        'none');
   c.wQueueWait       = flt(c.wQueueWait,        10);
