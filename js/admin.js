@@ -330,6 +330,7 @@ const ROLE_COLORS = {
     adminChatMessages: [],      // all visible chat messages, newest last
     adminChatLastId: 0,         // highest message id seen — used for incremental polling
     adminChatPollTimer: null,   // setInterval handle for background chat polling
+    currentLeagueCustomerId: null, // customerId from registry for the logged-in league; set by renderLeagues
   };
 
   // Helper: returns relay config from state.config for inclusion in email API calls.
@@ -1441,9 +1442,17 @@ const ROLE_COLORS = {
       // Always derive URL from leagueId so it stays correct regardless of config value
       const sess = Auth.getSession();
       const lid  = sess?.leagueId || '';
-      const base = (c.leagueUrl || '').replace(/([?&]league=)[^&]*.*$/, '').replace(/[?&]$/, '')
-                || 'https://pb-league.github.io/league/index.html';
-      const leagueUrl = lid ? base + '?league=' + encodeURIComponent(lid) : (c.leagueUrl || '');
+      // Resolve customerId from most-to-least reliable source:
+      // 1. state.currentLeagueCustomerId — set by renderLeagues from the live registry (always correct)
+      // 2. sessionStorage — set at login from the ?id= URL param (missing if URL lacked it)
+      // 3. c.leagueUrl param — written at league creation, stale if customerId assigned later
+      const _cid1 = state.currentLeagueCustomerId
+        || sessionStorage.getItem('pb_customer_id')
+        || (c.leagueUrl || '').match(/[?&]id=([^&]+)/)?.[1]
+        || '';
+      const leagueUrl = lid
+        ? APP_BASE_URL + 'index.html?league=' + encodeURIComponent(lid) + (_cid1 ? '&id=' + encodeURIComponent(_cid1) : '')
+        : (c.leagueUrl || APP_BASE_URL + 'index.html');
       const lName = sess?.leagueName || state.config.leagueName || '';
 
       infoParts.push(`<span style="display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;">
@@ -2001,10 +2010,13 @@ const ROLE_COLORS = {
     document.getElementById('cfg-notes').value    = c.notes       || '';
     // Auto-populate URL if blank using current leagueId
     const leagueId = Auth.getSession()?.leagueId || '';
-    // URL is always derived from leagueId — not editable, preserves any custom base URL from config
-    const baseUrl = (c.leagueUrl || '').replace(/([?&]league=)[^&]*.*$/, '').replace(/[?&]$/, '')
-                 || 'https://pb-league.github.io/league/index.html';
-    const generatedUrl = leagueId ? baseUrl + '?league=' + encodeURIComponent(leagueId) : (c.leagueUrl || '');
+    const _cid2 = state.currentLeagueCustomerId
+      || sessionStorage.getItem('pb_customer_id')
+      || (c.leagueUrl || '').match(/[?&]id=([^&]+)/)?.[1]
+      || '';
+    const generatedUrl = leagueId
+      ? APP_BASE_URL + 'index.html?league=' + encodeURIComponent(leagueId) + (_cid2 ? '&id=' + encodeURIComponent(_cid2) : '')
+      : (c.leagueUrl || APP_BASE_URL + 'index.html');
     const urlEl = document.getElementById('cfg-league-url');
     if (urlEl) urlEl.value = generatedUrl;
     const idDisplay = document.getElementById('cfg-league-id-display');
@@ -7742,24 +7754,84 @@ function doPost(e) {
     });
 
     document.getElementById('new-league-storage').addEventListener('change', function() {
-      const sheetGroup = document.getElementById('new-league-sheet-group');
-      const pinGroup   = document.getElementById('new-league-pin-group');
-      sheetGroup.style.display = this.value === 'supabase' ? 'none' : '';
-      if (pinGroup) pinGroup.classList.toggle('hidden', this.value !== 'supabase');
+      const sheetGroup  = document.getElementById('new-league-sheet-group');
+      const pinGroup    = document.getElementById('new-league-pin-group');
+      const ownSbGroup  = document.getElementById('new-league-own-sb-group');
+      const isSupabase  = this.value === 'supabase';
+      const isOwnSb     = this.value === 'supabase-own';
+      sheetGroup.style.display = (isSupabase || isOwnSb) ? 'none' : '';
+      if (pinGroup)   pinGroup.classList.toggle('hidden',   !(isSupabase || isOwnSb));
+      if (ownSbGroup) ownSbGroup.classList.toggle('hidden', !isOwnSb);
+      // Populate the SQL preview textarea when the own-supabase option is first shown
+      if (isOwnSb) {
+        const sqlEl = document.getElementById('own-sb-sql-preview');
+        if (sqlEl && !sqlEl.value) { _loadOwnSbSql(sqlEl); }
+      }
+    });
+
+    // ── Self-hosted Supabase helpers ───────────────────────────
+    function _loadOwnSbSql(el) {
+      // Fetch the SQL setup script from the same directory and display it
+      fetch('supabase_setup.sql')
+        .then(r => r.ok ? r.text() : Promise.reject(r.status))
+        .then(sql => { if (el) el.value = sql; })
+        .catch(() => {
+          if (el) el.value = '-- Could not load supabase_setup.sql\n-- Please copy it manually from the repository.';
+        });
+    }
+
+    document.addEventListener('click', async function(e) {
+      if (e.target && e.target.id === 'btn-copy-sb-sql') {
+        const sqlEl = document.getElementById('own-sb-sql-preview');
+        if (!sqlEl || !sqlEl.value) { toast('SQL not loaded yet.', 'warn'); return; }
+        try {
+          await navigator.clipboard.writeText(sqlEl.value);
+          toast('SQL copied to clipboard!');
+        } catch {
+          sqlEl.select();
+          document.execCommand('copy');
+          toast('SQL copied!');
+        }
+      }
+      if (e.target && e.target.id === 'btn-validate-sb') {
+        const urlEl = document.getElementById('new-league-sb-url');
+        const keyEl = document.getElementById('new-league-sb-key');
+        const url   = urlEl?.value.trim() || '';
+        const key   = keyEl?.value.trim() || '';
+        if (!url || !key) { toast('Enter the Supabase URL and service_role key first.', 'warn'); return; }
+        e.target.disabled = true;
+        e.target.textContent = 'Validating…';
+        try {
+          const res = await API.validateOwnSupabase(url, key);
+          if (res.success) {
+            toast(`Connection OK — all ${res.tables.length} tables found.`);
+          } else if (res.missing && res.missing.length) {
+            toast('Connected, but missing tables: ' + res.missing.join(', ') + '. Run the setup SQL script.', 'warn');
+          } else {
+            toast('Validation failed: ' + (res.error || 'Unknown error'), 'error');
+          }
+        } catch (err) { toast('Validation failed: ' + err.message, 'error'); }
+        finally { e.target.disabled = false; e.target.textContent = 'Validate Connection'; }
+      }
     });
 
     document.getElementById('btn-save-new-league').addEventListener('click', async () => {
       const leagueId = document.getElementById('new-league-id').value.trim().replace(/\s+/g, '-');
       const name     = document.getElementById('new-league-name').value.trim();
       const sheetId  = document.getElementById('new-league-sheet').value.trim();
-      const storage  = document.getElementById('new-league-storage')?.value || 'google';
-      const adminPin = document.getElementById('new-league-admin-pin')?.value.trim() || '';
+      const storage     = document.getElementById('new-league-storage')?.value || 'google';
+      const adminPin    = document.getElementById('new-league-admin-pin')?.value.trim() || '';
+      const supabaseUrl = document.getElementById('new-league-sb-url')?.value.trim() || '';
+      const supabaseKey = document.getElementById('new-league-sb-key')?.value.trim() || '';
 
       if (!leagueId || !name) {
         toast('League ID and Display Name are required.', 'warn'); return;
       }
-      if (storage === 'supabase' && !adminPin) {
+      if ((storage === 'supabase' || storage === 'supabase-own') && !adminPin) {
         toast('Admin PIN is required for Supabase leagues.', 'warn'); return;
+      }
+      if (storage === 'supabase-own' && (!supabaseUrl || !supabaseKey)) {
+        toast('Supabase URL and service_role key are required for self-hosted Supabase.', 'warn'); return;
       }
 
       showLoading(true);
@@ -7771,7 +7843,7 @@ function doPost(e) {
         const hidden     = document.getElementById('new-league-hidden').checked;
         const customerId  = document.getElementById('new-league-customer-id').value.trim() || null;
         const adminEmail  = document.getElementById('new-league-admin-email').value.trim() || null;
-        const result = await API.addLeague(leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId, adminEmail, storage, adminPin || null);
+        const result = await API.addLeague(leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId, adminEmail, storage, adminPin || null, supabaseUrl || null, supabaseKey || null);
         if (result.warnings && result.warnings.length) {
           result.warnings.forEach(w => toast('Warning: ' + w, 'warn'));
         }
@@ -7787,6 +7859,14 @@ function doPost(e) {
         document.getElementById('new-league-customer-id').value = '';
         const pinEl = document.getElementById('new-league-admin-pin');
         if (pinEl) pinEl.value = '';
+        const sbUrlEl = document.getElementById('new-league-sb-url');
+        const sbKeyEl = document.getElementById('new-league-sb-key');
+        if (sbUrlEl) sbUrlEl.value = '';
+        if (sbKeyEl) sbKeyEl.value = '';
+        const ownSbGroup = document.getElementById('new-league-own-sb-group');
+        if (ownSbGroup) ownSbGroup.classList.add('hidden');
+        document.getElementById('new-league-storage').value = 'google';
+        document.getElementById('new-league-sheet-group').style.display = '';
         document.getElementById('add-league-form').classList.add('hidden');
         document.getElementById('btn-show-add-league').classList.remove('hidden');
         renderLeagues();
@@ -7917,10 +7997,10 @@ function doPost(e) {
 
   async function renderLeagues() {
     const session = Auth.getSession();
-    let leagues = [];
+    let allLeagues = [];
     try {
-      const data = await API.getLeaguesAll(); // admin always sees all leagues including hidden
-      leagues = data.leagues || [];
+      const data = await API.getLeaguesAll(); // returns all leagues; we filter client-side below
+      allLeagues = data.leagues || [];
     } catch (e) {
       toast('Failed to load leagues: ' + e.message, 'error');
     }
@@ -7929,7 +8009,30 @@ function doPost(e) {
     // App manager always has full access regardless of canCreateLeagues flag.
     const isMgr = (userRole === 'manager') || (typeof isManager !== 'undefined' && isManager);
     const currentId = session?.leagueId;
-    const thisLeague = leagues.find(l => l.leagueId === currentId);
+    const thisLeague = allLeagues.find(l => l.leagueId === currentId);
+
+    // Scope the visible list:
+    //  • App manager → sees every league (no filter)
+    //  • Admin in a customerID org → sees own org + leagues with no customerID
+    //  • Admin with no customerID → sees only leagues with no customerID
+    const currentCustomerId = thisLeague?.customerId || sessionStorage.getItem('pb_customer_id') || null;
+
+    // Cache the registry-sourced customerId into state so URL builders always have
+    // the authoritative value — even when the league's customerId was assigned after
+    // the original config was written (making c.leagueUrl and sessionStorage unreliable).
+    if (currentCustomerId && !state.currentLeagueCustomerId) {
+      state.currentLeagueCustomerId = currentCustomerId;
+      // Re-render the dashboard and setup tab URL field now that we have the correct value
+      renderDashboard();
+      renderSetup();
+    } else if (currentCustomerId) {
+      state.currentLeagueCustomerId = currentCustomerId;
+    }
+
+    const leagues = isMgr
+      ? allLeagues
+      : allLeagues.filter(l => !currentCustomerId || !l.customerId || l.customerId === currentCustomerId);
+
     const canCreate = isMgr || !thisLeague || thisLeague.canCreateLeagues !== false;
     document.getElementById('btn-show-add-league').style.display = canCreate ? '' : 'none';
 
@@ -7949,7 +8052,9 @@ function doPost(e) {
       // Storage badge
       const storageBadge = l.storage === 'supabase'
         ? chip('Supabase', '#5ec272')
-        : `<code style="font-size:0.7rem; color:var(--muted);" title="${esc(l.sheetId || '')}">${l.sheetId ? l.sheetId.substring(0,10)+'…' : '—'}</code>`;
+        : l.storage === 'supabase-own'
+          ? chip('Own Supabase', '#3b8ed4')
+          : `<code style="font-size:0.7rem; color:var(--muted);" title="${esc(l.sheetId || '')}">${l.sheetId ? l.sheetId.substring(0,10)+'…' : '—'}</code>`;
 
       // Expiry string (manager view)
       const expiryStr = l.expiryDays !== null && l.expiryDays !== undefined ? (() => {
@@ -8053,7 +8158,7 @@ function doPost(e) {
               data-edit-limits="${esc(l.leagueId)}"
               data-league-name="${esc(l.name)}"
               data-limits='${JSON.stringify({expiryDays:l.expiryDays,maxPlayers:l.maxPlayers,maxCourts:l.maxCourts,maxRounds:l.maxRounds,maxSessions:l.maxSessions,customerId:l.customerId,tier:l.tier||null})}'>
-              ✏️ Edit Limits &amp; Tier
+              ✏️ Edit Limits, Tier &amp; Customer ID
             </button>
           </div>` : ''}
 
@@ -8340,14 +8445,15 @@ function doPost(e) {
       if (e.target === document.getElementById('promo-modal')) closeModal();
     });
 
-    document.getElementById('btn-promo-generate')?.addEventListener('click', () => {
+    // Shared helper — validates form and returns {promoData, html} or null
+    function buildPromoIfValid() {
       const skillRange = document.getElementById('promo-skill-range').value.trim();
       const errEl = document.getElementById('promo-error');
       if (!skillRange) {
         errEl.textContent = 'Please enter a skill range (e.g. 3.0 – 4.5).';
         errEl.style.display = 'block';
         document.getElementById('promo-skill-range').focus();
-        return;
+        return null;
       }
       errEl.style.display = 'none';
       const promoData = {
@@ -8355,12 +8461,32 @@ function doPost(e) {
         dates:   document.getElementById('promo-dates').value.trim(),
         tagline: document.getElementById('promo-tagline').value.trim(),
       };
-      const html = buildPromoHtml(state.config || {}, promoData);
-      const blob = new Blob([html], { type: 'text/html' });
+      return { promoData, html: buildPromoHtml(state.config || {}, promoData) };
+    }
+
+    document.getElementById('btn-promo-generate')?.addEventListener('click', () => {
+      const result = buildPromoIfValid();
+      if (!result) return;
+      const blob = new Blob([result.html], { type: 'text/html' });
       const url  = URL.createObjectURL(blob);
       window.open(url, '_blank');
       setTimeout(() => URL.revokeObjectURL(url), 60000);
       closeModal();
+    });
+
+    document.getElementById('btn-promo-download')?.addEventListener('click', () => {
+      const result = buildPromoIfValid();
+      if (!result) return;
+      const blob = new Blob([result.html], { type: 'text/html' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      const name = (state.config?.leagueName || 'league-promo')
+                     .replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+      a.href     = url;
+      a.download = name + '-promo.html';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      // Leave modal open so user can also preview or re-download
     });
   })();
 

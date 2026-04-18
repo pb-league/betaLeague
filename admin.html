@@ -1291,7 +1291,8 @@
               <label class="form-label">Storage Backend</label>
               <select class="form-control" id="new-league-storage" style="max-width:260px;">
                 <option value="google">Google Sheets</option>
-                <option value="supabase">Supabase</option>
+                <option value="supabase">Supabase (shared)</option>
+                <option value="supabase-own">Self-hosted Supabase</option>
               </select>
             </div>
             <div class="form-group" id="new-league-sheet-group">
@@ -1302,6 +1303,33 @@
               <label class="form-label">Admin PIN <span style="color:var(--danger);">*</span></label>
               <input class="form-control" id="new-league-admin-pin" type="password" placeholder="Choose an admin login PIN" style="max-width:200px;">
               <div style="font-size:0.72rem; color:var(--muted); margin-top:3px;">Required for Supabase leagues — used to log in as admin for the first time</div>
+            </div>
+            <div class="hidden" id="new-league-own-sb-group">
+              <div class="form-group">
+                <label class="form-label">Supabase Project URL <span style="color:var(--danger);">*</span></label>
+                <input class="form-control" id="new-league-sb-url" placeholder="https://xxxxxxxxxxxx.supabase.co" style="font-family:monospace; font-size:0.82rem;">
+                <div style="font-size:0.72rem; color:var(--muted); margin-top:3px;">Found in your Supabase project → Settings → API → Project URL</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Supabase Service Role Key <span style="color:var(--danger);">*</span></label>
+                <input class="form-control" id="new-league-sb-key" type="password" placeholder="eyJ..." style="font-family:monospace; font-size:0.82rem;">
+                <div style="font-size:0.72rem; color:var(--muted); margin-top:3px;">Found in Settings → API → service_role key (keep this secret — never share it publicly)</div>
+              </div>
+              <div style="background:rgba(94,194,106,0.07); border:1px solid rgba(94,194,106,0.2); border-radius:8px; padding:12px 14px; margin-bottom:4px; font-size:0.78rem; color:var(--muted); line-height:1.6;">
+                <strong style="color:var(--green);">Setup required before adding the league:</strong><br>
+                1. Create a free account at <a href="https://supabase.com" target="_blank" style="color:var(--green);">supabase.com</a> and create a new project.<br>
+                2. Go to <strong>SQL Editor</strong> → <strong>New query</strong>, paste the setup script below, and click <strong>Run</strong>.<br>
+                3. Come back here and enter the Project URL and service_role key above.
+                <div style="margin-top:8px;">
+                  <label class="form-label" style="font-size:0.75rem; margin-bottom:4px;">Setup SQL Script</label>
+                  <textarea id="own-sb-sql-preview" readonly rows="5"
+                    style="width:100%; font-family:monospace; font-size:0.72rem; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:#ccc; border-radius:6px; padding:8px; resize:vertical;"></textarea>
+                  <div style="display:flex; gap:8px; margin-top:6px;">
+                    <button class="btn btn-secondary" id="btn-copy-sb-sql" style="font-size:0.75rem; padding:4px 14px;">Copy SQL</button>
+                    <button class="btn btn-secondary" id="btn-validate-sb" style="font-size:0.75rem; padding:4px 14px;">Validate Connection</button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <div style="display:flex; flex-wrap:wrap; gap:16px; margin:12px 0 4px;">
@@ -1796,8 +1824,11 @@
       <div id="promo-error" style="color:var(--danger); font-size:0.82rem; margin-bottom:10px; display:none;"></div>
       <div class="btn-group" style="margin-top:8px;">
         <button class="btn btn-secondary" id="btn-promo-cancel">Cancel</button>
+        <button class="btn btn-secondary" id="btn-promo-download" title="Save as .html file you can edit and host anywhere">
+          💾 Download HTML
+        </button>
         <button class="btn btn-primary" id="btn-promo-generate" style="flex:1;">
-          🖨 Generate &amp; Open
+          🖨 Preview
         </button>
       </div>
     </div>

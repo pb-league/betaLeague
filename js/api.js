@@ -62,11 +62,12 @@ const API = (() => {
     getLeagues:             (customerId) => get('getLeagues', customerId ? { customerId } : {}),
     getLeaguesAll:          ()           => get('getLeagues', { includeHidden: true }),
     getLeagueAndPlayers:    (leagueId, customerId) => get('getLeagueAndPlayers', customerId ? { leagueId, customerId } : { leagueId }),
-    addLeague:        (leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId, adminEmail, storage, adminPin) => post({ action: 'addLeague', leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId, adminEmail, storage, adminPin }),
+    addLeague:        (leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId, adminEmail, storage, adminPin, supabaseUrl, supabaseKey) => post({ action: 'addLeague', leagueId, name, sheetId, sourceLeagueId, copyConfig, copyPlayers, canCreateLeagues, hidden, customerId, adminEmail, storage, adminPin, supabaseUrl, supabaseKey }),
     updateLeague:          (leagueId, name, sheetId, active, canCreateLeagues, hidden, adminEmail, limits, storage) => post({ action: 'updateLeague', leagueId, name, sheetId, active, canCreateLeagues, hidden, adminEmail, limits, storage }),
     updateLeagueWithCaller: (leagueId, name, sheetId, active, canCreateLeagues, callerLeagueId, adminEmail) => post({ action: 'updateLeague', leagueId, name, sheetId, active, canCreateLeagues, callerLeagueId, adminEmail }),
-    migrateLeague:     () => post({ action: 'migrateLeague' }),
-    migrateLeagueBack: () => post({ action: 'migrateLeagueBack' }),
+    migrateLeague:          ()                           => post({ action: 'migrateLeague' }),
+    migrateLeagueToOwnSb:   (supabaseUrl, supabaseKey)   => post({ action: 'migrateLeague', supabaseUrl, supabaseKey }),
+    migrateLeagueBack:      ()                           => post({ action: 'migrateLeagueBack' }),
 
     // League-scoped (leagueId auto-injected from session)
     getAllData:        (sinceWeek)      => get('getAllData', sinceWeek ? { sinceWeek } : {}),
@@ -78,6 +79,10 @@ const API = (() => {
     getScores:        (week)           => get('getScores',       week   !== undefined ? { week }   : {}),
     getStandings:     (week)           => get('getStandings',    week   !== undefined ? { week }   : {}),
     getPlayerReport:  (player)         => get('getPlayerReport', player !== undefined ? { player } : {}),
+
+    createCheckoutSession: (payload)              => post({ action: 'createCheckoutSession', ...payload }),
+    confirmPayment:        (sessionId)            => post({ action: 'confirmPayment', sessionId }),
+    validateOwnSupabase:   (supabaseUrl, supabaseKey) => post({ action: 'validateOwnSupabase', supabaseUrl, supabaseKey }),
 
     validatePIN:             (name, pin)  => post({ action: 'validatePIN', name, pin }),
     validateAdminPassword:   (password)   => post({ action: 'validateAdminPassword', password }),

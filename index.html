@@ -533,11 +533,7 @@
               // Server-verify the payment and get the paymentIntent ref
               if (_stripeSession) {
                 try {
-                  const confirmation = await API.post({
-                    action:    'confirmPayment',
-                    leagueId:  savedLeagueId,
-                    sessionId: _stripeSession,
-                  });
+                  const confirmation = await API.confirmPayment(_stripeSession);
                   if (confirmation.success) {
                     _stripeRef = confirmation.paymentIntent || _stripeSession;
                   }
@@ -996,8 +992,7 @@
     btn.disabled = true;
     btn.textContent = '⏳ Redirecting to Stripe…';
     try {
-      const result = await API.post({
-        action:      'createCheckoutSession',
+      const result = await API.createCheckoutSession({
         leagueId:    selectedLeague ? selectedLeague.leagueId : '',
         amount:      fee,
         productName: (selectedLeague ? selectedLeague.name : 'League') + ' Registration',

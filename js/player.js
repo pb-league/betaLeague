@@ -806,9 +806,10 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
       let urlHtml = '';
       const lid = session.leagueId || '';
       if (lid) {
-        const base = (c.leagueUrl || '').replace(/([?&]league=)[^&]*.*$/, '').replace(/[?&]$/, '')
-                  || 'https://pb-league.github.io/league/index.html';
-        const leagueUrl  = base + '?league=' + encodeURIComponent(lid);
+        // Extract customerId from stored leagueUrl (written by Code.gs when league was created)
+        const _storedCid = (c.leagueUrl || '').match(/[?&]id=([^&]+)/)?.[1] || '';
+        const leagueUrl  = APP_BASE_URL + 'index.html?league=' + encodeURIComponent(lid)
+                         + (_storedCid ? '&id=' + _storedCid : '');
         const personalUrl = leagueUrl + '&player=' + encodeURIComponent(playerName);
         urlHtml = `<div style="margin-top:10px; padding:10px 12px; background:rgba(255,255,255,0.04);
                                border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
