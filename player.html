@@ -315,11 +315,31 @@
 
 <div id="toast-container"></div>
 <div class="loading-overlay hidden" id="loading"><div class="spinner"></div></div>
+
+<!-- ── Contact Card Modal ──────────────────────────────────── -->
+<div id="contact-card-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65);
+     z-index:3000; align-items:center; justify-content:center; padding:16px;">
+  <div style="background:#1a2a3a; border-radius:14px; width:100%; max-width:340px;
+       border:1px solid rgba(255,255,255,0.12); box-shadow:0 24px 60px rgba(0,0,0,0.5);
+       padding:28px 24px 20px; text-align:center; position:relative;">
+    <button id="contact-card-close" style="position:absolute; top:10px; right:14px;
+            background:none; border:none; color:rgba(255,255,255,0.4); font-size:1.25rem;
+            cursor:pointer; line-height:1; padding:4px 6px;">✕</button>
+    <img id="cc-avatar" src="" alt=""
+         style="width:80px; height:80px; border-radius:50%; object-fit:cover;
+                border:2px solid rgba(255,255,255,0.15); margin-bottom:10px;">
+    <div id="cc-handle" style="font-size:1.15rem; font-weight:700; color:#fff; margin-bottom:2px;"></div>
+    <div id="cc-fullname" style="font-size:0.88rem; color:rgba(255,255,255,0.5); margin-bottom:12px;"></div>
+    <div id="cc-contact-info" style="margin-bottom:4px;"></div>
+    <div id="cc-add-contact-wrap"></div>
+    <p id="cc-note" style="font-size:0.72rem; color:rgba(255,255,255,0.35); margin-top:10px; line-height:1.4;"></p>
+  </div>
+</div>
 <div style="text-align:center; padding:8px 0 4px; font-size:0.68rem; color:rgba(255,255,255,0.18);">
   <span id="player-version"></span>
 </div>
 
-<script src="js/settings.js?v=1.5.7"></script>
+<script src="js/settings.js?v=1.5.8"></script>
   <!-- Google Analytics — loads only if GA_MEASUREMENT_ID is set in settings.js -->
   <script>
     window.__gaReady = false;
@@ -341,12 +361,12 @@
       window.__gaReady = true;
     });
   </script>
-<script src="js/api.js?v=1.5.7"></script>
-<script src="js/push.js?v=1.5.7"></script>
-<script src="js/auth.js?v=1.5.7"></script>
-<script src="js/reports.js?v=1.5.7"></script>
-<script src="js/timer-player.js?v=1.5.7"></script>
-<script src="js/player.js?v=1.5.7"></script>
+<script src="js/api.js?v=1.5.8"></script>
+<script src="js/push.js?v=1.5.8"></script>
+<script src="js/auth.js?v=1.5.8"></script>
+<script src="js/reports.js?v=1.5.8"></script>
+<script src="js/timer-player.js?v=1.5.8"></script>
+<script src="js/player.js?v=1.5.8"></script>
 <script>
 (function() {
   const toggle   = document.getElementById('nav-toggle');

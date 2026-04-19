@@ -858,7 +858,9 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
                 color:var(--muted);margin-bottom:3px;">League Coordinator</div>
             ${coordName  ? `<div style="font-size:0.9rem;font-weight:600;color:var(--white);margin-bottom:2px;">${esc(coordName)}</div>` : ''}
             ${coordEmail ? `<div style="font-size:0.8rem;"><a href="mailto:${esc(coordEmail)}"
-                style="color:var(--green);text-decoration:none;">${esc(coordEmail)}</a></div>` : ''}
+                style="color:var(--green);text-decoration:none;"
+                title="Email the coordinator — only works if this app is saved to your phone's home screen"
+                >${esc(coordEmail)}</a></div>` : ''}
             ${phoneHtml}
           </div>
         </div>`;
@@ -1099,56 +1101,72 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
     const photosEnabled = tierAllows(state.limits?.tier, 'playerPhotos');
     const photoSrc = photosEnabled ? playerPhotoSrc(playerName, me.photo || '', 80) : '';
     el.innerHTML = `
-      ${photosEnabled ? `<div class="card mt-2">
-        <div class="card-header"><div class="card-title">Profile Photo</div></div>
-        <div style="display:flex; align-items:center; gap:18px; flex-wrap:wrap;">
-          <img id="player-photo-preview" src="${photoSrc}"
-            style="width:72px; height:72px; border-radius:50%; object-fit:cover;
-                   border:2px solid var(--border); flex-shrink:0;">
-          <div>
-            <label class="btn btn-outline" style="cursor:pointer; font-size:0.85rem;">
-              📷 Change Photo
+      <div class="card mt-2">
+        <div style="display:flex; gap:14px; align-items:flex-start;">
+          ${photosEnabled ? `<div style="flex-shrink:0; text-align:center;">
+            <img id="player-photo-preview" src="${photoSrc}"
+              style="width:58px; height:58px; border-radius:50%; object-fit:cover;
+                     border:2px solid var(--border); display:block; margin-bottom:5px;">
+            <label style="cursor:pointer; font-size:0.72rem; color:var(--muted); white-space:nowrap;"
+                   title="Change profile photo">
+              📷 Photo
               <input type="file" id="player-photo-input" accept="image/*" capture="environment"
                 style="display:none;">
             </label>
-            <div id="photo-save-status" style="font-size:0.8rem; margin-top:6px;"></div>
-          </div>
-        </div>
-      </div>` : ''}
-      <div class="card mt-2">
-        <div class="card-header"><div class="card-title">Email Notifications</div></div>
-        <p style="font-size:0.85rem; color:var(--muted); margin-bottom:14px;">
-          Receive session results by email after each session.
-        </p>
-        <div class="form-row" style="align-items:center; gap:16px;">
-          <div class="form-group" style="flex:2;">
-            <label class="form-label">Your Email Address</label>
-            <input class="form-control" id="player-email" type="email"
-              value="${esc(me.email || '')}" placeholder="you@example.com">
-          </div>
-          <div class="form-group" style="flex:0; white-space:nowrap;">
-            <label class="form-label">Send Results</label>
-            <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
-              <input type="checkbox" id="player-notify" ${me.notify ? 'checked' : ''}
-                style="width:18px; height:18px;">
-              <span style="font-size:0.85rem; color:var(--white);">Yes, notify me</span>
+            <div id="photo-save-status" style="font-size:0.7rem; margin-top:3px; color:var(--muted); max-width:58px;"></div>
+          </div>` : ''}
+          <div style="flex:1; display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; min-width:0;">
+            <div>
+              <label class="form-label">Full Name</label>
+              <input class="form-control" id="player-fullname" type="text"
+                style="padding:5px 9px;" value="${esc(me.fullName || '')}" placeholder="First Last">
+            </div>
+            <div>
+              <label class="form-label">Cell Phone</label>
+              <input class="form-control" id="player-phone" type="tel"
+                style="padding:5px 9px;" value="${esc(me.phone || '')}" placeholder="555-123-4567">
+            </div>
+            <div>
+              <label class="form-label">Email Address</label>
+              <input class="form-control" id="player-email" type="email"
+                style="padding:5px 9px;" value="${esc(me.email || '')}" placeholder="you@example.com">
+            </div>
+            <div style="display:flex; align-items:flex-end; gap:14px; padding-bottom:3px; flex-wrap:wrap;">
+              <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;
+                            color:var(--white); white-space:nowrap;"
+                     title="Receive session results by email after each session">
+                <input type="checkbox" id="player-notify" ${me.notify ? 'checked' : ''}
+                  style="width:15px; height:15px;">
+                Notify me
+              </label>
+              <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;
+                            color:var(--white); white-space:nowrap;"
+                     title="Let other players see your email and phone on the attendance page">
+                <input type="checkbox" id="player-share-contact" ${me.shareContact ? 'checked' : ''}
+                  style="width:15px; height:15px;">
+                Share contact
+              </label>
             </div>
           </div>
         </div>
-        <button class="btn btn-primary" id="btn-save-email" style="margin-top:4px;">Save</button>
-        <div id="email-save-status" style="font-size:0.8rem; margin-top:8px;"></div>
+        <div style="display:flex; align-items:center; gap:12px; margin-top:10px;">
+          <button class="btn btn-primary" id="btn-save-email" style="padding:6px 20px;">Save</button>
+          <div id="email-save-status" style="font-size:0.8rem;"></div>
+        </div>
       </div>`;
 
     document.getElementById('btn-save-email').addEventListener('click', async () => {
-      const email  = document.getElementById('player-email').value.trim();
-      const notify = document.getElementById('player-notify').checked;
+      const fullName     = document.getElementById('player-fullname').value.trim();
+      const phone        = document.getElementById('player-phone').value.trim();
+      const email        = document.getElementById('player-email').value.trim();
+      const notify       = document.getElementById('player-notify').checked;
+      const shareContact = document.getElementById('player-share-contact').checked;
       const btn    = document.getElementById('btn-save-email');
       const status = document.getElementById('email-save-status');
       btn.disabled = true;
       try {
-        // Update local player record then save all players
         const updatedPlayers = state.players.map(pl =>
-          pl.name === playerName ? { ...pl, email, notify } : pl
+          pl.name === playerName ? { ...pl, fullName, phone, email, notify, shareContact } : pl
         );
         await API.savePlayers(updatedPlayers);
         state.players = updatedPlayers;
@@ -1463,8 +1481,8 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
           <div style="display:grid; grid-template-columns:auto 1fr auto 1fr; align-items:center; gap:6px;">
             <div style="font-size:0.7rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); padding-right:4px; white-space:nowrap;">${courtName(game.court)}</div>
             <div style="min-width:0; text-align:right;">
-              <div style="${t1style} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p1)}</div>
-              ${game.p2 ? `<div style="${t1style} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p2)}</div>` : ''}
+              <div style="${t1style} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><span class="ss-player-link" data-ssplayer="${esc(game.p1)}" style="cursor:pointer; text-decoration:underline; text-underline-offset:2px;">${esc(game.p1)}</span></div>
+              ${game.p2 ? `<div style="${t1style} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><span class="ss-player-link" data-ssplayer="${esc(game.p2)}" style="cursor:pointer; text-decoration:underline; text-underline-offset:2px;">${esc(game.p2)}</span></div>` : ''}
             </div>
             <div style="display:flex; align-items:center; justify-content:center; gap:4px; flex-shrink:0; padding:0 4px; ${tieWarning ? 'border:1px solid var(--danger); border-radius:5px;' : ''}">
               <div class="score-display ${entered ? (t1win ? 'winner' : 'loser') : 'pending'}" style="min-width:28px; text-align:center;">${entered ? s1 : '—'}</div>
@@ -1472,8 +1490,8 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
               <div class="score-display ${entered ? (t2win ? 'winner' : 'loser') : 'pending'}" style="min-width:28px; text-align:center;">${entered ? s2 : '—'}</div>
             </div>
             <div style="min-width:0;">
-              <div style="${t2style} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p3)}</div>
-              ${game.p4 ? `<div style="${t2style} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(game.p4)}</div>` : ''}
+              <div style="${t2style} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><span class="ss-player-link" data-ssplayer="${esc(game.p3)}" style="cursor:pointer; text-decoration:underline; text-underline-offset:2px;">${esc(game.p3)}</span></div>
+              ${game.p4 ? `<div style="${t2style} font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><span class="ss-player-link" data-ssplayer="${esc(game.p4)}" style="cursor:pointer; text-decoration:underline; text-underline-offset:2px;">${esc(game.p4)}</span></div>` : ''}
             </div>
           </div>
           ${tieWarning ? `<div style="margin-top:3px; font-size:0.68rem; color:var(--danger); text-align:center;">⚠️ Tied score</div>` : ''}
@@ -1490,6 +1508,14 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
     });
 
     document.getElementById('player-scoresheet').innerHTML = html;
+
+    document.querySelectorAll('#player-scoresheet .ss-player-link').forEach(el => {
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        const p = state.players.find(pl => pl.name === el.dataset.ssplayer);
+        if (p) showContactCard(p);
+      });
+    });
   }
 
   // ── Score Entry (canScore players) ────────────────────────
@@ -1563,15 +1589,16 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
         const winStyle  = 'color:var(--green); font-weight:700;';
         const loseStyle = 'color:var(--muted);';
 
-        const p2div = game.p2 ? '<div style="' + (entered ? (t1win ? winStyle : loseStyle) : '') + ' font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + esc(game.p2) + '</div>' : '';
-        const p4div = game.p4 ? '<div style="' + (entered ? (t2win ? winStyle : loseStyle) : '') + ' font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + esc(game.p4) + '</div>' : '';
+        const ssLink = (name, style) => '<span class="ss-player-link" data-ssplayer="' + esc(name) + '" style="cursor:pointer; text-decoration:underline; text-underline-offset:2px;">' + esc(name) + '</span>';
+        const p2div = game.p2 ? '<div style="' + (entered ? (t1win ? winStyle : loseStyle) : '') + ' font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + ssLink(game.p2) + '</div>' : '';
+        const p4div = game.p4 ? '<div style="' + (entered ? (t2win ? winStyle : loseStyle) : '') + ' font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + ssLink(game.p4) + '</div>' : '';
 
         html += '<div class="game-card" style="background:var(--card-bg); border-radius:10px; padding:10px 12px; margin-bottom:8px;"'
              +  ' data-week="' + week + '" data-round="' + game.round + '" data-court="' + game.court + '">'
              +  '<div style="font-size:0.7rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); margin-bottom:5px;">' + courtName(game.court) + '</div>'
              +  '<div style="display:grid; grid-template-columns:1fr 110px 1fr; align-items:center; gap:6px;">'
              +    '<div style="min-width:0;">'
-             +      '<div style="' + (entered ? (t1win ? winStyle : loseStyle) : '') + ' font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + esc(game.p1) + '</div>'
+             +      '<div style="' + (entered ? (t1win ? winStyle : loseStyle) : '') + ' font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + ssLink(game.p1) + '</div>'
              +      p2div
              +    '</div>'
              +    '<div style="display:flex; align-items:center; justify-content:center; gap:4px;">'
@@ -1580,7 +1607,7 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
              +      '<input type="number" class="score-input" data-score="2" value="' + s2 + '" min="0" max="30" placeholder="0" inputmode="numeric" style="width:44px; text-align:center; padding:4px; -moz-appearance:textfield;">'
              +    '</div>'
              +    '<div style="min-width:0; text-align:right;">'
-             +      '<div style="' + (entered ? (t2win ? winStyle : loseStyle) : '') + ' font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + esc(game.p3) + '</div>'
+             +      '<div style="' + (entered ? (t2win ? winStyle : loseStyle) : '') + ' font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + ssLink(game.p3) + '</div>'
              +      p4div
              +    '</div>'
              +  '</div>'
@@ -1619,6 +1646,14 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
     // Assign sequential tabindex to all score inputs so Tab skips round headings.
     // Also remove summary elements from tab order — they are natively focusable
     // (tabIndex=0) and would intercept Tab between rounds without this.
+    document.querySelectorAll('#player-scoresheet-entry .ss-player-link').forEach(el => {
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        const p = state.players.find(pl => pl.name === el.dataset.ssplayer);
+        if (p) showContactCard(p);
+      });
+    });
+
     document.querySelectorAll('#player-scoresheet-entry summary').forEach(s => { s.tabIndex = -1; });
     document.querySelectorAll('#player-scoresheet-entry .score-input').forEach((input, i) => {
       input.tabIndex = i + 1;
@@ -1827,6 +1862,14 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
     if (standPageEl && !standPageEl.dataset.reportWired) {
       standPageEl.dataset.reportWired = '1';
       standPageEl.addEventListener('click', e => {
+        // Avatar click → contact card
+        const img = e.target.closest('[data-contact-player]');
+        if (img) {
+          const p = state.players.find(pl => pl.name === img.dataset.contactPlayer);
+          if (p) showContactCard(p);
+          return;
+        }
+        // Name click → player report
         const span = e.target.closest('[data-report-player]');
         if (!span) return;
         const name = span.dataset.reportPlayer;
@@ -1889,7 +1932,26 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
       return;
     }
 
-    let html = '<div class="att-grid">';
+    const photosEnabled = tierAllows(state.limits?.tier, 'playerPhotos');
+
+    // Coordinator banner
+    const coordName  = state.config.coordinatorName || '';
+    const coordBanner = coordName ? (() => {
+      const src = photosEnabled
+        ? playerPhotoSrc(coordName, state.config.coordinatorPhoto || '', 36)
+        : generateInitialAvatar(coordName, 36);
+      return `<div style="display:flex; align-items:center; gap:10px; padding:8px 12px; margin-bottom:10px;
+          background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
+        <img src="${src}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,0.12); flex-shrink:0;">
+        <div>
+          <div style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:2px;">League Coordinator</div>
+          <span class="att-coord-link" style="font-size:0.88rem; font-weight:600; color:var(--white);
+            cursor:pointer; text-decoration:underline; text-underline-offset:2px;">${esc(coordName)}</span>
+        </div>
+      </div>`;
+    })() : '';
+
+    let html = coordBanner + '<div class="att-grid">';
     html += '<div class="att-row"><div></div>';
     for (let w = 1; w <= weeks; w++) {
       const date = formatDateTime(w, state.config);
@@ -1899,8 +1961,13 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
 
     players.forEach(p => {
       const isMe = p.name === playerName;
+      const avatarSrc = playerPhotoSrc(p.name, photosEnabled ? (p.photo || '') : '', 28);
       html += `<div class="att-row" ${isMe ? 'style="background:rgba(94,194,106,0.05); border-radius:6px;"' : ''}>`;
-      html += `<div class="att-player-name" ${isMe ? 'style="color:var(--green); font-weight:600;"' : ''}>${esc(p.name)}</div>`;
+      html += `<div class="att-player-name" style="${isMe ? 'color:var(--green); font-weight:600;' : ''}display:flex; align-items:center; gap:6px;">
+        <img src="${avatarSrc}" style="width:28px; height:28px; border-radius:50%; object-fit:cover; flex-shrink:0;">
+        <span class="att-contact-link" data-player="${esc(p.name)}"
+          style="cursor:pointer; text-decoration:underline; text-underline-offset:2px;">${esc(p.name)}</span>
+      </div>`;
       for (let w = 1; w <= weeks; w++) {
         const rec = state.attendance.find(a => a.player === p.name && String(a.week) === String(w));
         const status = rec ? rec.status : 'tbd';
@@ -1911,6 +1978,95 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
 
     html += '</div>';
     document.getElementById('full-attendance-grid').innerHTML = html;
+
+    document.querySelectorAll('#full-attendance-grid .att-contact-link').forEach(el => {
+      el.addEventListener('click', () => {
+        const p = state.players.find(pl => pl.name === el.dataset.player);
+        if (p) showContactCard(p);
+      });
+    });
+
+    document.querySelector('#full-attendance-grid .att-coord-link')?.addEventListener('click', () => {
+      showContactCard({
+        name:         state.config.coordinatorName || 'Coordinator',
+        photo:        state.config.coordinatorPhoto || '',
+        fullName:     '',
+        email:        state.config.replyTo || '',
+        phone:        state.config.coordinatorPhone || '',
+        shareContact: true,
+      });
+    });
+  }
+
+  // ── Contact Card popup ─────────────────────────────────────
+  let _contactCardWired = false;
+  function showContactCard(player) {
+    const modal = document.getElementById('contact-card-modal');
+    if (!modal) return;
+
+    if (!_contactCardWired) {
+      _contactCardWired = true;
+      document.getElementById('contact-card-close')?.addEventListener('click', () => {
+        modal.style.display = 'none';
+      });
+      modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+    }
+
+    const photosOk = tierAllows(state.limits?.tier, 'playerPhotos');
+    const src = playerPhotoSrc(player.name, photosOk ? (player.photo || '') : '', 80);
+    document.getElementById('cc-avatar').src = src;
+    document.getElementById('cc-handle').textContent = player.name;
+
+    const fullNameEl = document.getElementById('cc-fullname');
+    fullNameEl.textContent = player.fullName || '';
+    fullNameEl.style.display = player.fullName ? 'block' : 'none';
+
+    const infoEl = document.getElementById('cc-contact-info');
+    let infoHtml = '';
+    if (player.shareContact) {
+      if (player.email) {
+        infoHtml += `<div style="margin-bottom:8px;">
+          <a href="mailto:${esc(player.email)}"
+             style="color:#5ab4ff; font-size:0.9rem; text-decoration:none;">
+            ✉️ ${esc(player.email)}</a></div>`;
+      }
+      if (player.phone) {
+        infoHtml += `<div>
+          <a href="sms:${esc(player.phone)}"
+             style="color:var(--green); font-size:0.9rem; text-decoration:none;">
+            📱 ${esc(player.phone)}</a></div>`;
+      }
+    }
+    infoEl.innerHTML = infoHtml;
+
+    const hasContact = player.shareContact && (player.email || player.phone || player.fullName);
+    const wrapEl = document.getElementById('cc-add-contact-wrap');
+    const noteEl = document.getElementById('cc-note');
+    if (hasContact) {
+      wrapEl.innerHTML = `<button id="cc-add-btn" class="btn btn-outline"
+        style="font-size:0.85rem; width:100%; margin-top:8px;">📇 Add to Contacts</button>`;
+      document.getElementById('cc-add-btn').addEventListener('click', () => {
+        const lines = ['BEGIN:VCARD', 'VERSION:3.0'];
+        lines.push('FN:' + (player.fullName || player.name));
+        lines.push('NICKNAME:' + player.name);
+        if (player.email) lines.push('EMAIL:' + player.email);
+        if (player.phone) lines.push('TEL;TYPE=CELL:' + player.phone);
+        lines.push('END:VCARD');
+        const blob = new Blob([lines.join('\r\n')], { type: 'text/vcard' });
+        const url  = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = player.name + '.vcf';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      });
+      noteEl.textContent = 'On mobile, tapping "Add to Contacts" opens your contacts app. On desktop a .vcf file downloads.';
+      noteEl.style.display = 'block';
+    } else {
+      wrapEl.innerHTML = '';
+      noteEl.style.display = 'none';
+    }
+
+    modal.style.display = 'flex';
   }
 
   // ── Events ─────────────────────────────────────────────────
@@ -2358,7 +2514,8 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
       }
 
       const avatar = _standPhotosOn ? `<img src="${playerPhotoSrc(s.name, photoMap[s.name], 24)}"
-        style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;flex-shrink:0;">` : '';
+        data-contact-player="${esc(s.name)}"
+        style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;flex-shrink:0;cursor:pointer;" title="View contact card">` : '';
       return `<tr ${isMe ? 'style="background:rgba(94,194,106,0.08);"' : ''}>
         <td class="rank-cell ${top}">${s.rank}</td>
         <td class="player-name" style="white-space:nowrap;">
@@ -2430,7 +2587,8 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
         `<td style="text-align:center;">${fmt(s.rangePts[r.idx])}</td>`
       ).join('');
       const avatar = _ladderPhotosOn ? `<img src="${playerPhotoSrc(s.name, ladderPhotoMap[s.name], 24)}"
-        style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;flex-shrink:0;">` : '';
+        data-contact-player="${esc(s.name)}"
+        style="width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px;flex-shrink:0;cursor:pointer;" title="View contact card">` : '';
       return `<tr ${isMe ? 'style="background:rgba(94,194,106,0.08);"' : ''}>
         <td class="rank-cell ${top}">${s.rank}</td>
         <td class="player-name" style="white-space:nowrap;">

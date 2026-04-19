@@ -68,6 +68,7 @@ const API = (() => {
     migrateLeague:          ()                           => post({ action: 'migrateLeague' }),
     migrateLeagueToOwnSb:   (supabaseUrl, supabaseKey)   => post({ action: 'migrateLeague', supabaseUrl, supabaseKey }),
     migrateLeagueBack:      ()                           => post({ action: 'migrateLeagueBack' }),
+    importLeague:           (newLeagueId, newName, adminPin, data) => post({ action: 'importLeague', newLeagueId, newName, adminPin, data }),
 
     // League-scoped (leagueId auto-injected from session)
     getAllData:        (sinceWeek)      => get('getAllData', sinceWeek ? { sinceWeek } : {}),

@@ -83,6 +83,10 @@
         <div class="nav-section-label">Help</div>
         <div class="nav-item" onclick="window.open('help.html','_blank')" style="cursor:pointer;"><span class="icon">❓</span> User Guide</div>
       </div>
+      <div class="nav-section" id="nav-section-my-profile">
+        <div class="nav-section-label">My Account</div>
+        <div class="nav-item" data-page="my-profile"><span class="icon">🪪</span> My Profile</div>
+      </div>
     </nav>
 
     <!-- Page Area -->
@@ -416,6 +420,21 @@
                 Name and phone save with the main Save button above. Photo saves immediately on change.
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Export League Data -->
+        <div class="card mt-2" id="export-card">
+          <div class="card-header"><div class="card-title">💾 Export / Backup League Data</div></div>
+          <div style="font-size:0.82rem; color:var(--muted); margin-bottom:14px; line-height:1.6;">
+            Download a snapshot of all league data — config, players, pairings, scores, attendance, queue, and challenges.<br>
+            <strong style="color:var(--white);">JSON</strong> is a complete backup you can reimport to create a new league.
+            <strong style="color:var(--white);">CSV</strong> is a human-readable file you can open in Excel or Google Sheets —
+            <em>it cannot be reimported</em> (player photos and some structured data are omitted).
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn btn-primary" id="btn-export-json">⬇ Download JSON Backup</button>
+            <button class="btn btn-secondary" id="btn-export-csv">⬇ Download CSV <span style="font-size:0.72rem; color:var(--muted);">(view-only)</span></button>
           </div>
         </div>
 
@@ -1270,7 +1289,46 @@
         <div class="page-header">
           <h2>All Leagues</h2>
           <button class="btn btn-secondary" onclick="showTierInfo()" style="padding:5px 12px; font-size:0.78rem;">Tier Features</button>
+          <button class="btn btn-secondary" id="btn-show-import-league" style="font-size:0.82rem;">⬆ Import from JSON</button>
           <button class="btn btn-primary" id="btn-show-add-league">+ Add League</button>
+        </div>
+
+        <!-- Import league from JSON file -->
+        <div class="card hidden" id="import-league-form">
+          <div class="card-header"><div class="card-title">Import League from JSON Backup</div></div>
+          <div style="font-size:0.82rem; color:var(--muted); margin-bottom:14px; line-height:1.6;">
+            Creates a new Google Sheets league from a JSON file previously exported from this app.
+            The admin password is always set fresh here — it is not copied from the export.
+            <strong style="color:var(--gold);">Note:</strong> player photos and Stripe secret keys are not restored.
+          </div>
+          <div class="form-group">
+            <label class="form-label">JSON Backup File <span style="color:var(--danger);">*</span></label>
+            <input type="file" id="import-file" accept=".json" class="form-control" style="cursor:pointer;">
+          </div>
+          <div id="import-file-info" style="display:none; font-size:0.82rem; padding:10px 14px;
+               background:rgba(94,194,106,0.08); border:1px solid rgba(94,194,106,0.25);
+               border-radius:6px; margin-bottom:12px; line-height:1.7;"></div>
+          <div class="form-row" style="gap:16px; flex-wrap:wrap;">
+            <div class="form-group" style="flex:1; min-width:180px;">
+              <label class="form-label">New League ID <span style="color:var(--danger);">*</span></label>
+              <input type="text" id="import-league-id" class="form-control" placeholder="e.g. tuesday-doubles-2027" autocomplete="new-password">
+              <div style="font-size:0.72rem; color:var(--muted); margin-top:4px;">Lowercase letters, numbers, hyphens only. Must be unique.</div>
+            </div>
+            <div class="form-group" style="flex:1; min-width:180px;">
+              <label class="form-label">New League Name <span style="color:var(--danger);">*</span></label>
+              <input type="text" id="import-league-name" class="form-control" placeholder="e.g. Tuesday Doubles 2027" autocomplete="new-password">
+            </div>
+            <div class="form-group" style="flex:1; min-width:180px;">
+              <label class="form-label">Admin Password <span style="color:var(--danger);">*</span></label>
+              <input type="password" id="import-admin-pin" class="form-control" placeholder="Set a new admin password" autocomplete="new-password">
+              <div style="font-size:0.72rem; color:var(--muted); margin-top:4px;">Controls admin access to the new league.</div>
+            </div>
+          </div>
+          <div id="import-error" style="display:none; font-size:0.82rem; color:var(--danger); margin-bottom:10px;"></div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:4px;">
+            <button class="btn btn-primary" id="btn-import-league">⬆ Import League</button>
+            <button class="btn btn-secondary" id="btn-cancel-import-league">Cancel</button>
+          </div>
         </div>
 
         <!-- Add league form (hidden by default) -->
@@ -1444,6 +1502,19 @@
           <button id="btn-add-timer" class="btn btn-primary" onclick="addTimer()" style="padding:7px 16px; font-size:0.82rem;">+ Add Timer</button>
         </div>
         <div id="timers-container"></div>
+      </section>
+
+      <!-- ═══ MY PROFILE ═══ -->
+      <section id="page-my-profile" class="tab-panel">
+        <div class="page-header"><h2>My Profile</h2></div>
+        <div class="card">
+          <p style="font-size:0.88rem; color:var(--muted); margin-bottom:16px;">
+            Tap each session to set your availability: TBD → In → Out. Changes save automatically.
+          </p>
+          <div id="admin-my-att-grid"></div>
+        </div>
+        <div id="admin-email-prefs"></div>
+        <div id="admin-change-pin"></div>
       </section>
 
     </main>
@@ -1699,7 +1770,7 @@
   }, true);
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="js/settings.js?v=1.5.7"></script>
+<script src="js/settings.js?v=1.5.8"></script>
   <!-- Google Analytics — loads only if GA_MEASUREMENT_ID is set in settings.js -->
   <script>
     window.__gaReady = false;
@@ -1721,15 +1792,15 @@
       window.__gaReady = true;
     });
   </script>
-<script src="js/api.js?v=1.5.7"></script>
-<script src="js/push.js?v=1.5.7"></script>
-<script src="js/auth.js?v=1.5.7"></script>
-<script src="js/pairings.js?v=1.5.7"></script>
-<script src="js/reports.js?v=1.5.7"></script>
-<script src="js/tournament.js?v=1.5.7"></script>
-<script src="js/changelog.js?v=1.5.7"></script>
-<script src="js/timers.js?v=1.5.7"></script>
-<script src="js/admin.js?v=1.5.7"></script>
+<script src="js/api.js?v=1.5.8"></script>
+<script src="js/push.js?v=1.5.8"></script>
+<script src="js/auth.js?v=1.5.8"></script>
+<script src="js/pairings.js?v=1.5.8"></script>
+<script src="js/reports.js?v=1.5.8"></script>
+<script src="js/tournament.js?v=1.5.8"></script>
+<script src="js/changelog.js?v=1.5.8"></script>
+<script src="js/timers.js?v=1.5.8"></script>
+<script src="js/admin.js?v=1.5.8"></script>
 <script>
 (function() {
   const toggle   = document.getElementById('nav-toggle');
@@ -1807,6 +1878,26 @@
     }
   });
 </script>
+
+<!-- ── Contact Card Modal ──────────────────────────────────── -->
+<div id="contact-card-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65);
+     z-index:3000; align-items:center; justify-content:center; padding:16px;">
+  <div style="background:#1a2a3a; border-radius:14px; width:100%; max-width:340px;
+       border:1px solid rgba(255,255,255,0.12); box-shadow:0 24px 60px rgba(0,0,0,0.5);
+       padding:28px 24px 20px; text-align:center; position:relative;">
+    <button id="contact-card-close" style="position:absolute; top:10px; right:14px;
+            background:none; border:none; color:rgba(255,255,255,0.4); font-size:1.25rem;
+            cursor:pointer; line-height:1; padding:4px 6px;">✕</button>
+    <img id="cc-avatar" src="" alt=""
+         style="width:80px; height:80px; border-radius:50%; object-fit:cover;
+                border:2px solid rgba(255,255,255,0.15); margin-bottom:10px;">
+    <div id="cc-handle" style="font-size:1.15rem; font-weight:700; color:#fff; margin-bottom:2px;"></div>
+    <div id="cc-fullname" style="font-size:0.88rem; color:rgba(255,255,255,0.5); margin-bottom:12px;"></div>
+    <div id="cc-contact-info" style="margin-bottom:4px;"></div>
+    <div id="cc-add-contact-wrap"></div>
+    <p id="cc-note" style="font-size:0.72rem; color:rgba(255,255,255,0.35); margin-top:10px; line-height:1.4;"></p>
+  </div>
+</div>
 
 <!-- ── Promo Page Modal ─────────────────────────────────────── -->
 <div id="promo-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65);

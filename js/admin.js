@@ -782,6 +782,7 @@ const ROLE_COLORS = {
         }
         if (page === 'leagues') renderLeagues();
         if (page === 'head-to-head') renderHeadToHead();
+        if (page === 'my-profile') renderMyProfile();
         if (page === 'chat') {
           renderAdminChat();
           startAdminChatPolling(true);
@@ -2584,6 +2585,218 @@ function doPost(e) {
     }
   }
 
+  // ── My Profile (for assistants and any admin who wants to edit own record) ──
+  function renderMyProfile() {
+    const myName = session.name;
+    const me = state.players.find(p => p.name === myName) || {};
+
+    // ── Personal attendance ───────────────────────────────
+    const attEl = document.getElementById('admin-my-att-grid');
+    if (attEl) {
+      const weeks = parseInt(state.config.weeks) || 0;
+      if (!weeks) {
+        attEl.innerHTML = '<div style="color:var(--muted); font-size:0.85rem;">⏳ Loading…</div>';
+      } else {
+        const locked = !!state.config.lockPlayerAttendance;
+        const statusIcon = s => s === 'present' ? '✅' : s === 'absent' ? '❌' : '❓';
+        let html = '<div style="display:flex; flex-wrap:wrap; gap:10px;">';
+        for (let w = 1; w <= weeks; w++) {
+          const rec = state.attendance.find(a => a.player === myName && String(a.week) === String(w));
+          const status = rec ? rec.status : 'tbd';
+          const date = formatDateTime(w, state.config);
+          html += `<div style="text-align:center; min-width:60px;">
+            <div class="label" style="margin-bottom:4px;">Session ${w}${date ? `<br>${date}` : ''}</div>
+            <div class="att-cell ${locked ? '' : 'editable '}${status}" data-week="${w}"
+                 style="padding:6px 0; border-radius:6px;${locked ? ' opacity:0.7;' : ' cursor:pointer;'}">
+              <div style="font-size:1rem; margin-bottom:1px;">${statusIcon(status)}</div>
+              ${statusLabel(status)}
+            </div>
+          </div>`;
+        }
+        if (locked) html += '<div style="margin-top:10px; font-size:0.78rem; color:var(--muted);">Attendance is managed by the league admin.</div>';
+        html += '</div>';
+        attEl.innerHTML = html;
+
+        if (!locked) {
+          attEl.querySelectorAll('.att-cell.editable').forEach(cell => {
+            cell.addEventListener('click', async () => {
+              const states = ['tbd', 'present', 'absent'];
+              const cur = states.find(s => cell.classList.contains(s)) || 'tbd';
+              const next = states[(states.indexOf(cur) + 1) % states.length];
+              const week = cell.dataset.week;
+              cell.className = `att-cell editable ${next}`;
+              cell.innerHTML = `<div style="font-size:1rem; margin-bottom:1px;">${statusIcon(next)}</div>${statusLabel(next)}`;
+              const existing = state.attendance.find(a => a.player === myName && String(a.week) === String(week));
+              if (existing) { existing.status = next; } else { state.attendance.push({ player: myName, week, status: next }); }
+              try { await API.setAttendance(myName, week, next); }
+              catch (e) { toast('Failed to save attendance', 'error'); }
+            });
+          });
+        }
+      }
+    }
+
+    // ── Photo upload ──────────────────────────────────────
+    const photosEnabled = tierAllows(state.limits?.tier, 'playerPhotos');
+    const photoSrc = photosEnabled ? playerPhotoSrc(myName, me.photo || '', 80) : '';
+
+    // ── Contact info & email prefs ────────────────────────
+    const prefsEl = document.getElementById('admin-email-prefs');
+    if (prefsEl) {
+      prefsEl.innerHTML = `
+        <div class="card mt-2">
+          <div style="display:flex; gap:14px; align-items:flex-start;">
+            ${photosEnabled ? `<div style="flex-shrink:0; text-align:center;">
+              <img id="admin-photo-preview" src="${photoSrc}"
+                style="width:58px; height:58px; border-radius:50%; object-fit:cover;
+                       border:2px solid var(--border); display:block; margin-bottom:5px;">
+              <label style="cursor:pointer; font-size:0.72rem; color:var(--muted); white-space:nowrap;"
+                     title="Change profile photo">
+                📷 Photo
+                <input type="file" id="admin-photo-input" accept="image/*" capture="environment"
+                  style="display:none;">
+              </label>
+              <div id="admin-photo-status" style="font-size:0.7rem; margin-top:3px; color:var(--muted); max-width:58px;"></div>
+            </div>` : ''}
+            <div style="flex:1; display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; min-width:0;">
+              <div>
+                <label class="form-label">Full Name</label>
+                <input class="form-control" id="admin-fullname" type="text"
+                  style="padding:5px 9px;" value="${esc(me.fullName || '')}" placeholder="First Last">
+              </div>
+              <div>
+                <label class="form-label">Cell Phone</label>
+                <input class="form-control" id="admin-phone" type="tel"
+                  style="padding:5px 9px;" value="${esc(me.phone || '')}" placeholder="555-123-4567">
+              </div>
+              <div>
+                <label class="form-label">Email Address</label>
+                <input class="form-control" id="admin-email" type="email"
+                  style="padding:5px 9px;" value="${esc(me.email || '')}" placeholder="you@example.com">
+              </div>
+              <div style="display:flex; align-items:flex-end; gap:14px; padding-bottom:3px; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;
+                              color:var(--white); white-space:nowrap;"
+                       title="Receive session results by email after each session">
+                  <input type="checkbox" id="admin-notify" ${me.notify ? 'checked' : ''}
+                    style="width:15px; height:15px;">
+                  Notify me
+                </label>
+                <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:0.82rem;
+                              color:var(--white); white-space:nowrap;"
+                       title="Let other players see your email and phone on the attendance page">
+                  <input type="checkbox" id="admin-share-contact" ${me.shareContact ? 'checked' : ''}
+                    style="width:15px; height:15px;">
+                  Share contact
+                </label>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; margin-top:10px;">
+            <button class="btn btn-primary" id="admin-btn-save-prefs" style="padding:6px 20px;">Save</button>
+            <div id="admin-prefs-status" style="font-size:0.8rem;"></div>
+          </div>
+        </div>`;
+
+      document.getElementById('admin-btn-save-prefs').addEventListener('click', async () => {
+        const fullName     = document.getElementById('admin-fullname').value.trim();
+        const phone        = document.getElementById('admin-phone').value.trim();
+        const email        = document.getElementById('admin-email').value.trim();
+        const notify       = document.getElementById('admin-notify').checked;
+        const shareContact = document.getElementById('admin-share-contact').checked;
+        const btn    = document.getElementById('admin-btn-save-prefs');
+        const status = document.getElementById('admin-prefs-status');
+        btn.disabled = true;
+        try {
+          const updated = state.players.map(pl =>
+            pl.name === myName ? { ...pl, fullName, phone, email, notify, shareContact } : pl
+          );
+          await API.savePlayers(updated);
+          state.players = updated;
+          status.textContent = '✓ Saved';
+          status.style.color = 'var(--green)';
+        } catch (e) {
+          status.textContent = 'Save failed: ' + e.message;
+          status.style.color = 'var(--danger)';
+        } finally { btn.disabled = false; }
+      });
+
+      if (photosEnabled) {
+        document.getElementById('admin-photo-input').addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const status  = document.getElementById('admin-photo-status');
+          const preview = document.getElementById('admin-photo-preview');
+          status.textContent = 'Saving…'; status.style.color = 'var(--muted)';
+          try {
+            const b64 = await resizeImageFile(file);
+            await API.savePlayerPhoto(myName, b64);
+            state.players = state.players.map(pl => pl.name === myName ? { ...pl, photo: b64 } : pl);
+            preview.src = 'data:image/jpeg;base64,' + b64;
+            status.textContent = '✓ Photo saved'; status.style.color = 'var(--green)';
+          } catch (err) {
+            status.textContent = 'Failed: ' + err.message; status.style.color = 'var(--danger)';
+          }
+          e.target.value = '';
+        });
+      }
+    }
+
+    // ── Change password ───────────────────────────────────
+    const pinEl = document.getElementById('admin-change-pin');
+    if (pinEl) {
+      pinEl.innerHTML = `
+        <div class="card mt-2">
+          <div class="card-header"><div class="card-title">Change Password</div></div>
+          <div class="form-row" style="align-items:flex-end; gap:12px; flex-wrap:wrap;">
+            <div class="form-group" style="min-width:120px;">
+              <label class="form-label">Current Password</label>
+              <input class="form-control" id="admin-pin-current" type="password" maxlength="20" placeholder="••••••" autocomplete="off">
+            </div>
+            <div class="form-group" style="min-width:120px;">
+              <label class="form-label">New Password</label>
+              <input class="form-control" id="admin-pin-new" type="password" maxlength="20" placeholder="••••••" autocomplete="off">
+            </div>
+            <div class="form-group" style="min-width:120px;">
+              <label class="form-label">Confirm New Password</label>
+              <input class="form-control" id="admin-pin-confirm" type="password" maxlength="20" placeholder="••••••" autocomplete="off">
+            </div>
+            <div class="form-group" style="flex:0;">
+              <button class="btn btn-primary" id="admin-btn-change-pin">Update Password</button>
+            </div>
+          </div>
+          <div id="admin-pin-status" style="font-size:0.82rem; margin-top:6px;"></div>
+        </div>`;
+
+      document.getElementById('admin-btn-change-pin').addEventListener('click', async () => {
+        const current = document.getElementById('admin-pin-current').value.trim();
+        const newPin  = document.getElementById('admin-pin-new').value.trim();
+        const confirm = document.getElementById('admin-pin-confirm').value.trim();
+        const status  = document.getElementById('admin-pin-status');
+        const btn     = document.getElementById('admin-btn-change-pin');
+        status.textContent = ''; status.style.color = '';
+        if (!current || !newPin || !confirm) {
+          status.textContent = 'Please fill in all three fields.'; status.style.color = 'var(--danger)'; return;
+        }
+        if (newPin !== confirm) {
+          status.textContent = 'New password and confirmation do not match.'; status.style.color = 'var(--danger)'; return;
+        }
+        btn.disabled = true; btn.textContent = '…';
+        try {
+          const result = await API.changePin(myName, current, newPin);
+          if (result.success) {
+            status.textContent = '✓ Password updated successfully.'; status.style.color = 'var(--green)';
+            ['admin-pin-current', 'admin-pin-new', 'admin-pin-confirm'].forEach(id => { document.getElementById(id).value = ''; });
+          } else {
+            status.textContent = result.reason || 'Could not update password.'; status.style.color = 'var(--danger)';
+          }
+        } catch (e) {
+          status.textContent = 'Error: ' + e.message; status.style.color = 'var(--danger)';
+        } finally { btn.disabled = false; btn.textContent = 'Update Password'; }
+      });
+    }
+  }
+
   function renderAttendance() {
     const weeks = parseInt(state.config.weeks || 8);
     // Exclude pending players — not yet authorized
@@ -2617,7 +2830,22 @@ function doPost(e) {
       });
     }
 
-    let html = '<div class="att-grid">';
+    // Coordinator banner
+    const coordName = state.config.coordinatorName || '';
+    let html = '';
+    if (coordName) {
+      const coordSrc = playerPhotoSrc(coordName, state.config.coordinatorPhoto || '', 36);
+      html += `<div style="display:flex; align-items:center; gap:10px; padding:8px 12px; margin-bottom:10px;
+          background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
+        <img src="${coordSrc}" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,0.12); flex-shrink:0;">
+        <div>
+          <div style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:2px;">League Coordinator</div>
+          <span class="att-coord-link" style="font-size:0.88rem; font-weight:600; color:var(--white);
+            cursor:pointer; text-decoration:underline; text-underline-offset:2px;">${esc(coordName)}</span>
+        </div>
+      </div>`;
+    }
+    html += '<div class="att-grid">';
 
     // Header row
     html += '<div class="att-row">';
@@ -2629,8 +2857,13 @@ function doPost(e) {
     html += '</div>';
 
     attPlayers.forEach(p => {
+      const avatarSrc = playerPhotoSrc(p.name, p.photo || '', 28);
       html += '<div class="att-row">';
-      html += `<div class="att-player-name">${esc(p.name)}</div>`;
+      html += `<div class="att-player-name" style="display:flex; align-items:center; gap:6px;">
+        <img src="${avatarSrc}" style="width:28px; height:28px; border-radius:50%; object-fit:cover; flex-shrink:0;">
+        <span class="att-contact-link" data-player="${esc(p.name)}"
+          style="cursor:pointer; text-decoration:underline; text-underline-offset:2px;">${esc(p.name)}</span>
+      </div>`;
       for (let w = 1; w <= weeks; w++) {
         const rec = state.attendance.find(a => a.player === p.name && String(a.week) === String(w));
         const status = rec ? rec.status : 'tbd';
@@ -2743,6 +2976,94 @@ function doPost(e) {
       sortSel._wired = true;
       sortSel.addEventListener('change', renderAttendance);
     }
+
+    document.querySelectorAll('#attendance-grid .att-contact-link').forEach(el => {
+      el.addEventListener('click', () => {
+        const p = state.players.find(pl => pl.name === el.dataset.player);
+        if (p) showContactCard(p);
+      });
+    });
+
+    document.querySelector('#attendance-grid .att-coord-link')?.addEventListener('click', () => {
+      showContactCard({
+        name:         state.config.coordinatorName || 'Coordinator',
+        photo:        state.config.coordinatorPhoto || '',
+        fullName:     '',
+        email:        state.config.replyTo || '',
+        phone:        state.config.coordinatorPhone || '',
+        shareContact: true,
+      });
+    });
+  }
+
+  // ── Contact Card popup ─────────────────────────────────────
+  let _contactCardWired = false;
+  function showContactCard(player) {
+    const modal = document.getElementById('contact-card-modal');
+    if (!modal) return;
+
+    if (!_contactCardWired) {
+      _contactCardWired = true;
+      document.getElementById('contact-card-close')?.addEventListener('click', () => {
+        modal.style.display = 'none';
+      });
+      modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+    }
+
+    const src = playerPhotoSrc(player.name, player.photo || '', 80);
+    document.getElementById('cc-avatar').src = src;
+    document.getElementById('cc-handle').textContent = player.name;
+
+    const fullNameEl = document.getElementById('cc-fullname');
+    fullNameEl.textContent = player.fullName || '';
+    fullNameEl.style.display = player.fullName ? 'block' : 'none';
+
+    const infoEl = document.getElementById('cc-contact-info');
+    let infoHtml = '';
+    if (player.shareContact) {
+      if (player.email) {
+        infoHtml += `<div style="margin-bottom:8px;">
+          <a href="mailto:${esc(player.email)}"
+             style="color:#5ab4ff; font-size:0.9rem; text-decoration:none;">
+            ✉️ ${esc(player.email)}</a></div>`;
+      }
+      if (player.phone) {
+        infoHtml += `<div>
+          <a href="sms:${esc(player.phone)}"
+             style="color:var(--green); font-size:0.9rem; text-decoration:none;">
+            📱 ${esc(player.phone)}</a></div>`;
+      }
+    }
+    infoEl.innerHTML = infoHtml;
+
+    const hasContact = player.shareContact && (player.email || player.phone || player.fullName);
+    const wrapEl = document.getElementById('cc-add-contact-wrap');
+    const noteEl = document.getElementById('cc-note');
+    if (hasContact) {
+      wrapEl.innerHTML = `<button id="cc-add-btn" class="btn btn-outline"
+        style="font-size:0.85rem; width:100%; margin-top:8px;">📇 Add to Contacts</button>`;
+      document.getElementById('cc-add-btn').addEventListener('click', () => {
+        const lines = ['BEGIN:VCARD', 'VERSION:3.0'];
+        lines.push('FN:' + (player.fullName || player.name));
+        lines.push('NICKNAME:' + player.name);
+        if (player.email) lines.push('EMAIL:' + player.email);
+        if (player.phone) lines.push('TEL;TYPE=CELL:' + player.phone);
+        lines.push('END:VCARD');
+        const blob = new Blob([lines.join('\r\n')], { type: 'text/vcard' });
+        const url  = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = player.name + '.vcf';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      });
+      noteEl.textContent = 'On mobile, tapping "Add to Contacts" opens your contacts app. On desktop a .vcf file downloads.';
+      noteEl.style.display = 'block';
+    } else {
+      wrapEl.innerHTML = '';
+      noteEl.style.display = 'none';
+    }
+
+    modal.style.display = 'flex';
   }
 
   // ── Pairings ───────────────────────────────────────────────
@@ -6156,6 +6477,108 @@ function doPost(e) {
       if (e.key === 'Enter') document.getElementById('confirm-pw-save-btn').click();
     });
 
+    // ── Export helpers ──────────────────────────────────────────
+    function _triggerDownload(content, filename, type) {
+      const blob = new Blob([content], { type });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function exportLeagueJSON() {
+      const leagueName = state.config.leagueName || Auth.getSession()?.leagueId || 'league';
+      const dateStr    = new Date().toISOString().slice(0, 10);
+      const payload = {
+        exportVersion: 1,
+        exportDate:    new Date().toISOString(),
+        leagueId:      Auth.getSession()?.leagueId || '',
+        leagueName,
+        config:     state.config,
+        players:    state.players,
+        attendance: state.attendance,
+        pairings:   state.pairings,
+        scores:     state.scores,
+        queue:      state.queue      || [],
+        challenges: state.challenges || [],
+      };
+      const filename = (leagueName.replace(/[^a-z0-9]/gi, '-') + '-' + dateStr + '.json').toLowerCase();
+      _triggerDownload(JSON.stringify(payload, null, 2), filename, 'application/json');
+      showToast('League exported as JSON — ready to reimport', 'success');
+    }
+
+    function exportLeagueCSV() {
+      const leagueName = state.config.leagueName || Auth.getSession()?.leagueId || 'league';
+      const dateStr    = new Date().toISOString().slice(0, 10);
+      const csvCell = v => {
+        const s = (v === null || v === undefined) ? '' : String(v);
+        return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      };
+      const csvRow = arr => arr.map(csvCell).join(',');
+      const lines  = [];
+
+      lines.push('# Pickleball League Manager — CSV Data Export');
+      lines.push('# League: ' + leagueName);
+      lines.push('# Exported: ' + new Date().toISOString());
+      lines.push('# NOTE: This file is for viewing in Excel/Sheets only.');
+      lines.push('#        Use the JSON backup to reimport data.');
+      lines.push('#        Player photos and Stripe keys are not included.');
+      lines.push('');
+
+      // Config (skip photo and payment keys)
+      lines.push('=== CONFIG ===');
+      lines.push('key,value');
+      Object.entries(state.config).forEach(([k, v]) => {
+        if (k !== 'coordinatorPhoto' && k !== 'stripeSecretKey') lines.push(csvRow([k, v]));
+      });
+
+      // Players (skip photo/avtoken to keep file manageable)
+      const pCols = ['name','pin','group','active','email','notify','canScore',
+                     'initialRank','role','fullName','phone','stripePaid','stripeRef','stripePaymentDate'];
+      lines.push(''); lines.push('=== PLAYERS ===');
+      lines.push(pCols.join(','));
+      (state.players || []).forEach(p => lines.push(csvRow(pCols.map(c => p[c]))));
+
+      // Attendance
+      lines.push(''); lines.push('=== ATTENDANCE ===');
+      lines.push('player,week,status');
+      (state.attendance || []).forEach(a => lines.push(csvRow([a.player, a.week, a.status])));
+
+      // Pairings
+      lines.push(''); lines.push('=== PAIRINGS ===');
+      lines.push('week,round,court,p1,p2,p3,p4,type');
+      (state.pairings || []).forEach(p => lines.push(csvRow([p.week,p.round,p.court,p.p1,p.p2,p.p3,p.p4,p.type])));
+
+      // Scores
+      lines.push(''); lines.push('=== SCORES ===');
+      lines.push('week,round,court,p1,p2,score1,p3,p4,score2');
+      (state.scores || []).forEach(s => lines.push(csvRow([s.week,s.round,s.court,s.p1,s.p2,s.score1,s.p3,s.p4,s.score2])));
+
+      // Queue
+      if ((state.queue || []).length > 0) {
+        lines.push(''); lines.push('=== QUEUE ===');
+        lines.push('week,player,waitWeight,stayGames');
+        state.queue.forEach(q => lines.push(csvRow([q.week, q.player, q.waitWeight, q.stayGames])));
+      }
+
+      // Challenges
+      if ((state.challenges || []).length > 0) {
+        const chCols = Object.keys(state.challenges[0]);
+        lines.push(''); lines.push('=== CHALLENGES ===');
+        lines.push(chCols.join(','));
+        state.challenges.forEach(c => lines.push(csvRow(chCols.map(k => c[k]))));
+      }
+
+      const filename = (leagueName.replace(/[^a-z0-9]/gi, '-') + '-' + dateStr + '.csv').toLowerCase();
+      _triggerDownload(lines.join('\n'), filename, 'text/csv;charset=utf-8;');
+      showToast('CSV exported — open in Excel or Google Sheets to view. Use JSON to reimport.', 'info', 6000);
+    }
+
+    document.getElementById('btn-export-json')?.addEventListener('click', exportLeagueJSON);
+    document.getElementById('btn-export-csv')?.addEventListener('click', exportLeagueCSV);
+
     document.getElementById('btn-save-config').addEventListener('click', async () => {
       if (isAssistant) { toast('Admin assistants cannot change league settings.', 'warn'); return; }
       const weeks = parseInt(document.getElementById('cfg-weeks').value);
@@ -7765,6 +8188,98 @@ function doPost(e) {
         toast(`Report emailed to ${player.email}.`);
       } catch (e) { toast('Send failed: ' + e.message, 'error'); }
       finally { showLoading(false); }
+    });
+
+    // ── Import league from JSON file ────────────────────────────
+    let _importData = null;
+
+    document.getElementById('btn-show-import-league')?.addEventListener('click', () => {
+      document.getElementById('import-league-form').classList.remove('hidden');
+      document.getElementById('add-league-form').classList.add('hidden');
+    });
+
+    document.getElementById('btn-cancel-import-league')?.addEventListener('click', () => {
+      document.getElementById('import-league-form').classList.add('hidden');
+      _importData = null;
+    });
+
+    document.getElementById('import-file')?.addEventListener('change', function() {
+      const file    = this.files[0];
+      const infoEl  = document.getElementById('import-file-info');
+      const errEl   = document.getElementById('import-error');
+      infoEl.style.display = 'none';
+      errEl.style.display  = 'none';
+      _importData = null;
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const parsed = JSON.parse(ev.target.result);
+          if (!parsed.exportVersion) throw new Error('Not a valid League Manager export file (missing exportVersion)');
+          _importData = parsed;
+          // Pre-fill fields from file metadata
+          const idEl   = document.getElementById('import-league-id');
+          const nameEl = document.getElementById('import-league-name');
+          if (idEl   && !idEl.value   && parsed.leagueId)   idEl.value   = (parsed.leagueId   + '-copy').replace(/[^a-z0-9-]/g, '-');
+          if (nameEl && !nameEl.value && parsed.leagueName) nameEl.value = parsed.leagueName + ' (copy)';
+          // Show summary
+          infoEl.innerHTML = [
+            '✓ <strong>' + esc(parsed.leagueName || '(unnamed)') + '</strong>',
+            'Exported: ' + (parsed.exportDate ? new Date(parsed.exportDate).toLocaleDateString() : 'unknown'),
+            [
+              ((parsed.players    || []).length) + ' players',
+              ((parsed.pairings   || []).length) + ' pairings',
+              ((parsed.scores     || []).length) + ' scores',
+              ((parsed.attendance || []).length) + ' attendance records',
+              ((parsed.challenges || []).length) + ' challenges',
+            ].filter(s => !s.startsWith('0')).join(' · '),
+          ].join('<br>');
+          infoEl.style.display = '';
+        } catch(err) {
+          errEl.textContent = 'Invalid file: ' + err.message;
+          errEl.style.display = '';
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById('btn-import-league')?.addEventListener('click', async () => {
+      const errEl   = document.getElementById('import-error');
+      errEl.style.display = 'none';
+      if (!_importData) { errEl.textContent = 'Please select a JSON backup file first.'; errEl.style.display = ''; return; }
+      const newId   = (document.getElementById('import-league-id')?.value   || '').trim();
+      const newName = (document.getElementById('import-league-name')?.value  || '').trim();
+      const pin     = (document.getElementById('import-admin-pin')?.value    || '').trim();
+      if (!newId)   { errEl.textContent = 'League ID is required.';       errEl.style.display = ''; return; }
+      if (!newName) { errEl.textContent = 'League name is required.';     errEl.style.display = ''; return; }
+      if (!pin)     { errEl.textContent = 'Admin password is required.';  errEl.style.display = ''; return; }
+      if (!/^[a-z0-9][a-z0-9-]*$/.test(newId)) {
+        errEl.textContent = 'League ID must start with a letter or digit and contain only lowercase letters, numbers, and hyphens.';
+        errEl.style.display = ''; return;
+      }
+      const btn = document.getElementById('btn-import-league');
+      btn.disabled = true; btn.textContent = '⏳ Importing…';
+      showLoading(true);
+      try {
+        const result = await API.importLeague(newId, newName, pin, _importData);
+        if (!result || result.error) throw new Error(result?.error || 'Import failed');
+        let msg = `"${newName}" created successfully`;
+        if (result.warnings && result.warnings.length) msg += ' with warnings: ' + result.warnings.join('; ');
+        showToast(msg, 'success', 8000);
+        document.getElementById('import-league-form').classList.add('hidden');
+        ['import-file','import-league-id','import-league-name','import-admin-pin'].forEach(id => {
+          const el = document.getElementById(id); if (el) el.value = '';
+        });
+        document.getElementById('import-file-info').style.display = 'none';
+        _importData = null;
+        await renderLeagues();
+      } catch(err) {
+        errEl.textContent = 'Import failed: ' + err.message;
+        errEl.style.display = '';
+      } finally {
+        btn.disabled = false; btn.textContent = '⬆ Import League';
+        showLoading(false);
+      }
     });
 
     // Add league toggle

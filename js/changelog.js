@@ -6,6 +6,34 @@
 
 const CHANGELOG = [
 {
+  version: '1.5.9',
+  date: '2026-04-19',
+  changes: [
+    'Admin assistants: new "My Profile" page in the admin sidebar (My Account section) — set availability, upload avatar, edit full name / phone / email / notification and contact-sharing prefs, and change password, all without needing to use the player app',
+    'Attendance page: league coordinator\'s avatar and name now appear at the top of the attendance sheet; clicking the name opens their contact card',
+    'Scoresheet: player names are now clickable underlined links that open a contact card pop-up (works in both the read-only scoresheet and the score-entry view)',
+    'Dashboard: coordinator email address now shows the same tooltip as the phone number — "Email the coordinator — only works if this app is saved to your phone\'s home screen"',
+    'Availability page: players can now update their full name and cell phone number in addition to email',
+    'Availability page: new "Allow contact sharing" checkbox — when enabled, your email and phone are visible to other players on the attendance page (defaults to off; legacy leagues default to off)',
+    'Attendance page (player & admin): each player row now shows their avatar alongside their handle',
+    'Attendance page: player handle is now a clickable underlined link that opens a contact card pop-up',
+    'Contact card: shows avatar, handle, full name, and (if the player has enabled sharing) their email and phone number',
+    'Contact card: clicking an email address opens the native email app; clicking a phone number opens the native SMS/texting app',
+    'Contact card: "Add to Contacts" button generates a .vcf file — on mobile this opens the native contacts app with the info pre-filled; on desktop the file downloads',
+  ]
+},
+{
+  version: '1.5.8',
+  date: '2026-04-18',
+  changes: [
+    'Export: new "Export / Backup League Data" card in Setup — downloads all league data (config, players, pairings, scores, attendance, queue, challenges)',
+    'Export JSON: complete backup that can be reimported to create a new league; player photos and Stripe keys are included in JSON',
+    'Export CSV: human-readable multi-section file openable in Excel or Google Sheets; player photos and Stripe keys are omitted — CSV is view-only and cannot be reimported',
+    'Import: new "Import from JSON" button in All Leagues — creates a new Google Sheets league from a JSON backup; pre-fills league name and ID from the file; admin password is always set fresh on import',
+    'Import: Stripe secret keys and coordinator photos are intentionally not restored; all other config, players, pairings, scores, attendance, queue, and challenges are written to the new spreadsheet',
+  ]
+},
+{
   version: '1.5.7',
   date: '2026-04-18',
   changes: [

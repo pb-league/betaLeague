@@ -22,7 +22,7 @@
 const APP_BASE_URL = 'https://pb-league.github.io/league/';
 
 // App version — bump when deploying changes
-const APP_VERSION    = '1.5.7';
+const APP_VERSION    = '1.5.8';
 const APP_BUILD_DATE = '2026-04-18';
 
 const TIERS = [
