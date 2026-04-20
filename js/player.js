@@ -262,6 +262,30 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
         startChatPolling(false); // 25-second badge-update poll
       }
 
+      // ── Timer opt-in ─────────────────────────────────────────
+      if (tierAllows(state.limits?.tier, 'timers')) {
+        const optInKey  = `pb_timer_optin_${session.leagueId}`;
+        const optInWrap = document.getElementById('timer-opt-in');
+        const optInBox  = document.getElementById('timer-opt-in-check');
+        if (optInWrap && optInBox) {
+          optInWrap.style.display = '';
+          optInBox.checked = localStorage.getItem(optInKey) === 'true';
+          if (optInBox.checked && typeof _startPlayerTimerPolling === 'function') {
+            _startPlayerTimerPolling();
+          }
+          optInBox.addEventListener('change', () => {
+            localStorage.setItem(optInKey, String(optInBox.checked));
+            if (optInBox.checked) {
+              if (typeof _startPlayerTimerPolling === 'function') _startPlayerTimerPolling();
+            } else {
+              if (typeof _stopPlayerTimerPolling === 'function') _stopPlayerTimerPolling();
+              const w = document.getElementById('player-timer-widget');
+              if (w) w.innerHTML = '';
+            }
+          });
+        }
+      }
+
       // ── New pairings indicator ──────────────────────────────
       // Show a pulsing dot on "My Games" nav if the latest pairing week
       // is newer than what this player last acknowledged.
@@ -751,7 +775,7 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
         return av + esc(o);
       }).join(' <span style="color:var(--muted);">&amp;</span> ');
       if (typeof _updatePlayerTimerCourt === 'function') _updatePlayerTimerCourt(lastGame.court);
-    if (typeof _startPlayerTimerPolling === 'function') _startPlayerTimerPolling();
+    if (document.getElementById('timer-opt-in-check')?.checked && typeof _startPlayerTimerPolling === 'function') _startPlayerTimerPolling();
     el.innerHTML = `<div class="card mt-1" style="border-left:3px solid ${won ? 'var(--green)' : 'var(--danger)'}; margin-bottom:12px;">
         <div class="card-header" style="padding-bottom:8px;">
           <div class="card-title" style="font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Session ${week}${date} · Round ${lastRound} — All Done</div>
@@ -782,7 +806,7 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
       return av + esc(o);
     }).join(' <span style="color:var(--muted);">&amp;</span> ');
     if (typeof _updatePlayerTimerCourt === 'function') _updatePlayerTimerCourt(nextGame.court);
-    if (typeof _startPlayerTimerPolling === 'function') _startPlayerTimerPolling();
+    if (document.getElementById('timer-opt-in-check')?.checked && typeof _startPlayerTimerPolling === 'function') _startPlayerTimerPolling();
     el.innerHTML = `<div class="card mt-1" style="border-left:3px solid var(--gold); margin-bottom:12px;">
       <div class="card-header" style="padding-bottom:8px;">
         <div class="card-title" style="font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Session ${week}${date} · Up Next — Round ${nextRound}</div>
