@@ -180,6 +180,9 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
   renderAll();
   setupNav();
   setupEvents();
+  window.addEventListener('beforeunload', e => {
+    if (state._prefsDirty) { e.preventDefault(); e.returnValue = ''; }
+  });
   initPushSubscribeUI();
   // Reconcile scoresheet and score-entry week — always start on the same session.
   if (canScore) {
@@ -466,6 +469,13 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
   function setupNav() {
     document.querySelectorAll('.nav-item').forEach(item => {
       item.addEventListener('click', () => {
+        // Warn if navigating away from availability page with unsaved profile changes
+        const currentPage = document.querySelector('.tab-panel.active')?.id?.replace('page-', '');
+        if (currentPage === 'attendance' && state._prefsDirty) {
+          if (!confirm('You have unsaved changes to your profile. Leave without saving?')) return;
+          state._prefsDirty = false;
+        }
+
         // Pre-emptively show spinner on score-entry BEFORE making panel visible
         if (item.dataset.page === 'score-entry') {
           const entryEl = document.getElementById('player-scoresheet-entry');
@@ -1155,6 +1165,15 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
         </div>
       </div>`;
 
+    // Mark dirty when any profile field is edited
+    ['player-fullname','player-phone','player-email','player-notify','player-share-contact'].forEach(id => {
+      document.getElementById(id)?.addEventListener('change', () => { state._prefsDirty = true; });
+    });
+    // input fires on text fields as the user types; change fires on checkboxes
+    ['player-fullname','player-phone','player-email'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', () => { state._prefsDirty = true; });
+    });
+
     document.getElementById('btn-save-email').addEventListener('click', async () => {
       const fullName     = document.getElementById('player-fullname').value.trim();
       const phone        = document.getElementById('player-phone').value.trim();
@@ -1170,6 +1189,7 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
         );
         await API.savePlayers(updatedPlayers);
         state.players = updatedPlayers;
+        state._prefsDirty = false;
         status.textContent = '✓ Saved';
         status.style.color = 'var(--green)';
       } catch (e) {
@@ -1816,13 +1836,25 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
       });
     })();
 
+    const ladderWrap  = (title, html) => `<details open style="margin-bottom:10px;">
+        <summary style="list-style:none; cursor:pointer; display:flex; align-items:center;
+          justify-content:space-between; background:var(--surface); border-radius:var(--radius);
+          padding:10px 16px; user-select:none;">
+          <span style="font-size:0.88rem; font-weight:700; color:var(--white);">${title}</span>
+          <span style="font-size:0.72rem; color:var(--green); opacity:0.6;">▼</span>
+        </summary><div style="padding:10px 0 4px;">${html}</div>
+      </details>`;
+
     if (isLadder) {
       const rankMap = buildRankMap();
       const season = Reports.computeLadderStandings(state.scores, state.players, state.pairings,
         null, state.attendance, state.config, rankMap);
       const topThree = season.filter(s => s.totalPts !== undefined).slice(0, 3);
       document.getElementById('season-podium').innerHTML = buildPodiumHTML(topThree, podiumPhotoMap, photosOnStand, seasonDone, podiumFullNameMap);
-      document.getElementById('season-standings-table').innerHTML = renderLadderStandingsTable(season, playerName);
+      const stdAll = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance, state.config.pairingMode);
+      document.getElementById('season-standings-table').innerHTML =
+        ladderWrap('Ladder Standings', renderLadderStandingsTable(season, playerName)) +
+        ladderWrap('Season Win\u00a0% Standings', renderStandingsTable(stdAll, playerName));
     } else {
       const season = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance, state.config.pairingMode);
       const topThree = season.filter(s => s.games > 0).slice(0, 3);
@@ -1838,7 +1870,10 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
       const rankMap = buildRankMap();
       const weekStand = Reports.computeWeeklyLadderStandings(state.scores, state.players, state.pairings,
         week, state.attendance, state.config, rankMap);
-      document.getElementById('weekly-standings-table').innerHTML = renderLadderStandingsTable(weekStand, playerName);
+      const weekWinPct = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod, state.attendance, state.config.pairingMode);
+      document.getElementById('weekly-standings-table').innerHTML =
+        ladderWrap('Ladder Standings', renderLadderStandingsTable(weekStand, playerName)) +
+        ladderWrap('Session Win\u00a0% Standings', renderStandingsTable(weekWinPct, playerName));
     } else {
       const weekStand = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod);
       const overallThisWeek = Reports.computeStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod, state.attendance, state.config.pairingMode);
@@ -1910,7 +1945,18 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
       state.players.forEach(p => { if (rankMap[p.name] == null && p.initialRank) rankMap[p.name] = p.initialRank; });
       const s = Reports.computeWeeklyLadderStandings(state.scores, state.players, state.pairings,
         week, state.attendance, state.config, rankMap);
-      document.getElementById('weekly-standings-table').innerHTML = renderLadderStandingsTable(s, playerName);
+      const _lw = (title, html) => `<details open style="margin-bottom:10px;">
+        <summary style="list-style:none; cursor:pointer; display:flex; align-items:center;
+          justify-content:space-between; background:var(--surface); border-radius:var(--radius);
+          padding:10px 16px; user-select:none;">
+          <span style="font-size:0.88rem; font-weight:700; color:var(--white);">${title}</span>
+          <span style="font-size:0.72rem; color:var(--green); opacity:0.6;">▼</span>
+        </summary><div style="padding:10px 0 4px;">${html}</div>
+      </details>`;
+      const _weekWinPct = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod, state.attendance, state.config.pairingMode);
+      document.getElementById('weekly-standings-table').innerHTML =
+        _lw('Ladder Standings', renderLadderStandingsTable(s, playerName)) +
+        _lw('Session Win\u00a0% Standings', renderStandingsTable(_weekWinPct, playerName));
     } else {
       const s = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod);
       const overallThisWeek = Reports.computeStandings(state.scores, state.players, state.pairings, week, state.config.rankingMethod, state.attendance, state.config.pairingMode);
@@ -2573,12 +2619,19 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
       legendRows.push(`<tr><td><strong>R${r.idx + 1}:</strong> ${typeLabel} <span style="color:var(--muted); font-size:0.78rem;">(rank adv ${r.min} to ${r.max})</span></td><td style="text-align:right; font-weight:600; color:var(--gold);">${fmt(r.pts)} pt${r.pts !== 1 ? 's' : ''}</td></tr>`);
     });
     const legendHtml = legendRows.length ? `
-      <div style="margin-bottom:14px; display:inline-block; min-width:260px;">
-        <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); margin-bottom:6px;">Points Legend</div>
-        <table style="font-size:0.82rem; border-collapse:collapse; width:100%;">
-          <tbody>${legendRows.join('')}</tbody>
-        </table>
-      </div>` : '';
+      <details style="margin-bottom:14px;">
+        <summary style="list-style:none; cursor:pointer; display:flex; align-items:center;
+          justify-content:space-between; background:rgba(255,255,255,0.04);
+          border-radius:6px; padding:7px 12px; user-select:none;">
+          <span style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted);">Points Legend</span>
+          <span style="font-size:0.72rem; color:var(--green); opacity:0.6;">▼</span>
+        </summary>
+        <div style="padding:10px 12px 4px; display:inline-block; min-width:260px;">
+          <table style="font-size:0.82rem; border-collapse:collapse; width:100%;">
+            <tbody>${legendRows.join('')}</tbody>
+          </table>
+        </div>
+      </details>` : '';
 
     const rows = standings.map((s, i) => {
       const isMe = s.name === highlightPlayer;

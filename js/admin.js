@@ -272,6 +272,10 @@ const ROLE_COLORS = {
     document.querySelectorAll('.nav-item[data-page="leagues"]').forEach(el =>
       el.classList.toggle('hidden', !isAdmin && !isManager)
     );
+    // Applications: visible to app manager only
+    document.querySelectorAll('.nav-item[data-page="applications"]').forEach(el =>
+      el.classList.toggle('hidden', !isManager)
+    );
     // Players: hidden from assistants
     document.querySelectorAll('.nav-item[data-page="players"]').forEach(el =>
       el.classList.toggle('hidden', isAssistant)
@@ -290,9 +294,10 @@ const ROLE_COLORS = {
   }
   applyNavVisibility();
 
-  // Show push notification card for App Manager only
+  // Show push notification and donations cards for App Manager only
   if (isManager) {
     document.getElementById('push-notif-card')?.classList.remove('hidden');
+    document.getElementById('donations-card')?.classList.remove('hidden');
   }
 
   // Grey out restricted buttons for assistants so it's visually clear
@@ -781,6 +786,7 @@ const ROLE_COLORS = {
             });
         }
         if (page === 'leagues') renderLeagues();
+        if (page === 'applications') loadApplications();
         if (page === 'head-to-head') renderHeadToHead();
         if (page === 'my-profile') renderMyProfile();
         if (page === 'chat') {
@@ -1803,7 +1809,11 @@ const ROLE_COLORS = {
             &nbsp;<a href="https://venmo.com/Doug-Tucker-26" target="_blank"
               style="color:var(--green); text-decoration:none; font-size:0.8rem;
                      border:1px solid rgba(94,194,106,0.3); border-radius:4px; padding:1px 9px;
-                     white-space:nowrap;">💸 Open Venmo</a>.
+                     white-space:nowrap;">💸 Open Venmo</a>
+            &nbsp;or&nbsp;<a href="https://buymeacoffee.com/dougtucker" target="_blank"
+              style="color:#FFDD00; text-decoration:none; font-size:0.8rem;
+                     border:1px solid rgba(255,221,0,0.35); border-radius:4px; padding:1px 9px;
+                     background:rgba(255,221,0,0.08); white-space:nowrap;">☕ Buy Me a Coffee</a>.
             <br>Donations also help cover ongoing costs for tools and hosting, and will enable new features and faster hosting to be added.
           </p>
           <div style="border-top:1px solid rgba(255,255,255,0.07); padding-top:12px;">
@@ -2208,15 +2218,18 @@ const ROLE_COLORS = {
 
     row.innerHTML = `
       <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:8px; user-select:none;">
-        <button class="btn btn-outline btn-photo" data-photo-idx="${i}" title="Add/change photo"
-          style="padding:0; width:32px; height:32px; border-radius:50%; overflow:hidden; border:2px solid var(--border); flex-shrink:0;${state._tierDisablePhotos ? 'visibility:hidden;' : ''}">
-          <img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover;" alt="photo">
-        </button>
+        <div class="player-avatar-wrap" style="position:relative; flex-shrink:0;${state._tierDisablePhotos ? 'visibility:hidden;' : ''}">
+          <button class="btn btn-outline btn-photo" data-photo-idx="${i}" title="Add/change photo"
+            style="padding:0; width:32px; height:32px; border-radius:50%; overflow:hidden; border:2px solid var(--border);">
+            <img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover;" alt="photo">
+          </button>
+          ${p.donated ? `<span class="donor-star" style="position:absolute; top:-5px; right:-5px; font-size:11px; line-height:1; pointer-events:none;" title="Supporter ★">⭐</span>` : `<span class="donor-star" style="display:none; position:absolute; top:-5px; right:-5px; font-size:11px; line-height:1; pointer-events:none;" title="Supporter ★">⭐</span>`}
+        </div>
         <span class="player-accordion-name" style="font-weight:600; font-size:0.9rem; min-width:80px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${displayName}</span>
         <div style="display:flex; align-items:center; gap:4px; flex:1; flex-wrap:wrap;">
           ${groupChip}${rankChipHtml}${scoreChip}${statusBadge}${paidChip}
         </div>
-        <span style="font-size:0.7rem; color:var(--muted); flex-shrink:0;">▼</span>
+        <span class="collapse-arrow" style="font-size:0.7rem; color:var(--muted); flex-shrink:0;">▼</span>
       </summary>
       <div style="padding:14px 16px; border-top:1px solid rgba(255,255,255,0.06); display:grid; grid-template-columns:1fr 1fr; gap:12px;">
         <div style="grid-column:1/-1;">
@@ -2297,6 +2310,24 @@ const ROLE_COLORS = {
             </div>
           </div>
         </div>` : ''}
+        <div style="grid-column:1/-1; padding-top:10px; border-top:1px solid rgba(255,255,255,0.06); margin-top:2px;">
+          <label class="label" style="display:block; margin-bottom:6px; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted);">Donation</label>
+          <div style="display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+            <div class="form-group" style="margin:0; min-width:110px;">
+              <label class="label" style="font-size:0.75rem; margin-bottom:2px;">Amount ($)</label>
+              <input class="form-control" data-field="donated" data-idx="${i}" type="number" min="0" step="0.01" value="${esc(String(p.donated || ''))}" placeholder="0.00" style="font-size:0.82rem; padding:4px 8px;">
+            </div>
+            <div class="form-group" style="margin:0; min-width:150px;">
+              <label class="label" style="font-size:0.75rem; margin-bottom:2px;">Via</label>
+              <select class="form-control" data-field="donationMethod" data-idx="${i}" style="font-size:0.82rem; padding:4px 8px;">
+                <option value="" ${!p.donationMethod?'selected':''}>—</option>
+                <option value="venmo" ${p.donationMethod==='venmo'?'selected':''}>Venmo</option>
+                <option value="bmac" ${p.donationMethod==='bmac'?'selected':''}>Buy Me a Coffee</option>
+                <option value="other" ${p.donationMethod==='other'?'selected':''}>Other</option>
+              </select>
+            </div>
+          </div>
+        </div>
         <div style="grid-column:1/-1; padding-top:4px; border-top:1px solid rgba(255,255,255,0.06); margin-top:2px;">
           <button class="btn btn-danger" data-remove="${i}" style="font-size:0.82rem;">Delete ${isFixedPairs ? 'Team' : 'Player'}</button>
         </div>
@@ -2398,6 +2429,7 @@ const ROLE_COLORS = {
           return;
         }
         if (field === 'initialRank') val = val ? parseInt(val) : null;
+        if (field === 'donated') val = val ? parseFloat(val) : null;
         state.players[idx][field] = val;
         // Sync summary chips when relevant fields change
         const accordion = el.closest('.player-accordion');
@@ -2440,6 +2472,10 @@ const ROLE_COLORS = {
               }
             }
           }
+          if (field === 'donated') {
+            const star = accordion.querySelector('summary .donor-star');
+            if (star) star.style.display = (val && parseFloat(val) > 0) ? '' : 'none';
+          }
         }
       });
     });
@@ -2465,6 +2501,18 @@ const ROLE_COLORS = {
         renderPlayers();
       });
     });
+
+    // Re-apply tier restrictions that affect dynamically-rendered rows
+    if (state._tierDisableDeletion) {
+      list.querySelectorAll('[data-remove]').forEach(el => { el.style.display = 'none'; });
+    }
+    if (state._tierDisableChangePasswords) {
+      list.querySelectorAll('[data-field="pin"]').forEach(el => {
+        el.disabled = true;
+        el.title = 'Password changes not available on this subscription tier';
+        el.style.opacity = '0.45';
+      });
+    }
 
     // Photo buttons — hidden file input per click
     list.querySelectorAll('.btn-photo').forEach(btn => {
@@ -2745,14 +2793,16 @@ function doPost(e) {
     // ── Change password ───────────────────────────────────
     const pinEl = document.getElementById('admin-change-pin');
     if (pinEl) {
+      const isMgrPw = (userRole === 'manager');
       pinEl.innerHTML = `
         <div class="card mt-2">
-          <div class="card-header"><div class="card-title">Change Password</div></div>
+          <div class="card-header"><div class="card-title">Change Password${isMgrPw ? ' <span style="font-size:0.72rem; color:var(--gold); font-weight:400;">(Manager Override)</span>' : ''}</div></div>
           <div class="form-row" style="align-items:flex-end; gap:12px; flex-wrap:wrap;">
+            ${isMgrPw ? '' : `
             <div class="form-group" style="min-width:120px;">
               <label class="form-label">Current Password</label>
               <input class="form-control" id="admin-pin-current" type="password" maxlength="20" placeholder="••••••" autocomplete="off">
-            </div>
+            </div>`}
             <div class="form-group" style="min-width:120px;">
               <label class="form-label">New Password</label>
               <input class="form-control" id="admin-pin-new" type="password" maxlength="20" placeholder="••••••" autocomplete="off">
@@ -2769,24 +2819,28 @@ function doPost(e) {
         </div>`;
 
       document.getElementById('admin-btn-change-pin').addEventListener('click', async () => {
-        const current = document.getElementById('admin-pin-current').value.trim();
+        const currentEl = document.getElementById('admin-pin-current');
+        const current = currentEl ? currentEl.value.trim() : null;
         const newPin  = document.getElementById('admin-pin-new').value.trim();
         const confirm = document.getElementById('admin-pin-confirm').value.trim();
         const status  = document.getElementById('admin-pin-status');
         const btn     = document.getElementById('admin-btn-change-pin');
         status.textContent = ''; status.style.color = '';
-        if (!current || !newPin || !confirm) {
-          status.textContent = 'Please fill in all three fields.'; status.style.color = 'var(--danger)'; return;
+        if ((!isMgrPw && !current) || !newPin || !confirm) {
+          status.textContent = 'Please fill in all required fields.'; status.style.color = 'var(--danger)'; return;
         }
         if (newPin !== confirm) {
           status.textContent = 'New password and confirmation do not match.'; status.style.color = 'var(--danger)'; return;
         }
         btn.disabled = true; btn.textContent = '…';
         try {
-          const result = await API.changePin(myName, current, newPin);
+          const result = isMgrPw
+            ? await API.changePinForce(myName, newPin)
+            : await API.changePin(myName, current, newPin);
           if (result.success) {
             status.textContent = '✓ Password updated successfully.'; status.style.color = 'var(--green)';
-            ['admin-pin-current', 'admin-pin-new', 'admin-pin-confirm'].forEach(id => { document.getElementById(id).value = ''; });
+            if (currentEl) currentEl.value = '';
+            ['admin-pin-new', 'admin-pin-confirm'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
           } else {
             status.textContent = result.reason || 'Could not update password.'; status.style.color = 'var(--danger)';
           }
@@ -5080,19 +5134,26 @@ function doPost(e) {
       const topThree = season.filter(s => s.totalPts !== undefined).slice(0, 3);
       document.getElementById('season-podium').innerHTML = buildPodiumHTML(topThree, podiumPhotoMap, podiumPhotosOn, seasonDone, podiumFullNameMap);
 
-      const winPctSubhead = '<div style="font-size:0.78rem; font-weight:700; text-transform:uppercase; ' +
-        'color:var(--muted); letter-spacing:0.07em; margin:20px 0 8px;">Season Win&nbsp;% Standings</div>';
+      const detailsOpen  = s => `<details open style="margin-bottom:10px;">
+        <summary class="card-header collapsible-header" style="list-style:none; cursor:pointer; display:flex;
+          align-items:center; justify-content:space-between; background:var(--surface);
+          border-radius:var(--radius); padding:10px 16px; user-select:none;">
+          <div class="card-title" style="margin:0;">${s}</div>
+          <span class="collapse-arrow" style="font-size:0.72rem; color:var(--green); opacity:0.6;">▼</span>
+        </summary><div style="padding:10px 0 4px;">`;
+      const detailsClose = '</div></details>';
+
       document.getElementById('standings-season-table').innerHTML =
-        renderLadderStandingsTable(season, state.config) + winPctSubhead + renderStandingsTable(stdAll);
+        detailsOpen('Ladder Standings') + renderLadderStandingsTable(season, state.config) + detailsClose +
+        detailsOpen('Season Win&nbsp;% Standings') + renderStandingsTable(stdAll) + detailsClose;
 
       const weekStand = Reports.computeWeeklyLadderStandings(state.scores, state.players, state.pairings,
         state.currentStandWeek, state.attendance, state.config, rankMap);
       const weekWinPct = Reports.computeWeeklyStandings(state.scores, state.players, state.pairings,
         state.currentStandWeek, state.config.rankingMethod, state.attendance, state.config.pairingMode);
-      const sessionWinPctSubhead = '<div style="font-size:0.78rem; font-weight:700; text-transform:uppercase; ' +
-        'color:var(--muted); letter-spacing:0.07em; margin:20px 0 8px;">Session Win&nbsp;% Standings</div>';
       document.getElementById('standings-weekly-table').innerHTML =
-        renderLadderStandingsTable(weekStand, state.config) + sessionWinPctSubhead + renderStandingsTable(weekWinPct);
+        detailsOpen('Ladder Standings') + renderLadderStandingsTable(weekStand, state.config) + detailsClose +
+        detailsOpen('Session Win&nbsp;% Standings') + renderStandingsTable(weekWinPct) + detailsClose;
     } else {
       const season = Reports.computeStandings(state.scores, state.players, state.pairings, null, state.config.rankingMethod, state.attendance, state.config.pairingMode);
       const topThree = season.filter(s => s.games > 0).slice(0, 3);
@@ -5456,12 +5517,19 @@ function doPost(e) {
     if (rank2Pts) legendRows.push(`<tr><td>🥈 Finish 2nd in a session (win&nbsp;%)</td><td style="text-align:right; font-weight:600; color:var(--gold);">${fmt(rank2Pts)} pt${rank2Pts !== 1 ? 's' : ''}</td></tr>`);
     if (rank3Pts) legendRows.push(`<tr><td>🥉 Finish 3rd in a session (win&nbsp;%)</td><td style="text-align:right; font-weight:600; color:var(--gold);">${fmt(rank3Pts)} pt${rank3Pts !== 1 ? 's' : ''}</td></tr>`);
     const legendHtml = legendRows.length ? `
-      <div style="margin-bottom:14px; display:inline-block; min-width:260px;">
-        <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); margin-bottom:6px;">Points Legend</div>
-        <table style="font-size:0.82rem; border-collapse:collapse; width:100%;">
-          <tbody>${legendRows.join('')}</tbody>
-        </table>
-      </div>` : '';
+      <details style="margin-bottom:14px;">
+        <summary class="card-header collapsible-header" style="list-style:none; cursor:pointer; display:flex;
+          align-items:center; justify-content:space-between; background:rgba(255,255,255,0.04);
+          border-radius:6px; padding:7px 12px; user-select:none;">
+          <span style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted);">Points Legend</span>
+          <span class="collapse-arrow" style="font-size:0.72rem; color:var(--green); opacity:0.6;">▼</span>
+        </summary>
+        <div style="padding:10px 12px 4px; display:inline-block; min-width:260px;">
+          <table style="font-size:0.82rem; border-collapse:collapse; width:100%;">
+            <tbody>${legendRows.join('')}</tbody>
+          </table>
+        </div>
+      </details>` : '';
 
     const rows = standings.map((s, i) => {
       const top = i < 3 ? 'top' : '';
@@ -6696,8 +6764,9 @@ function doPost(e) {
 
       // If the admin PIN field has a value, the admin is changing the password —
       // require them to confirm their current password before saving.
+      // App manager bypasses this check (they have authority over all leagues).
       const newPin = document.getElementById('cfg-admin-pin').value;
-      if (newPin && newPin !== state.config.adminPin) {
+      if (newPin && newPin !== state.config.adminPin && userRole !== 'manager') {
         _pendingConfigSave = config;
         document.getElementById('confirm-pw-input').value = '';
         document.getElementById('confirm-pw-error').style.display = 'none';
@@ -6804,6 +6873,40 @@ function doPost(e) {
         statusEl.textContent = 'Send failed: ' + e.message;
         statusEl.style.color = 'var(--danger)';
       } finally { showLoading(false); }
+    });
+
+    // Load BMAC donations (manager only)
+    document.getElementById('btn-load-donations')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-load-donations');
+      const listEl = document.getElementById('donations-list');
+      btn.disabled = true; btn.textContent = '⏳ Loading…';
+      try {
+        const { donations } = await API.getDonations();
+        if (!donations || donations.length === 0) {
+          listEl.innerHTML = '<p style="font-size:0.82rem; color:var(--muted);">No donations recorded yet.</p>';
+        } else {
+          listEl.innerHTML = `<table style="width:100%; font-size:0.82rem; border-collapse:collapse;">
+            <thead><tr style="color:var(--muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em;">
+              <th style="text-align:left; padding:4px 8px;">Supporter</th>
+              <th style="text-align:right; padding:4px 8px;">Amount</th>
+              <th style="text-align:left; padding:4px 8px; min-width:100px;">Via</th>
+              <th style="text-align:left; padding:4px 8px;">Note</th>
+              <th style="text-align:left; padding:4px 8px; min-width:120px;">Date</th>
+            </tr></thead>
+            <tbody>${donations.map(d => `<tr style="border-top:1px solid rgba(255,255,255,0.06);">
+              <td style="padding:5px 8px;">${esc(d.name)}</td>
+              <td style="padding:5px 8px; text-align:right; color:var(--green);">$${parseFloat(d.amount||0).toFixed(2)}</td>
+              <td style="padding:5px 8px; color:var(--muted);">${esc(d.platform||'bmac')}</td>
+              <td style="padding:5px 8px; color:var(--muted);">${esc(d.note||'')}</td>
+              <td style="padding:5px 8px; color:var(--muted); font-size:0.75rem;">${esc(d.createdAt||'')}</td>
+            </tr>`).join('')}</tbody>
+          </table>`;
+        }
+      } catch(e) {
+        listEl.innerHTML = `<p style="font-size:0.82rem; color:var(--danger);">Failed: ${esc(e.message)}</p>`;
+      } finally {
+        btn.disabled = false; btn.textContent = 'Refresh';
+      }
     });
 
     // Send league message
@@ -8495,6 +8598,28 @@ function doPost(e) {
       state._tierDisablePhotos = true;
       document.querySelectorAll('.btn-photo').forEach(el => { el.style.visibility = 'hidden'; });
     }
+    if (disabled.has('createLeagues')) {
+      state._tierDisableCreateLeagues = true;
+      const btn = document.getElementById('btn-show-add-league');
+      if (btn) { btn.disabled = true; btn.title = 'Not available on this subscription tier'; btn.style.opacity = '0.45'; }
+    }
+    if (disabled.has('deleteLeagues')) {
+      state._tierDisableDeleteLeagues = true;
+    }
+    if (disabled.has('deletePlayers')) {
+      state._tierDisableDeletion = true;
+      document.querySelectorAll('[data-remove]').forEach(el => { el.style.display = 'none'; });
+    }
+    if (disabled.has('changePasswords')) {
+      state._tierDisableChangePasswords = true;
+      const pinCard = document.getElementById('admin-change-pin');
+      if (pinCard) pinCard.style.display = 'none';
+      document.querySelectorAll('[data-field="pin"]').forEach(el => {
+        el.disabled = true;
+        el.title = 'Password changes not available on this subscription tier';
+        el.style.opacity = '0.45';
+      });
+    }
   }
 
   // ── Leagues ────────────────────────────────────────────────
@@ -8553,6 +8678,127 @@ function doPost(e) {
   }
 
 
+
+  // ── Applications (app manager only) ────────────────────────
+  async function loadApplications() {
+    const listEl = document.getElementById('applications-list');
+    const errEl  = document.getElementById('applications-error');
+    if (!listEl) return;
+    errEl.style.display = 'none';
+    listEl.innerHTML = '<div style="text-align:center; padding:32px; color:var(--muted); font-size:0.85rem;">Loading…</div>';
+    try {
+      const result  = await API.getApplications();
+      if (!result.success) throw new Error(result.error || 'Failed to load applications');
+      renderApplications(result.applications || []);
+    } catch(e) {
+      errEl.textContent = e.message;
+      errEl.style.display = 'block';
+      listEl.innerHTML = '';
+    }
+  }
+
+  function renderApplications(apps) {
+    const listEl = document.getElementById('applications-list');
+    if (!listEl) return;
+
+    const statusBadge = s => {
+      const map = {
+        pending:  ['⏳ Pending',  'rgba(255,193,7,0.15)',  '#ffc107'],
+        approved: ['✅ Approved', 'rgba(45,122,58,0.15)',  '#3fa050'],
+        complete: ['🏁 Complete', 'rgba(94,194,106,0.15)', '#5ec26a'],
+      };
+      const [label, bg, color] = map[s] || ['● ' + s, 'rgba(255,255,255,0.07)', 'var(--muted)'];
+      return `<span style="font-size:0.72rem; font-weight:600; padding:2px 9px; border-radius:10px;
+        background:${bg}; color:${color}; white-space:nowrap;">${label}</span>`;
+    };
+
+    if (!apps.length) {
+      listEl.innerHTML = `<div class="card" style="text-align:center; padding:32px; color:var(--muted); font-size:0.85rem;">
+        No applications yet.</div>`;
+      return;
+    }
+
+    // Sort: pending first, then by date descending
+    apps = [...apps].sort((a, b) => {
+      if (a.status === 'pending' && b.status !== 'pending') return -1;
+      if (b.status === 'pending' && a.status !== 'pending') return 1;
+      return (b.submittedAt || '').localeCompare(a.submittedAt || '');
+    });
+
+    const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    const rows = apps.map(a => {
+      const date = a.submittedAt ? new Date(a.submittedAt).toLocaleDateString() : '—';
+      const canApprove = a.status === 'pending';
+      return `<tr>
+        <td style="padding:10px 12px; font-weight:600; color:var(--white);">${esc(a.name)}</td>
+        <td style="padding:10px 12px; font-size:0.82rem;">${esc(a.email)}</td>
+        <td style="padding:10px 12px; font-size:0.82rem;">${esc(a.phone) || '—'}</td>
+        <td style="padding:10px 12px; font-size:0.82rem;">${esc(a.leagueName)}</td>
+        <td style="padding:10px 12px; font-family:monospace; font-size:0.82rem; color:var(--gold);">${esc(a.slug)}</td>
+        <td style="padding:10px 12px; font-size:0.8rem; color:var(--muted);">${esc(a.leagueType) || '—'}</td>
+        <td style="padding:10px 12px; font-size:0.8rem; color:var(--muted);">${date}</td>
+        <td style="padding:10px 12px;">${statusBadge(a.status)}</td>
+        <td style="padding:10px 12px; white-space:nowrap;">
+          ${canApprove
+            ? `<button class="btn btn-primary" style="font-size:0.78rem; padding:4px 14px;"
+                data-approve-id="${esc(a.id)}" data-approve-name="${esc(a.name)}">Approve</button>`
+            : ''}
+        </td>
+      </tr>`;
+    }).join('');
+
+    listEl.innerHTML = `<div class="card" style="padding:0; overflow:hidden;">
+      <div class="table-wrap" style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.85rem; color:var(--white);">
+          <thead>
+            <tr style="background:rgba(255,255,255,0.04); border-bottom:1px solid rgba(255,255,255,0.08);">
+              <th style="padding:8px 12px; text-align:left; font-size:0.72rem; text-transform:uppercase;
+                letter-spacing:0.06em; color:var(--muted); font-weight:600;">Name</th>
+              <th style="padding:8px 12px; text-align:left; font-size:0.72rem; text-transform:uppercase;
+                letter-spacing:0.06em; color:var(--muted); font-weight:600;">Email</th>
+              <th style="padding:8px 12px; text-align:left; font-size:0.72rem; text-transform:uppercase;
+                letter-spacing:0.06em; color:var(--muted); font-weight:600;">Phone</th>
+              <th style="padding:8px 12px; text-align:left; font-size:0.72rem; text-transform:uppercase;
+                letter-spacing:0.06em; color:var(--muted); font-weight:600;">League Name</th>
+              <th style="padding:8px 12px; text-align:left; font-size:0.72rem; text-transform:uppercase;
+                letter-spacing:0.06em; color:var(--muted); font-weight:600;">Slug</th>
+              <th style="padding:8px 12px; text-align:left; font-size:0.72rem; text-transform:uppercase;
+                letter-spacing:0.06em; color:var(--muted); font-weight:600;">Type</th>
+              <th style="padding:8px 12px; text-align:left; font-size:0.72rem; text-transform:uppercase;
+                letter-spacing:0.06em; color:var(--muted); font-weight:600;">Date</th>
+              <th style="padding:8px 12px; text-align:left; font-size:0.72rem; text-transform:uppercase;
+                letter-spacing:0.06em; color:var(--muted); font-weight:600;">Status</th>
+              <th style="padding:8px 12px;"></th>
+            </tr>
+          </thead>
+          <tbody id="applications-tbody" style="border-top:1px solid rgba(255,255,255,0.06);">
+            ${rows}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+
+    // Approve button handlers
+    listEl.querySelectorAll('[data-approve-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const appId   = btn.dataset.approveId;
+        const appName = btn.dataset.approveName;
+        if (!confirm(`Approve application from ${appName}? This will send them an email with a setup link and password.`)) return;
+        btn.disabled = true; btn.textContent = '⏳…';
+        try {
+          const result  = await API.approveApplication(appId);
+          if (!result.success) throw new Error(result.error || 'Approval failed');
+          await loadApplications(); // refresh list
+        } catch(e) {
+          alert('Approval failed: ' + e.message);
+          btn.disabled = false; btn.textContent = 'Approve';
+        }
+      });
+    });
+  }
+
+  document.getElementById('btn-refresh-applications')?.addEventListener('click', loadApplications);
 
   async function renderLeagues() {
     const session = Auth.getSession();
@@ -8646,7 +8892,7 @@ function doPost(e) {
             ${l.tier ? chip(l.tier, '#5ec272') : ''}
             ${isHidden ? chip('Hidden', '#f0a030') : ''}
           </div>
-          <span style="font-size:0.7rem; color:var(--muted); flex-shrink:0;">▼</span>
+          <span class="collapse-arrow" style="font-size:0.7rem; color:var(--muted); flex-shrink:0;">▼</span>
         </summary>
         <div style="padding:14px 16px; border-top:1px solid rgba(255,255,255,0.06); display:grid; grid-template-columns:1fr 1fr; gap:10px 16px;">
 
@@ -8854,7 +9100,7 @@ function doPost(e) {
         </div>` : ''}
       </div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
         <div>
           <div class="card-title" style="font-size:0.8rem; margin-bottom:8px; color:var(--muted);">FACED AS OPPONENT</div>
           ${freqTable(sortedOpponents, 'W/L vs them')}
@@ -8865,8 +9111,8 @@ function doPost(e) {
         </div>
       </div>
 
-      <div class="card-title" style="font-size:0.8rem; margin-bottom:8px; color:var(--muted);">GAME LOG</div>
-      <div class="table-wrap">
+      <div class="card-title" style="font-size:0.8rem; margin-bottom:4px; padding-top:1px; color:var(--muted);">GAME LOG</div>
+      <div class="table-wrap" style="padding-top:1px;">
         <table>
           <thead><tr><th>Ses</th><th>Rd</th><th>Partner</th><th>Opponents</th><th>Score</th>
             <th title="Rank difference: your team's average rank minus opponents' average rank. Negative means your team was ranked higher. U = upset (lower-ranked team won)." style="cursor:help;">Rnk Δ</th>

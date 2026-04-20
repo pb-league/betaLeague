@@ -61,6 +61,7 @@
         <div class="nav-item" id="nav-admin-chat" data-page="chat"><span class="icon">💬</span> Chat</div>
         <div class="nav-item" data-page="players"><span class="icon">👥</span> Players</div>
         <div class="nav-item" data-page="leagues"><span class="icon">🌐</span> All Leagues</div>
+        <div class="nav-item hidden" id="nav-applications" data-page="applications"><span class="icon">📥</span> Applications</div>
       </div>
       <div class="nav-section">
         <div class="nav-section-label">Sessions</div>
@@ -200,10 +201,17 @@
             <input class="form-control" id="cfg-games" type="number" min="1" max="10" value="7" style="width:80px;">
          </div>
             <div class="form-group">
-          <label class="form-label">Min Participation % <span style="color:var(--muted); font-weight:400; font-size:0.78rem;">(for
+          <label class="form-label">Min Attend % <span style="color:var(--muted); font-weight:400; font-size:0.78rem;">(for
               prize)</span></label>
           <input class="form-control" id="cfg-min-participation" type="number" min="0" max="100" placeholder="50"
             style="width:80px;">
+          </div>
+           <div class="form-group">
+            <label class="form-label">Standings Method</label>
+            <select class="form-control" id="cfg-standings-method">
+              <option value="standard">Win %</option>
+              <option value="ladder">Ladder League</option>
+            </select>
           </div>
           <div class="form-group">
             <label class="form-label">Secondary Ranking</label>
@@ -212,13 +220,7 @@
               <option value="ptspct">Pts/Tot %</option>
             </select>
           </div>
-          <div class="form-group">
-            <label class="form-label">Standings Method</label>
-            <select class="form-control" id="cfg-standings-method">
-              <option value="standard">Standard</option>
-              <option value="ladder">Ladder League</option>
-            </select>
-          </div>
+         
             <div class="form-group">
               <label class="form-label">Event Type</label>
               <select class="form-control" id="cfg-event-type" style="max-width:160px;">
@@ -711,7 +713,35 @@
                 placeholder="Describe the issue, request, or question in as much detail as you can…"></textarea>
             </div>
             <div id="fb-status" style="font-size:0.8rem; margin-top:8px;"></div>
-            <button class="btn btn-primary mt-1" id="btn-send-feedback">📨 Send Feedback</button>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px;">
+              <button class="btn btn-primary" id="btn-send-feedback">📨 Send Feedback</button>
+              <span style="font-size:0.8rem; color:var(--muted);">— or support the developer:</span>
+              <a href="https://venmo.com/Doug-Tucker-26" target="_blank"
+                style="font-size:0.8rem; color:var(--green); text-decoration:none;
+                       border:1px solid rgba(94,194,106,0.3); border-radius:4px; padding:3px 10px;
+                       white-space:nowrap;">💸 Venmo</a>
+              <a href="https://buymeacoffee.com/dougtucker" target="_blank"
+                style="font-size:0.8rem; color:#FFDD00; text-decoration:none;
+                       border:1px solid rgba(255,221,0,0.35); border-radius:4px; padding:3px 10px;
+                       background:rgba(255,221,0,0.08); white-space:nowrap;">☕ Buy Me a Coffee</a>
+            </div>
+          </div>
+          </details>
+        </div>
+
+        <!-- Supporter Donations — App Manager only -->
+        <div class="card mt-2 hidden" id="donations-card">
+          <details>
+          <summary class="card-header collapsible-header" style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+            <div class="card-title">☕ Supporter Donations <span style="font-size:0.72rem; color:var(--gold); font-weight:400; margin-left:8px;">— App Manager only</span></div>
+            <span class="collapse-arrow" style="font-size:0.72rem; color:var(--green); opacity:0.6;">▼</span>
+          </summary>
+          <div class="collapsible-body" style="padding:14px 16px;">
+            <p style="font-size:0.82rem; color:var(--muted); margin:0 0 10px;">
+              Buy Me a Coffee supporters are recorded here when the BMAC webhook is configured to point at this app's GAS URL.
+            </p>
+            <button class="btn btn-secondary" id="btn-load-donations" style="font-size:0.82rem; padding:5px 14px;">Load Donations</button>
+            <div id="donations-list" style="margin-top:10px;"></div>
           </div>
           </details>
         </div>
@@ -1441,6 +1471,20 @@
         </div>
       </section>
 
+      <!-- ═══ APPLICATIONS ═══ -->
+      <section id="page-applications" class="tab-panel">
+        <div class="page-header">
+          <h2>New League Applications</h2>
+          <button class="btn btn-secondary" id="btn-refresh-applications" style="padding:5px 12px; font-size:0.78rem;">🔄 Refresh</button>
+        </div>
+        <div id="applications-error" style="display:none; font-size:0.85rem; color:var(--danger);
+          background:rgba(224,85,85,0.08); border:1px solid rgba(224,85,85,0.25);
+          border-radius:8px; padding:10px 14px; margin-bottom:12px;"></div>
+        <div id="applications-list">
+          <div style="text-align:center; padding:32px; color:var(--muted); font-size:0.85rem;">Loading applications…</div>
+        </div>
+      </section>
+
       <!-- ═══ HEAD-TO-HEAD ═══ -->
       <section id="page-head-to-head" class="tab-panel">
         <div class="page-header">
@@ -1770,7 +1814,7 @@
   }, true);
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="js/settings.js?v=1.5.8"></script>
+<script src="js/settings.js?v=1.5.10"></script>
   <!-- Google Analytics — loads only if GA_MEASUREMENT_ID is set in settings.js -->
   <script>
     window.__gaReady = false;
@@ -1792,15 +1836,15 @@
       window.__gaReady = true;
     });
   </script>
-<script src="js/api.js?v=1.5.8"></script>
-<script src="js/push.js?v=1.5.8"></script>
-<script src="js/auth.js?v=1.5.8"></script>
-<script src="js/pairings.js?v=1.5.8"></script>
-<script src="js/reports.js?v=1.5.8"></script>
-<script src="js/tournament.js?v=1.5.8"></script>
-<script src="js/changelog.js?v=1.5.8"></script>
-<script src="js/timers.js?v=1.5.8"></script>
-<script src="js/admin.js?v=1.5.8"></script>
+<script src="js/api.js?v=1.5.10"></script>
+<script src="js/push.js?v=1.5.10"></script>
+<script src="js/auth.js?v=1.5.10"></script>
+<script src="js/pairings.js?v=1.5.10"></script>
+<script src="js/reports.js?v=1.5.10"></script>
+<script src="js/tournament.js?v=1.5.10"></script>
+<script src="js/changelog.js?v=1.5.10"></script>
+<script src="js/timers.js?v=1.5.10"></script>
+<script src="js/admin.js?v=1.5.10"></script>
 <script>
 (function() {
   const toggle   = document.getElementById('nav-toggle');

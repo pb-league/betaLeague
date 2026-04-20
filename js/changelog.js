@@ -6,6 +6,19 @@
 
 const CHANGELOG = [
 {
+  version: '1.5.10',
+  date: '2026-04-20',
+  changes: [
+    'New customer onboarding: "Apply to Use League Manager" form now collects cell phone and league/tournament name; includes a link to the live demo',
+    'New customer onboarding: app manager can view all applications (name, email, phone, league name, type, date, status) in a new Applications section of the admin panel — visible to app manager only',
+    'New customer onboarding: app manager can approve an application with one click, which generates a unique setup password and emails the applicant a setup link',
+    'New customer onboarding: approved applicants complete their league setup at setup.html — enter their temporary password, confirm league name and slug, choose storage backend, optionally provide a Google Sheet ID, and set an admin password; on success a direct login link is shown',
+    'Bug fix: creating a Google Sheets league with no source league (e.g. via the new setup form) now correctly initialises the config sheet with leagueName and adminPin so the admin can log in',
+    'Bug fix: fixed ReferenceError for effectiveCustomerId when adding a league with no source league',
+    'Availability page: players are now warned with a confirmation dialog if they try to navigate away or close/refresh the page with unsaved changes to their profile (name, phone, email, notifications, contact sharing)',
+  ]
+},
+{
   version: '1.5.9',
   date: '2026-04-19',
   changes: [
@@ -20,6 +33,12 @@ const CHANGELOG = [
     'Contact card: shows avatar, handle, full name, and (if the player has enabled sharing) their email and phone number',
     'Contact card: clicking an email address opens the native email app; clicking a phone number opens the native SMS/texting app',
     'Contact card: "Add to Contacts" button generates a .vcf file — on mobile this opens the native contacts app with the info pre-filled; on desktop the file downloads',
+    'Bug fix: spectator-role players no longer appear in standings',
+    'Player config: new Donation fields — admin can record the amount and method (Venmo / Buy Me a Coffee / Other) for a supporter; a gold star ⭐ appears on their avatar in the player list',
+    'Player accordion: the expand/collapse triangle (▼/▲) now correctly flips when opening or closing a player row',
+    'Basic tier: delete player, delete/create league, and change password actions are now disabled for leagues on the Basic tier',
+    'App Manager: changing the admin password no longer requires entering the current admin password — the confirmation modal is bypassed for the app manager',
+    'Feedback form: Buy Me a Coffee ☕ link added alongside the Venmo link; supporter donations received via BMAC webhook are logged and viewable by the app manager in a new Supporter Donations card',
   ]
 },
 {
