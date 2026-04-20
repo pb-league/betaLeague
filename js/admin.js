@@ -469,9 +469,9 @@ const ROLE_COLORS = {
     applyTierRestrictions(state.limits?.tier);
     updatePairingModeUI();
     if (state.config.pairingMode === 'queue-based') loadQueueForWeek(state.currentPairWeek);
-    // Start chat — initial fetch only; badge updates are push-triggered
     if (tierAllows(state.limits?.tier, 'messaging')) {
       pollAdminChatMessages();
+      startAdminChatPolling(false); // 120 s fallback for non-push users
       if (navigator.serviceWorker) {
         navigator.serviceWorker.addEventListener('message', event => {
           if (event.data && event.data.type === 'PUSH_RECEIVED') pollAdminChatMessages();
@@ -631,7 +631,9 @@ const ROLE_COLORS = {
       // Admin passes no player filter — sees all messages
       const data = await API.getChatMessages(state.adminChatLastId, '');
       if (!data.messages?.length) return;
-      const newMsgs = data.messages;
+      const existingIds = new Set(state.adminChatMessages.map(m => m.id));
+      const newMsgs = data.messages.filter(m => !existingIds.has(m.id));
+      if (!newMsgs.length) return;
       state.adminChatMessages.push(...newMsgs);
       if (state.adminChatMessages.length > 200) state.adminChatMessages = state.adminChatMessages.slice(-200);
       state.adminChatLastId = Math.max(...state.adminChatMessages.map(m => m.id));
@@ -644,7 +646,7 @@ const ROLE_COLORS = {
 
   function startAdminChatPolling(fast) {
     if (state.adminChatPollTimer) clearInterval(state.adminChatPollTimer);
-    state.adminChatPollTimer = setInterval(pollAdminChatMessages, fast ? 10000 : 25000);
+    state.adminChatPollTimer = setInterval(pollAdminChatMessages, fast ? 10000 : 120000);
   }
 
   // ── Nav ────────────────────────────────────────────────────

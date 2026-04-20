@@ -722,6 +722,9 @@ function deleteTimer(index) {
   _timerState[0] = remaining[0] || null;
   _timerState[1] = remaining[1] || null;
 
+  _pushTimerState().then(() => {
+    _sendTimerPush('⏹️ Timer removed', 'A court timer has been removed', {});
+  });
   renderTimersPage();
   document.getElementById('timer-config-modal').style.display = 'none';
 }

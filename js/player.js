@@ -259,8 +259,7 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
         const navChat = document.getElementById('nav-chat');
         if (navChat) navChat.classList.remove('hidden');
         pollChatMessages(); // initial fetch (don't await — non-blocking)
-        // Background badge updates are push-triggered — no polling interval needed here.
-        // Fast 10 s poll only runs while the chat page is open (see nav handler below).
+        startChatPolling(false); // 120 s fallback for non-push users
         if (navigator.serviceWorker) {
           navigator.serviceWorker.addEventListener('message', event => {
             if (event.data && event.data.type === 'PUSH_RECEIVED') pollChatMessages();
@@ -476,7 +475,9 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
     try {
       const data = await API.getChatMessages(state.chatLastId, playerName);
       if (!data.messages?.length) return;
-      const newMsgs = data.messages;
+      const existingIds = new Set(state.chatMessages.map(m => m.id));
+      const newMsgs = data.messages.filter(m => !existingIds.has(m.id));
+      if (!newMsgs.length) return;
       state.chatMessages.push(...newMsgs);
       if (state.chatMessages.length > 200) state.chatMessages = state.chatMessages.slice(-200);
       state.chatLastId = Math.max(...state.chatMessages.map(m => m.id));
@@ -492,7 +493,7 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
 
   function startChatPolling(fast) {
     if (state.chatPollTimer) clearInterval(state.chatPollTimer);
-    state.chatPollTimer = setInterval(pollChatMessages, fast ? 10000 : 25000);
+    state.chatPollTimer = setInterval(pollChatMessages, fast ? 10000 : 120000);
   }
 
   // ── Nav ────────────────────────────────────────────────────

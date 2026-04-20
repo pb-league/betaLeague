@@ -6,6 +6,13 @@
 
 const CHANGELOG = [
 {
+  version: '1.5.15',
+  date: '2026-04-20',
+  changes: [
+    'Chat: background poll restored at 120 s (down from 25 s) as a fallback for players without push notifications; push-subscribed players still get immediate badge updates via service worker message',
+  ]
+},
+{
   version: '1.5.14',
   date: '2026-04-20',
   changes: [
