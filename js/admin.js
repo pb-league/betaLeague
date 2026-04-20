@@ -469,10 +469,14 @@ const ROLE_COLORS = {
     applyTierRestrictions(state.limits?.tier);
     updatePairingModeUI();
     if (state.config.pairingMode === 'queue-based') loadQueueForWeek(state.currentPairWeek);
-    // Start background chat polling if messaging is available for this tier
+    // Start chat — initial fetch only; badge updates are push-triggered
     if (tierAllows(state.limits?.tier, 'messaging')) {
       pollAdminChatMessages();
-      startAdminChatPolling(false);
+      if (navigator.serviceWorker) {
+        navigator.serviceWorker.addEventListener('message', event => {
+          if (event.data && event.data.type === 'PUSH_RECEIVED') pollAdminChatMessages();
+        });
+      }
     }
     // Refresh challenges so accepted ones appear in pairings section
     API.getChallenges().then(r => { state.challenges = r.challenges || []; renderPairingsPreview(); }).catch(() => {});
@@ -793,7 +797,8 @@ const ROLE_COLORS = {
           renderAdminChat();
           startAdminChatPolling(true);
         } else if (state.adminChatPollTimer) {
-          startAdminChatPolling(false);
+          clearInterval(state.adminChatPollTimer);
+          state.adminChatPollTimer = null;
         }
       });
     });

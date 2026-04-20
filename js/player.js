@@ -258,8 +258,14 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
       if (tierAllows(state.limits?.tier, 'messaging')) {
         const navChat = document.getElementById('nav-chat');
         if (navChat) navChat.classList.remove('hidden');
-        pollChatMessages(); // initial background fetch (don't await — non-blocking)
-        startChatPolling(false); // 25-second badge-update poll
+        pollChatMessages(); // initial fetch (don't await — non-blocking)
+        // Background badge updates are push-triggered — no polling interval needed here.
+        // Fast 10 s poll only runs while the chat page is open (see nav handler below).
+        if (navigator.serviceWorker) {
+          navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data && event.data.type === 'PUSH_RECEIVED') pollChatMessages();
+          });
+        }
       }
 
       // ── Timer opt-in ─────────────────────────────────────────
@@ -573,12 +579,13 @@ function buildPodiumHTML(topThree, photoMap, photosOn, seasonComplete) {
           }).catch(() => renderFullAttendance());
         }
 
-        // Chat page — render and switch to fast poll; leaving chat → slow poll
+        // Chat page — fast poll while open; stop polling when leaving
         if (page === 'chat') {
           renderChat();
           startChatPolling(true);
         } else if (state.chatPollTimer) {
-          startChatPolling(false);
+          clearInterval(state.chatPollTimer);
+          state.chatPollTimer = null;
         }
 
         // Clear new-pairings dot when player opens My Games

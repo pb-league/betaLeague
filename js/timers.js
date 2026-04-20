@@ -494,6 +494,8 @@ function timerToggle(index) {
     if (st.phase !== 'done' && st.phase !== 'negative') st.phase = 'paused';
     _updateTimerLive(index);
     _pushTimerState();
+    const configs = _loadConfigs();
+    _sendTimerPush('⏸️ ' + (configs[index]?.title || 'Game Timer'), 'Timer paused — ' + _fmt(st.currentSeconds) + ' remaining', configs[index] || {});
     return;
   }
 
@@ -572,6 +574,7 @@ function timerReset(index) {
   st.countdownRemaining = 0;
   _updateTimerLive(index);
   _pushTimerState();
+  _sendTimerPush('⏹️ ' + (config.title || 'Game Timer'), 'Timer reset', config);
 }
 
 function timerToggleMute(index) {
