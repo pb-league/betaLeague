@@ -21,11 +21,24 @@ function _updatePlayerTimerCourt(courtNum) {
   _renderPlayerTimers();
 }
 
+// When a push notification arrives the service worker posts PUSH_RECEIVED to all
+// open clients.  React immediately so the player sees timer changes with no lag
+// instead of waiting up to 60 s for the next background poll.
+if (navigator.serviceWorker) {
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data && event.data.type === 'PUSH_RECEIVED') {
+      _fetchPtState();
+    }
+  });
+}
+
 // Start polling — safe to call multiple times (guarded).
+// 60 s baseline: push notifications handle real-time timer events;
+// this poll is just a safety net for players without push enabled.
 function _startPlayerTimerPolling() {
   if (_ptPollId) return;
   _fetchPtState();
-  _ptPollId = setInterval(_fetchPtState, 5000);
+  _ptPollId = setInterval(_fetchPtState, 60000);
   _ptTickId = setInterval(_renderPlayerTimers, 1000);
   document.addEventListener('visibilitychange', _onPtVisibility);
 }
@@ -44,7 +57,7 @@ function _onPtVisibility() {
     _ptPollId = null;
   } else {
     _fetchPtState();
-    if (!_ptPollId) _ptPollId = setInterval(_fetchPtState, 5000);
+    if (!_ptPollId) _ptPollId = setInterval(_fetchPtState, 60000);
   }
 }
 
