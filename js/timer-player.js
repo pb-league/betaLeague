@@ -33,12 +33,13 @@ if (navigator.serviceWorker) {
 }
 
 // Start polling — safe to call multiple times (guarded).
-// 60 s baseline: push notifications handle real-time timer events;
-// this poll is just a safety net for players without push enabled.
+// 5 s interval: only runs for players who have opted in via the checkbox,
+// so the polling cost is limited to those who explicitly want timer display.
+// Push notifications trigger immediate fetches as a bonus when available.
 function _startPlayerTimerPolling() {
   if (_ptPollId) return;
   _fetchPtState();
-  _ptPollId = setInterval(_fetchPtState, 60000);
+  _ptPollId = setInterval(_fetchPtState, 5000);
   _ptTickId = setInterval(_renderPlayerTimers, 1000);
   document.addEventListener('visibilitychange', _onPtVisibility);
 }
@@ -57,7 +58,7 @@ function _onPtVisibility() {
     _ptPollId = null;
   } else {
     _fetchPtState();
-    if (!_ptPollId) _ptPollId = setInterval(_fetchPtState, 60000);
+    if (!_ptPollId) _ptPollId = setInterval(_fetchPtState, 5000);
   }
 }
 

@@ -6,6 +6,13 @@
 
 const CHANGELOG = [
 {
+  version: '1.5.14',
+  date: '2026-04-20',
+  changes: [
+    'Timer opt-in: polling interval restored to 5 s for players who have opted in (push notifications are not always available, so polling is the reliable sync mechanism; the checkbox keeps it opt-in so non-timer players generate no polling)',
+  ]
+},
+{
   version: '1.5.13',
   date: '2026-04-20',
   changes: [
