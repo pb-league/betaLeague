@@ -11,7 +11,7 @@
 //   GAS API     → Network-only (never cache)
 // ============================================================
 
-const FALLBACK_VERSION = 'pb-league-v1.5.10';
+const FALLBACK_VERSION = 'pb-league-v1.5.11';
 
 const HTML_FILES = [
   './index.html',

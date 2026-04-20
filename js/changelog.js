@@ -6,6 +6,15 @@
 
 const CHANGELOG = [
 {
+  version: '1.5.11',
+  date: '2026-04-20',
+  changes: [
+    'Audit log: every login attempt (player PIN, admin password, app manager) is now recorded to an audit_log tab on the registry spreadsheet — timestamp, league, player, role, success/fail, reason',
+    'Timer polling: reduced from every 5 s to every 60 s (safety net only); push notifications now trigger an immediate timer state fetch so players see timer changes with no lag',
+    'Timer opt-in: player dashboard now shows a "Show court timers" checkbox for leagues on the Max tier; polling only starts when the player opts in; preference is saved per league in localStorage',
+  ]
+},
+{
   version: '1.5.10',
   date: '2026-04-20',
   changes: [
