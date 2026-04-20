@@ -6,6 +6,14 @@
 
 const CHANGELOG = [
 {
+  version: '1.5.13',
+  date: '2026-04-20',
+  changes: [
+    'Timer: pausing or resetting a timer now sends a push notification to players and waits for the backend save to complete before doing so — eliminates the race condition where players fetched stale (still-running) timer state',
+    'Admin/player chat: background 25 s polling removed; chat badge updates are now push-triggered (zero background polling when not on the chat page)',
+  ]
+},
+{
   version: '1.5.11',
   date: '2026-04-20',
   changes: [

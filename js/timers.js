@@ -201,12 +201,14 @@ function _buildTimerSnapshot() {
   return { timers };
 }
 
-// Fire-and-forget push to backend (swallows errors to never disrupt UI)
+// Push timer state to backend — returns the promise so callers can chain
+// a push notification after the save completes (avoids race where players
+// fetch stale state before the backend write finishes).
 function _pushTimerState() {
   try {
-    if (typeof API === 'undefined') return;
-    API.setTimerState(_buildTimerSnapshot()).catch(() => {});
-  } catch(e) {}
+    if (typeof API === 'undefined') return Promise.resolve();
+    return API.setTimerState(_buildTimerSnapshot()).catch(() => {});
+  } catch(e) { return Promise.resolve(); }
 }
 
 // ── Render ────────────────────────────────────────────────────
@@ -493,9 +495,11 @@ function timerToggle(index) {
     st.running = false;
     if (st.phase !== 'done' && st.phase !== 'negative') st.phase = 'paused';
     _updateTimerLive(index);
-    _pushTimerState();
-    const configs = _loadConfigs();
-    _sendTimerPush('⏸️ ' + (configs[index]?.title || 'Game Timer'), 'Timer paused — ' + _fmt(st.currentSeconds) + ' remaining', configs[index] || {});
+    const pausedSecs = st.currentSeconds;
+    _pushTimerState().then(() => {
+      const configs = _loadConfigs();
+      _sendTimerPush('⏸️ ' + (configs[index]?.title || 'Game Timer'), 'Timer paused — ' + _fmt(pausedSecs) + ' remaining', configs[index] || {});
+    });
     return;
   }
 
@@ -573,8 +577,9 @@ function timerReset(index) {
   st.endPushFired = false;
   st.countdownRemaining = 0;
   _updateTimerLive(index);
-  _pushTimerState();
-  _sendTimerPush('⏹️ ' + (config.title || 'Game Timer'), 'Timer reset', config);
+  _pushTimerState().then(() => {
+    _sendTimerPush('⏹️ ' + (config.title || 'Game Timer'), 'Timer reset', config);
+  });
 }
 
 function timerToggleMute(index) {
