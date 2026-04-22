@@ -85,9 +85,10 @@ const API = (() => {
     confirmPayment:        (sessionId)            => post({ action: 'confirmPayment', sessionId }),
     validateOwnSupabase:   (supabaseUrl, supabaseKey) => post({ action: 'validateOwnSupabase', supabaseUrl, supabaseKey }),
 
-    validatePIN:             (name, pin)  => post({ action: 'validatePIN', name, pin }),
-    validateAdminPassword:   (password)   => post({ action: 'validateAdminPassword', password }),
-    validateAppManager:      (password)   => post({ action: 'validateAppManager', password }),
+    validatePIN:             (name, pin)           => post({ action: 'validatePIN', name, pin }),
+    validateAdminPassword:   (password, isLogin)   => post({ action: 'validateAdminPassword', password, isLogin: isLogin || false }),
+    validateAppManager:      (password)            => post({ action: 'validateAppManager', password }),
+    verifyAdminOtp:          (leagueId, otp)       => post({ action: 'verifyAdminOtp', leagueId, otp }),
     registerPlayer:   (payload)        => post({ action: 'registerPlayer', ...payload }),
     submitApplication:  (payload)          => post({ action: 'submitApplication', ...payload }),
     getApplications:    ()       => post({ action: 'getApplications' }),
@@ -113,6 +114,11 @@ const API = (() => {
     changePinForce:   (name, newPin)             => post({ action: 'changePinForce', name, newPin }),
     emailPin:         (name)             => post({ action: 'emailPin', name }),
     emailAdminPin:    (leagueId)         => post({ action: 'emailAdminPin', leagueId }),
+
+    // Backup reminders
+    getBackupStatus:    ()  => post({ action: 'getBackupStatus' }),
+    recordBackupDone:   ()  => post({ action: 'recordBackupDone' }),
+    recordBackupSkipped: () => post({ action: 'recordBackupSkipped' }),
 
     // Push notifications
     saveVapidPrivateKey:    (password, privateKey)         => post({ action: 'saveVapidPrivateKey', password, privateKey }),

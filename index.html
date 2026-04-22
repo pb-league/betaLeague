@@ -280,16 +280,25 @@
         <button id="btn-role-admin" class="btn btn-primary" style="flex:1; font-size:0.82rem; padding:8px;">League Admin</button>
         <button id="btn-role-manager" class="btn btn-secondary" style="flex:1; font-size:0.82rem; padding:8px;">App Manager</button>
       </div>
-      <div class="form-group">
+      <div class="form-group" id="admin-pw-group">
         <label class="form-label" id="admin-pw-label">Admin Password</label>
         <input class="form-control" id="admin-password" type="password"
                inputmode="text" placeholder="Enter password" autocomplete="current-password">
+      </div>
+      <div id="admin-otp-section" class="hidden">
+        <div id="admin-otp-msg" style="color:var(--muted); font-size:0.82rem; margin-bottom:8px;"></div>
+        <div class="form-group">
+          <label class="form-label">Verification Code</label>
+          <input class="form-control" id="admin-otp-input" type="text"
+                 inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code">
+        </div>
       </div>
       <div id="admin-error" style="color:var(--danger); font-size:0.82rem; margin-bottom:8px; display:none;"></div>
       <div id="admin-recovery" class="hidden" style="font-size:0.8rem; margin-bottom:10px;"></div>
       <div class="btn-group">
         <button class="btn btn-secondary" id="btn-admin-back">← Back</button>
         <button class="btn btn-primary" id="btn-admin-login" style="flex:1;">Login →</button>
+        <button class="btn btn-primary hidden" id="btn-admin-verify-otp" style="flex:1;">Verify Code →</button>
       </div>
     </div>
 
@@ -460,7 +469,7 @@
 
 <div id="toast-container"></div>
 
-<script src="js/settings.js?v=1.5.15"></script>
+<script src="js/settings.js?v=1.5.17"></script>
   <!-- Google Analytics — loads only if GA_MEASUREMENT_ID is set in settings.js -->
   <script>
     window.__gaReady = false;
@@ -482,8 +491,8 @@
       window.__gaReady = true;
     });
   </script>
-<script src="js/api.js?v=1.5.15"></script>
-<script src="js/auth.js?v=1.5.15"></script>
+<script src="js/api.js?v=1.5.17"></script>
+<script src="js/auth.js?v=1.5.17"></script>
 <script>
 (async function init() {
   // If already logged in with a valid league, redirect
@@ -1362,6 +1371,21 @@
     const rec = document.getElementById('admin-recovery');
     rec.classList.add('hidden');
     rec.innerHTML = '';
+    document.getElementById('admin-otp-section').classList.add('hidden');
+    document.getElementById('admin-otp-input').value = '';
+    document.getElementById('admin-otp-msg').textContent = '';
+    document.getElementById('admin-pw-group').style.display = '';
+    document.getElementById('btn-admin-login').classList.remove('hidden');
+    document.getElementById('btn-admin-verify-otp').classList.add('hidden');
+  }
+
+  function showAdminOtpSection(msg) {
+    document.getElementById('admin-pw-group').style.display = 'none';
+    document.getElementById('admin-otp-section').classList.remove('hidden');
+    document.getElementById('admin-otp-msg').textContent = msg || 'Check your recovery email for a 6-digit code.';
+    document.getElementById('btn-admin-login').classList.add('hidden');
+    document.getElementById('btn-admin-verify-otp').classList.remove('hidden');
+    document.getElementById('admin-otp-input').focus();
   }
 
   document.getElementById('btn-role-admin').addEventListener('click', () => {
@@ -1389,6 +1413,10 @@
     if (e.key === 'Enter') document.getElementById('btn-admin-login').click();
   });
 
+  document.getElementById('admin-otp-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-admin-verify-otp').click();
+  });
+
   document.getElementById('btn-admin-login').addEventListener('click', async () => {
     const password = document.getElementById('admin-password').value.trim();
     const errEl = document.getElementById('admin-error');
@@ -1408,13 +1436,15 @@
       }
       if (result.valid) {
         window.location.href = 'admin.html';
+      } else if (result.requireOtp) {
+        showAdminOtpSection(result.reason);
       } else {
-        errEl.textContent = result.reason || 'Incorrect password.';
+        errEl.textContent = result.reason || 'Incorrect password. One more attempt before one time password will be emailed.';
         errEl.style.display = 'block';
         document.getElementById('admin-password').value = '';
 
-        // Offer recovery email for league admin (not app manager — no email on file)
-        if (adminLoginRole === 'admin' && selectedLeague) {
+        // Offer recovery email only on first failure, only if email is configured
+        if (adminLoginRole === 'admin' && selectedLeague && !result.noEmail && !result.locked) {
           const recEl = document.getElementById('admin-recovery');
           recEl.innerHTML = `<span style="color:var(--muted);">Forgot your password?
             <button id="btn-admin-send-pw" class="btn btn-secondary"
@@ -1444,6 +1474,41 @@
       errEl.style.display = 'block';
     } finally {
       btn.disabled = false; btn.textContent = '🔑 Login';
+    }
+  });
+
+  document.getElementById('btn-admin-verify-otp').addEventListener('click', async () => {
+    const otp = document.getElementById('admin-otp-input').value.trim();
+    const errEl = document.getElementById('admin-error');
+    errEl.style.display = 'none';
+    if (!otp) { errEl.textContent = 'Please enter the verification code.'; errEl.style.display = 'block'; return; }
+
+    const btn = document.getElementById('btn-admin-verify-otp');
+    btn.disabled = true; btn.textContent = '…';
+
+    try {
+      const result = await API.verifyAdminOtp(selectedLeague.leagueId, otp);
+      if (result.valid) {
+        Auth.setSession(result.name, true, selectedLeague.leagueId, selectedLeague.name, true, result.role || 'admin');
+        window.location.href = 'admin.html';
+      } else {
+        errEl.textContent = result.reason || 'Incorrect verification code.';
+        errEl.style.display = 'block';
+        document.getElementById('admin-otp-input').value = '';
+        // If locked out after wrong/expired OTP, return to password view
+        if (result.expired || (result.reason && result.reason.includes('15 minutes'))) {
+          document.getElementById('admin-otp-section').classList.add('hidden');
+          document.getElementById('admin-pw-group').style.display = '';
+          document.getElementById('btn-admin-login').classList.remove('hidden');
+          btn.classList.add('hidden');
+        }
+      }
+    } catch (e) {
+      errEl.textContent = 'Error: ' + e.message;
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      if (!btn.classList.contains('hidden')) btn.textContent = 'Verify Code →';
     }
   });
 
@@ -1586,8 +1651,27 @@
       );
       if (result.valid) {
         window.location.href = (result.role === 'assistant') ? 'admin.html' : 'player.html';
+      } else if (result.locked && result.waitSeconds) {
+        document.getElementById('pin-error-msg').textContent = result.reason || 'Too many failed attempts.';
+        document.getElementById('pin-error').classList.remove('hidden');
+        document.getElementById('pin-input').value = '';
+        const loginBtn = document.getElementById('btn-login');
+        loginBtn.disabled = true;
+        let remaining = result.waitSeconds;
+        loginBtn.textContent = 'Wait ' + remaining + 's';
+        const countdown = setInterval(() => {
+          remaining--;
+          if (remaining <= 0) {
+            clearInterval(countdown);
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Enter';
+            document.getElementById('pin-error').classList.add('hidden');
+          } else {
+            loginBtn.textContent = 'Wait ' + remaining + 's';
+          }
+        }, 1000);
       } else {
-        document.getElementById('pin-error-msg').textContent = result.reason || 'Incorrect password';
+        document.getElementById('pin-error-msg').textContent = result.reason || 'Incorrect password. One more attempt before 30-second lockout.';
         document.getElementById('pin-error').classList.remove('hidden');
         document.getElementById('pin-input').value = '';
 

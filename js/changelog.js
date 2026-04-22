@@ -6,17 +6,20 @@
 
 const CHANGELOG = [
 {
-  version: '1.5.15',
-  date: '2026-04-20',
+  version: '1.5.17',
+  date: '2026-04-22',
   changes: [
-    'Chat: background poll restored at 120 s (down from 25 s) as a fallback for players without push notifications; push-subscribed players still get immediate badge updates via service worker message',
+    'Security: brute-force protection for player passwords — 30-second lockout after 2 failed attempts, 5-minute lockout after 5 failed attempts; login button shows countdown timer',
+    'Security: admin login OTP — after a 2nd failed password attempt an email verification code (valid 10 minutes) is sent to the recovery email on file; incorrect or expired code locks the account for 15 minutes',
+    'Security: if no recovery email is configured for the league, the admin is locked out for 15 minutes after 2 failed attempts with instructions to contact the app developer',
   ]
 },
 {
-  version: '1.5.14',
-  date: '2026-04-20',
+  version: '1.5.16',
+  date: '2026-04-21',
   changes: [
-    'Timer opt-in: polling interval restored to 5 s for players who have opted in (push notifications are not always available, so polling is the reliable sync mechanism; the checkbox keeps it opt-in so non-timer players generate no polling)',
+    'Backup reminder: admin is prompted to download a JSON backup on login if more than 7 days since last backup; skipping resets the reminder to 3 days',
+    'Offline scoresheet: download a self-contained HTML scoresheet from the Pairings tab, pre-filled with current session pairings, editable court names and session number, works without internet',
   ]
 },
 {
@@ -25,14 +28,7 @@ const CHANGELOG = [
   changes: [
     'Timer: pausing or resetting a timer now sends a push notification to players and waits for the backend save to complete before doing so — eliminates the race condition where players fetched stale (still-running) timer state',
     'Admin/player chat: background 25 s polling removed; chat badge updates are now push-triggered (zero background polling when not on the chat page)',
-  ]
-},
-{
-  version: '1.5.11',
-  date: '2026-04-20',
-  changes: [
     'Audit log: every login attempt (player PIN, admin password, app manager) is now recorded to an audit_log tab on the registry spreadsheet — timestamp, league, player, role, success/fail, reason',
-    'Timer polling: reduced from every 5 s to every 60 s (safety net only); push notifications now trigger an immediate timer state fetch so players see timer changes with no lag',
     'Timer opt-in: player dashboard now shows a "Show court timers" checkbox for leagues on the Max tier; polling only starts when the player opts in; preference is saved per league in localStorage',
   ]
 },

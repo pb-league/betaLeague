@@ -454,6 +454,43 @@ const ROLE_COLORS = {
     document.querySelectorAll('#page-scores .score-input').forEach(el => { el.disabled = true; });
   }
 
+  async function checkAndPromptBackup() {
+    try {
+      let daysSince = null;
+      try {
+        const status = await API.getBackupStatus();
+        if (status && status.due === false) return;
+        if (status && status.daysSince != null) daysSince = status.daysSince;
+      } catch (e) { /* API unavailable — still show prompt */ }
+      const daysMsg = daysSince === null
+        ? 'No backup has ever been made for this league.'
+        : `Last backup was ${daysSince} day${daysSince === 1 ? '' : 's'} ago.`;
+
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+      overlay.innerHTML = `
+        <div style="background:var(--surface,#fff);border-radius:12px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+          <h3 style="margin:0 0 10px;font-size:1.05rem;">Backup Reminder</h3>
+          <p style="margin:0 0 20px;color:var(--muted,#666);font-size:0.9rem;">${daysMsg} Download a backup now to protect your league data?</p>
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button id="backup-skip-btn" style="padding:8px 16px;border:1px solid var(--border,#ccc);background:transparent;border-radius:6px;cursor:pointer;font-size:0.9rem;">Remind in 3 days</button>
+            <button id="backup-download-btn" style="padding:8px 16px;background:var(--primary,#2563eb);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;font-weight:600;">Download Backup</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+
+      document.getElementById('backup-download-btn').onclick = async () => {
+        document.body.removeChild(overlay);
+        document.getElementById('btn-export-json')?.click();
+        API.recordBackupDone().catch(() => {});
+      };
+      document.getElementById('backup-skip-btn').onclick = () => {
+        document.body.removeChild(overlay);
+        API.recordBackupSkipped().catch(() => {});
+      };
+    } catch (e) { /* never block the admin */ }
+  }
+
   API.getAllData().then(data => {
     state.pairings  = data.pairings  || [];
     state.scores    = data.scores    || [];
@@ -487,6 +524,7 @@ const ROLE_COLORS = {
     populateWeekSelect('pair-week-select',  'currentPairWeek');
     populateWeekSelect('score-week-select', 'currentScoreWeek');
     updateTournamentResultsNav();
+    checkAndPromptBackup();
   }).catch(e => {
     const errHtml = `<p style="padding:12px; color:var(--danger); font-size:0.82rem;">⚠ Could not load scores/pairings: ${e.message}</p>`;
     if (standEl) standEl.innerHTML = errHtml;
@@ -2057,7 +2095,7 @@ const ROLE_COLORS = {
     document.getElementById('cfg-allow-registration').checked = c.allowRegistration === true || c.allowRegistration === 'true';
     document.getElementById('cfg-reg-code').value              = c.registrationCode   || '';
     document.getElementById('cfg-reg-max-pending').value       = c.maxPendingReg      || 10;
-    document.getElementById('cfg-reg-max-participants').value  = c.maxParticipants    != null && c.maxParticipants !== '' ? c.maxParticipants : '';
+    { const _mp = parseInt(c.maxParticipants); document.getElementById('cfg-reg-max-participants').value = isFinite(_mp) ? _mp : ''; }
     document.getElementById('cfg-reg-fee').value               = c.registrationFee    != null ? c.registrationFee : '';
     document.getElementById('cfg-stripe-secret-key').value     = c.stripeSecretKey     || '';
     document.getElementById('cfg-reg-payment-required').checked = c.registrationPaymentRequired === true || c.registrationPaymentRequired === 'true';
@@ -6552,6 +6590,413 @@ function doPost(e) {
       if (e.key === 'Enter') document.getElementById('confirm-pw-save-btn').click();
     });
 
+    // ── Offline scoresheet generator ────────────────────────────
+    function generateOfflineScoresheet() {
+      const week       = state.currentPairWeek || 1;
+      const leagueId   = Auth.getSession()?.leagueId || 'league';
+      const leagueName = state.config.leagueName || leagueId;
+      const gameMode   = state.config.gameMode || 'doubles';
+      const defCourts  = Math.max(1, parseInt(state.config.courts        || 3));
+      const defRounds  = Math.max(1, parseInt(state.config.gamesPerSession || 7));
+      const maxCourts  = Math.max(defCourts, 8);
+      const maxRounds  = Math.max(defRounds, 12);
+      const today      = new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+      const pairingsForWeek = (state.pairings || []).filter(
+        p => parseInt(p.week) === week && (p.type === 'game' || p.type === 'tourn-game')
+      );
+
+      const rosterNames = (state.players || [])
+        .map(p => p.name).filter(Boolean).sort((a, b) => a.localeCompare(b));
+
+      // Collect custom court names from config, matching courtName() priority:
+      // per-session name first (courtName_1_w2), then generic (courtName_1).
+      const usePerSession = state.config.courtNamesPerSession === true || state.config.courtNamesPerSession === 'true';
+      const courtNamesMap = {};
+      for (let c = 1; c <= maxCourts; c++) {
+        const n = (usePerSession && state.config[`courtName_${c}_w${week}`]) || state.config['courtName_' + c] || '';
+        if (n.trim()) courtNamesMap[c] = n.trim();
+      }
+
+      const lsKey = 'offline_sheet_' + leagueId + '_w' + week;
+
+      const courtsOpts = Array.from({length: maxCourts}, (_, i) => {
+        const n = i + 1;
+        return `<option value="${n}"${n === defCourts ? ' selected' : ''}>${n}</option>`;
+      }).join('');
+      const roundsOpts = Array.from({length: maxRounds}, (_, i) => {
+        const n = i + 1;
+        return `<option value="${n}"${n === defRounds ? ' selected' : ''}>${n}</option>`;
+      }).join('');
+
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scoresheet \u2013 ${esc(leagueName)} \u2013 Session ${week}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d1b2a;color:#f0f4f8;font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;padding:16px;min-height:100vh}
+h1{font-size:1.25rem;font-weight:700}
+.controls-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:12px 14px;background:#1a2f45;border-radius:10px}
+.controls-bar label{font-size:0.85rem;color:#7a9bb5;display:flex;align-items:center;gap:6px}
+select{background:#243b55;color:#f0f4f8;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:4px 8px;font-size:0.9rem;cursor:pointer}
+.btn{padding:7px 14px;border:none;border-radius:7px;cursor:pointer;font-size:0.85rem;font-weight:600;transition:opacity 0.15s}
+.btn:hover{opacity:0.85}
+.btn-clear{background:#243b55;color:#f0f4f8;border:1px solid rgba(255,255,255,0.15)}
+.btn-export{background:#2a5c8a;color:#f0f4f8;border:1px solid rgba(94,194,255,0.3)}
+.btn-print{background:#5ec26a;color:#0d1b2a}
+.sheet-header{margin-bottom:18px}
+.sheet-header h1{font-size:1.15rem;margin-bottom:5px}
+.meta{font-size:0.85rem;color:#7a9bb5;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.meta-input{background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.2);color:#f0f4f8;font-size:0.85rem;padding:2px 6px;outline:none}
+.session-input{width:42px;text-align:center;-moz-appearance:textfield}
+.session-input::-webkit-outer-spin-button,.session-input::-webkit-inner-spin-button{-webkit-appearance:none}
+.date-input{width:210px}
+.round-block{margin-bottom:14px}
+.round-label{font-size:0.72rem;font-weight:700;color:#7a9bb5;text-transform:uppercase;letter-spacing:0.08em;padding:4px 2px 5px;border-bottom:1px solid rgba(255,255,255,0.07);margin-bottom:5px}
+.round-label strong{font-size:0.82rem;color:#f0f4f8}
+.game-card{background:#243b55;border-radius:7px;padding:6px 10px;margin-bottom:4px}
+.game-grid{display:grid;grid-template-columns:auto 1fr auto 1fr;align-items:center;gap:6px}
+.court-lbl-input{background:transparent;border:none;border-bottom:1px solid rgba(255,255,255,0.12);color:#7a9bb5;font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;width:72px;padding:0 4px 1px;outline:none;cursor:text}
+.court-lbl-input:focus{border-bottom-color:#5ec26a}
+.team{display:flex;flex-direction:column;gap:3px;min-width:0}
+.team1{text-align:right;align-items:flex-end}
+.team2{text-align:left;align-items:flex-start}
+.name-input{background:#1a2f45;border:1px solid rgba(255,255,255,0.12);border-radius:5px;color:#f0f4f8;font-size:0.88rem;padding:4px 7px;width:100%;max-width:170px;outline:none;transition:border-color 0.15s}
+.name-input:focus{border-color:#5ec26a}
+.scores{display:flex;align-items:center;justify-content:center;gap:4px;flex-shrink:0;padding:0 4px}
+.score-input{width:44px;text-align:center;background:#1a2f45;border:1px solid rgba(255,255,255,0.12);border-radius:6px;color:#f0f4f8;font-size:1.2rem;font-weight:700;padding:4px;outline:none;transition:border-color 0.15s;-moz-appearance:textfield}
+.score-input:focus{border-color:#5ec26a}
+.score-input::-webkit-outer-spin-button,.score-input::-webkit-inner-spin-button{-webkit-appearance:none}
+.score-sep{color:#7a9bb5;font-size:0.85rem}
+@media print{
+  .no-print{display:none!important}
+  body{background:#fff;color:#000;padding:8px}
+  .sheet-header h1,.round-label strong{color:#000}
+  .meta,.round-label{color:#555}
+  .meta-input{color:#000;border-bottom:1px solid #aaa}
+  .round-label{border-bottom:1px solid #ccc}
+  .game-card{background:#f5f7fa;border:1px solid #ddd;break-inside:avoid}
+  .court-lbl-input{color:#555;border-bottom:none}
+  .name-input{background:#fff;border:1px solid #bbb;color:#000}
+  .score-input{background:#fff;border:1px solid #bbb;color:#000}
+  .score-sep{color:#555}
+  input::placeholder{color:transparent}
+}
+</style>
+</head>
+<body>
+<div class="no-print controls-bar">
+  <div style="flex:1"><h1>${esc(leagueName)}</h1></div>
+  <label>Courts: <select id="sel-courts">${courtsOpts}</select></label>
+  <label>Rounds: <select id="sel-rounds">${roundsOpts}</select></label>
+  <button class="btn btn-clear" onclick="clearSheet()">Clear Names &amp; Scores</button>
+  <button class="btn btn-export" onclick="downloadForImport()" title="Save a file you can import back into League Manager">&#128229; Save for Import</button>
+  <button class="btn btn-print" onclick="window.print()">Print / PDF</button>
+</div>
+<div class="sheet-header">
+  <h1>${esc(leagueName)}</h1>
+  <div class="meta">
+    Session&nbsp;<input class="meta-input session-input" id="session-num" data-key="session" type="number" min="1" max="99" value="${week}">&nbsp;&bull;&nbsp;Date:&nbsp;<input class="meta-input date-input" id="date-field" data-key="date" type="text" value="${today}">
+  </div>
+</div>
+<div id="sheet"></div>
+<datalist id="roster-list">
+${rosterNames.map(n => `  <option value="${esc(n)}">`).join('\n')}
+</datalist>
+<script>
+var P=${JSON.stringify(pairingsForWeek)};
+var GM=${JSON.stringify(gameMode)};
+var CN=${JSON.stringify(courtNamesMap)};
+var LSK=${JSON.stringify(lsKey)};
+var GID='${Date.now()}';
+var FN=${JSON.stringify(`${safeName}-session${week}-scoresheet`)};
+var mem={};
+function defaultCn(c){return CN[c]||('Court '+c);}
+function xe(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function pf(r,c,slot){
+  for(var i=0;i<P.length;i++){
+    var x=P[i];
+    if(String(x.round)===String(r)&&String(x.court)===String(c)){
+      return [x.p1,x.p2,x.p3,x.p4][slot-1]||'';
+    }
+  }
+  return '';
+}
+function mk(t,r,c,s){return t+'_r'+r+'_c'+c+'_'+s;}
+function saveMem(){
+  var els=document.querySelectorAll('[data-key]');
+  for(var i=0;i<els.length;i++) mem[els[i].dataset.key]=els[i].value;
+  mem['__gen__']=GID;
+  try{localStorage.setItem(LSK,JSON.stringify(mem));}catch(e){}
+}
+function restoreMem(){
+  try{var s=JSON.parse(localStorage.getItem(LSK)||'{}');Object.assign(mem,s);}catch(e){}
+  // If this is a newly generated file, discard stale player names and scores
+  // but keep court name and header edits (cn_*, session, date).
+  if(mem['__gen__']!==GID){
+    Object.keys(mem).forEach(function(k){if(/^[ns]_/.test(k)) delete mem[k];});
+    mem['__gen__']=GID;
+  }
+  var els=document.querySelectorAll('[data-key]');
+  for(var i=0;i<els.length;i++){var k=els[i].dataset.key;if(mem[k]!==undefined)els[i].value=mem[k];}
+}
+function render(){
+  saveMem();
+  var courts=parseInt(document.getElementById('sel-courts').value);
+  var rounds=parseInt(document.getElementById('sel-rounds').value);
+  var dbl=GM!=='singles';
+  var h='';
+  for(var r=1;r<=rounds;r++){
+    h+='<div class="round-block"><div class="round-label"><strong>Round '+r+'</strong></div>';
+    for(var c=1;c<=courts;c++){
+      var courtKey='cn_c'+c;
+      var courtVal=xe(mem[courtKey]!==undefined?mem[courtKey]:defaultCn(c));
+      var p1=pf(r,c,1),p2=dbl?pf(r,c,2):'',p3=pf(r,c,3),p4=dbl?pf(r,c,4):'';
+      h+='<div class="game-card"><div class="game-grid">';
+      h+='<input class="court-lbl-input" data-key="'+courtKey+'" value="'+courtVal+'" title="Edit court name">';
+      h+='<div class="team team1">';
+      h+='<input class="name-input" list="roster-list" data-key="'+mk('n',r,c,1)+'" value="'+xe(p1)+'" placeholder="Player 1">';
+      if(dbl)h+='<input class="name-input" list="roster-list" data-key="'+mk('n',r,c,2)+'" value="'+xe(p2)+'" placeholder="Player 2">';
+      h+='</div><div class="scores">';
+      h+='<input type="number" class="score-input" data-key="'+mk('s',r,c,1)+'" min="0" max="99" inputmode="numeric">';
+      h+='<span class="score-sep">\u2014</span>';
+      h+='<input type="number" class="score-input" data-key="'+mk('s',r,c,2)+'" min="0" max="99" inputmode="numeric">';
+      h+='</div><div class="team team2">';
+      h+='<input class="name-input" list="roster-list" data-key="'+mk('n',r,c,3)+'" value="'+xe(p3)+'" placeholder="Player 3">';
+      if(dbl)h+='<input class="name-input" list="roster-list" data-key="'+mk('n',r,c,4)+'" value="'+xe(p4)+'" placeholder="Player 4">';
+      h+='</div></div></div>';
+    }
+    h+='</div>';
+  }
+  document.getElementById('sheet').innerHTML=h;
+  restoreMem();
+  var els=document.querySelectorAll('[data-key]');
+  for(var i=0;i<els.length;i++) els[i].addEventListener('input',saveMem);
+  setupTabGroups();
+}
+function setupTabGroups(){
+  // Court label inputs are purely editorial — remove from tab order entirely
+  document.querySelectorAll('.court-lbl-input').forEach(function(el){el.tabIndex=-1;});
+  // Name inputs: Tab/Shift+Tab only cycles within name inputs
+  var names=Array.from(document.querySelectorAll('.name-input'));
+  names.forEach(function(el,i){
+    el.addEventListener('keydown',function(e){
+      if(e.key!=='Tab') return;
+      e.preventDefault();
+      var target=e.shiftKey?names[i-1]:names[i+1];
+      if(target) target.focus();
+    });
+  });
+  // Score inputs: Tab/Shift+Tab only cycles within score inputs
+  var scores=Array.from(document.querySelectorAll('.score-input'));
+  scores.forEach(function(el,i){
+    el.addEventListener('keydown',function(e){
+      if(e.key!=='Tab') return;
+      e.preventDefault();
+      var target=e.shiftKey?scores[i-1]:scores[i+1];
+      if(target) target.focus();
+    });
+  });
+}
+function clearSheet(){
+  var names=document.querySelectorAll('.name-input');
+  for(var i=0;i<names.length;i++){names[i].value='';if(names[i].dataset.key)mem[names[i].dataset.key]='';}
+  var scores=document.querySelectorAll('.score-input');
+  for(var i=0;i<scores.length;i++){scores[i].value='';if(scores[i].dataset.key)mem[scores[i].dataset.key]='';}
+  try{localStorage.setItem(LSK,JSON.stringify(mem));}catch(e){}
+}
+function downloadForImport(){
+  saveMem();
+  var sess=mem['session']||document.getElementById('session-num').value||'?';
+  var payload=JSON.stringify(mem);
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Scoresheet Import \u2013 Session '+xe(String(sess))+'</title>'
+    +'<script id="lm-import-data" type="application/json">'+payload+'<\\/script>'
+    +'</head><body style="font-family:sans-serif;padding:24px;color:#333;">'
+    +'<p>Scoresheet import file for <strong>Session '+xe(String(sess))+'</strong>.</p>'
+    +'<p style="margin-top:8px;font-size:0.9rem;color:#666;">Open League Manager Admin \u2192 Score Entry \u2192 Import Scoresheet to load these scores.</p>'
+    +'</body></html>';
+  var blob=new Blob([html],{type:'text/html'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=FN+'-import.html';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+document.getElementById('sel-courts').addEventListener('change',render);
+document.getElementById('sel-rounds').addEventListener('change',render);
+document.getElementById('session-num').addEventListener('input',saveMem);
+document.getElementById('date-field').addEventListener('input',saveMem);
+try{Object.assign(mem,JSON.parse(localStorage.getItem(LSK)||'{}'));}catch(e){}
+render();
+<\/script>
+</body>
+</html>`;
+
+      const safeName = leagueName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      _triggerDownload(html, `${safeName}-session${week}-scoresheet.html`, 'text/html');
+      showToast('Offline scoresheet downloaded — open the HTML file in any browser', 'success');
+    }
+
+    // ── Import offline scoresheet ───────────────────────────────
+    function importOfflineScoresheet() {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = '.html,text/html';
+      fileInput.onchange = async () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(text, 'text/html');
+
+          // Read the embedded JSON blob written by downloadForImport()
+          let mem = null;
+          const dataEl = doc.getElementById('lm-import-data');
+          if (dataEl) {
+            try { mem = JSON.parse(dataEl.textContent); } catch(e) {}
+          }
+
+          // Fallback: read value= attributes on data-key inputs (e.g. "Save Page As")
+          if (!mem) {
+            mem = {};
+            doc.querySelectorAll('[data-key]').forEach(el => {
+              const v = el.getAttribute('value');
+              if (v != null) mem[el.dataset.key] = v;
+            });
+          }
+
+          if (!mem || !Object.keys(mem).length) {
+            toast('No scoresheet data found in the file.', 'error');
+            return;
+          }
+
+          const importWeek = parseInt(mem['session']) || state.currentScoreWeek;
+          const isDoubles  = (state.config.gameMode || 'doubles') !== 'singles';
+
+          // Parse all round/court entries that have the required players.
+          // Split into: entries with scores (both s1+s2 present) and pairing-only (no scores).
+          const withScores = [];
+          const pairingOnly = [];
+          // Collect all round/court combos present in mem via name keys
+          const seen = new Set();
+          for (const key of Object.keys(mem)) {
+            const m = key.match(/^n_r(\d+)_c(\d+)_1$/);
+            if (!m) continue;
+            const r = parseInt(m[1]), c = parseInt(m[2]);
+            const ck = `${r}_${c}`;
+            if (seen.has(ck)) continue;
+            seen.add(ck);
+
+            const p1 = (mem[`n_r${r}_c${c}_1`] || '').trim();
+            const p2 = (mem[`n_r${r}_c${c}_2`] || '').trim();
+            const p3 = (mem[`n_r${r}_c${c}_3`] || '').trim();
+            const p4 = (mem[`n_r${r}_c${c}_4`] || '').trim();
+
+            // Must have all required players
+            if (isDoubles && (!p1 || !p2 || !p3 || !p4)) continue;
+            if (!isDoubles && (!p1 || !p3)) continue;
+
+            const s1 = mem[`s_r${r}_c${c}_1`];
+            const s2 = mem[`s_r${r}_c${c}_2`];
+            const hasScores = (s1 !== '' && s1 != null) && (s2 !== '' && s2 != null);
+            const entry = {
+              week: importWeek, round: r, court: String(c),
+              p1, p2: isDoubles ? p2 : '', p3, p4: isDoubles ? p4 : '',
+            };
+            if (hasScores) {
+              withScores.push({ ...entry, score1: parseInt(s1) || 0, score2: parseInt(s2) || 0 });
+            } else {
+              pairingOnly.push(entry);
+            }
+          }
+
+          if (!withScores.length && !pairingOnly.length) {
+            toast('No complete games found — each court needs all players assigned.', 'warn');
+            return;
+          }
+
+          // Check for score conflicts
+          const conflicts = withScores.filter(s =>
+            state.scores.some(e =>
+              parseInt(e.week) === s.week && parseInt(e.round) === s.round &&
+              String(e.court) === String(s.court) &&
+              e.score1 !== '' && e.score1 != null && e.score2 !== '' && e.score2 != null
+            )
+          );
+
+          if (conflicts.length) {
+            const noun = conflicts.length === 1 ? 'game' : 'games';
+            if (!confirm(`${conflicts.length} ${noun} in Session ${importWeek} already have scores recorded. Overwrite them?`)) return;
+          }
+
+          const wk = importWeek;
+
+          // Apply scores
+          for (const s of withScores) {
+            state.scores = state.scores.filter(e =>
+              !(parseInt(e.week) === s.week && parseInt(e.round) === s.round && String(e.court) === String(s.court))
+            );
+            state.scores.push(s);
+          }
+
+          // Apply pairing-only entries — add to state.pairings if not already present
+          const newPairings = [];
+          for (const p of pairingOnly) {
+            const exists = state.pairings.some(e =>
+              parseInt(e.week) === p.week && parseInt(e.round) === p.round && String(e.court) === String(p.court)
+            );
+            if (!exists) {
+              const newP = { ...p, type: 'game' };
+              state.pairings.push(newP);
+              newPairings.push(newP);
+            }
+          }
+
+          if (withScores.length) {
+            state.standings = Reports.computeStandings(
+              state.scores, state.players, state.pairings, null,
+              state.config.rankingMethod, state.attendance, state.config.pairingMode
+            );
+          }
+
+          // Save scores
+          if (withScores.length) {
+            const prevLock = state.saveLocks[wk] || Promise.resolve();
+            const thisLock = prevLock.then(async () => {
+              await API.saveScores(wk, state.scores.filter(s => parseInt(s.week) === wk));
+            });
+            state.saveLocks[wk] = thisLock.catch(() => {});
+            await thisLock;
+          }
+
+          // Save pairings if any new ones were added
+          if (newPairings.length) {
+            await API.savePairings(wk, state.pairings.filter(p => parseInt(p.week) === wk));
+          }
+
+          if (state.currentScoreWeek !== wk) {
+            state.currentScoreWeek = wk;
+            populateWeekSelect('score-week-select', 'currentScoreWeek');
+          }
+          renderScoresheet();
+          renderStandings();
+          const total = withScores.length + pairingOnly.length;
+          const parts = [];
+          if (withScores.length) parts.push(`${withScores.length} scored`);
+          if (pairingOnly.length) parts.push(`${newPairings.length} pairing${newPairings.length !== 1 ? 's' : ''} added`);
+          toast(`Imported for Session ${wk}: ${parts.join(', ')}.`, 'success');
+        } catch(e) {
+          toast('Import failed: ' + e.message, 'error');
+        }
+      };
+      fileInput.click();
+    }
+
+    document.getElementById('btn-import-scoresheet')?.addEventListener('click', importOfflineScoresheet);
+
     // ── Export helpers ──────────────────────────────────────────
     function _triggerDownload(content, filename, type) {
       const blob = new Blob([content], { type });
@@ -6653,6 +7098,7 @@ function doPost(e) {
 
     document.getElementById('btn-export-json')?.addEventListener('click', exportLeagueJSON);
     document.getElementById('btn-export-csv')?.addEventListener('click', exportLeagueCSV);
+    document.getElementById('btn-offline-scoresheet')?.addEventListener('click', generateOfflineScoresheet);
 
     document.getElementById('btn-save-config').addEventListener('click', async () => {
       if (isAssistant) { toast('Admin assistants cannot change league settings.', 'warn'); return; }

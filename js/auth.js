@@ -57,7 +57,7 @@ const Auth = (() => {
   }
 
   async function loginAdmin(password, leagueId, leagueName) {
-    const result = await API.validateAdminPassword(password);
+    const result = await API.validateAdminPassword(password, true);
     if (result.valid) {
       setSession(result.name, true, leagueId, leagueName, true, result.role || 'admin');
     }
