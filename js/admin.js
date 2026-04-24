@@ -2106,7 +2106,18 @@ const ROLE_COLORS = {
     });
 
     document.getElementById('cfg-rules').value    = c.rules       || '';
-    document.getElementById('cfg-admin-pin').value = '';
+    const _pinEl = document.getElementById('cfg-admin-pin');
+    _pinEl.value = '';
+    // Some browsers autofill password fields after JS clears them; clear again on first focus
+    _pinEl.addEventListener('focus', function _clearOnce() {
+      this.value = '';
+      this.removeEventListener('focus', _clearOnce);
+    }, { once: true });
+    document.getElementById('btn-toggle-admin-pin').addEventListener('click', function() {
+      const isHidden = _pinEl.type === 'password';
+      _pinEl.type = isHidden ? 'text' : 'password';
+      this.textContent = isHidden ? '🙈' : '👁';
+    });
     document.getElementById('cfg-weeks').value   = c.weeks || 8;
     document.getElementById('cfg-courts').value  = c.courts || 3;
     document.getElementById('cfg-games').value   = c.gamesPerSession || 7;
@@ -6400,6 +6411,7 @@ function doPost(e) {
         if (n.trim()) courtNamesMap[c] = n.trim();
       }
 
+      const safeName = leagueName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
       const lsKey = 'offline_sheet_' + leagueId + '_w' + week;
 
       const courtsOpts = Array.from({length: maxCourts}, (_, i) => {
@@ -6616,7 +6628,6 @@ render();
 </body>
 </html>`;
 
-      const safeName = leagueName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
       _triggerDownload(html, `${safeName}-session${week}-scoresheet.html`, 'text/html');
       showToast('Offline scoresheet downloaded — open the HTML file in any browser', 'success');
     }
@@ -6904,7 +6915,7 @@ render();
         stripeSecretKey:              document.getElementById('cfg-stripe-secret-key').value.trim(),
         registrationPaymentRequired:  document.getElementById('cfg-reg-payment-required').checked,
         rules:          document.getElementById('cfg-rules').value.trim(),
-        adminPin:       document.getElementById('cfg-admin-pin').value || state.config.adminPin,
+        adminPin:       document.getElementById('cfg-admin-pin').value.trim() || state.config.adminPin,
         replyTo:        state.config.replyTo || '',
         weeks,
         courts:         parseInt(document.getElementById('cfg-courts').value),
