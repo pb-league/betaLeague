@@ -10,7 +10,7 @@
 // ============================================================
 
 // ── Deployment target — change ONLY this line when switching environments ──
-const DEPLOY = 'release'; // 'beta' | 'netlify-beta' | 'release'
+const DEPLOY = 'beta'; // 'release'; // 'beta' | 'netlify-beta' | 'release'
 
 const _DEPLOY_ENVS = {
   'beta': {
