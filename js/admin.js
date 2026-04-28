@@ -1845,6 +1845,7 @@ const ROLE_COLORS = {
         <div style="padding:14px 16px; background:rgba(232,184,75,0.05);
             border:1px solid rgba(232,184,75,0.25); border-top:none;
             border-radius:0 0 8px 8px;">
+          ${tierAllows(state.limits?.tier, 'donationTracking') ? `
           <p style="font-size:0.85rem; color:var(--muted); line-height:1.75; margin:0 0 14px;">
             This app was built to help run your league — completely free. Other apps doing far less
             often charge significant fees. This helps you keep the cost of running leagues down. It took hundreds of hours to develop, test, and support.
@@ -1859,7 +1860,10 @@ const ROLE_COLORS = {
                      border:1px solid rgba(255,221,0,0.35); border-radius:4px; padding:1px 9px;
                      background:rgba(255,221,0,0.08); white-space:nowrap;">☕ Buy Me a Coffee</a>.
             <br>Donations also help cover ongoing costs for tools and hosting, and will enable new features and faster hosting to be added.
-          </p>
+          </p>` : `<p style="font-size:0.85rem; color:var(--muted); line-height:1.75; margin:0 0 14px;">
+            This app was built and provided to help run your league — completely free. Thank you for being patient and understanding 
+            while some bugs were being worked out due to it being only a few weeks old and only one person developing and testing it. 
+            Suggestions for improving it are greatly appreciated so that it can continue to meet the needs of pickleball players and league coordinators. </p>`}
           <div style="border-top:1px solid rgba(255,255,255,0.07); padding-top:12px;">
             <div style="font-size:0.78rem; font-weight:600; color:var(--muted);
                 text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">
@@ -2365,6 +2369,7 @@ const ROLE_COLORS = {
             </div>
           </div>
         </div>` : ''}
+        ${tierAllows(state.limits?.tier, 'donationTracking') ? `
         <div style="grid-column:1/-1; padding-top:10px; border-top:1px solid rgba(255,255,255,0.06); margin-top:2px;">
           <label class="label" style="display:block; margin-bottom:6px; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted);">Donation</label>
           <div style="display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;">
@@ -2382,7 +2387,7 @@ const ROLE_COLORS = {
               </select>
             </div>
           </div>
-        </div>
+        </div>` : ''}
         <div style="grid-column:1/-1; padding-top:4px; border-top:1px solid rgba(255,255,255,0.06); margin-top:2px;">
           <button class="btn btn-danger" data-remove="${i}" style="font-size:0.82rem;">Delete ${isFixedPairs ? 'Team' : 'Player'}</button>
         </div>

@@ -29,8 +29,8 @@ const _DEPLOY_ENVS = {
 const { GAS_URL, APP_BASE_URL } = _DEPLOY_ENVS[DEPLOY];
 
 // App version — bump when deploying changes
-const APP_VERSION    = '1.5.18';
-const APP_BUILD_DATE = '2026-04-22';
+const APP_VERSION    = '1.5.21';
+const APP_BUILD_DATE = '2026-04-26';
 
 const TIERS = [
 {
@@ -58,7 +58,8 @@ const TIERS = [
       'createLeagues',
       'deleteLeagues',
       'deletePlayers',
-      'changePasswords'
+      'changePasswords',
+      'donationTracking'
     ],
 
   },
@@ -80,13 +81,14 @@ const TIERS = [
       'finalRoundAnalysis',
       'arrangeGames',
       'challenges',
-      'playerPhotos'
+      'playerPhotos',
+      'donationTracking'
     ],
   },
   {
     version: 'Max',
     description: 'everything enabled.  In-app messaging,  email based attendance updates, More reports, Tournament mode, queued player pairing option, in-app Messaging, players help score, notifications to players, players can register, final round outcome analysis.',
-    disableList: []
+    disableList: ['donationTracking']
   }
 ]
 
